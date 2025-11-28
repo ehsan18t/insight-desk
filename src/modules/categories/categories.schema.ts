@@ -36,10 +36,7 @@ export const updateCategoryBody = z.object({
 });
 
 export const listCategoriesQuery = z.object({
-  includeInactive: z
-    .string()
-    .transform((v) => v === "true")
-    .optional(),
+  includeInactive: z.stringbool({ truthy: ["true"], falsy: ["false"] }).optional(),
   parentId: z.uuid("Invalid parent category ID").optional().nullable(),
 });
 

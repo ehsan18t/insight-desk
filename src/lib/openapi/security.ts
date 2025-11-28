@@ -36,16 +36,15 @@ registry.registerComponent("securitySchemes", "cookieAuth", {
  */
 export const OrganizationIdParam = registry.registerParameter(
   "OrganizationId",
-  z.uuid()
-    .openapi({
-      param: {
-        name: "organizationId",
-        in: "path",
-        required: true,
-        description: "Unique identifier of the organization",
-      },
-      example: "550e8400-e29b-41d4-a716-446655440000",
-    }),
+  z.uuid().openapi({
+    param: {
+      name: "organizationId",
+      in: "path",
+      required: true,
+      description: "Unique identifier of the organization",
+    },
+    example: "550e8400-e29b-41d4-a716-446655440000",
+  }),
 );
 
 /**
@@ -53,16 +52,15 @@ export const OrganizationIdParam = registry.registerParameter(
  */
 export const UserIdParam = registry.registerParameter(
   "UserId",
-  z.uuid()
-    .openapi({
-      param: {
-        name: "userId",
-        in: "path",
-        required: true,
-        description: "Unique identifier of the user",
-      },
-      example: "550e8400-e29b-41d4-a716-446655440001",
-    }),
+  z.uuid().openapi({
+    param: {
+      name: "userId",
+      in: "path",
+      required: true,
+      description: "Unique identifier of the user",
+    },
+    example: "550e8400-e29b-41d4-a716-446655440001",
+  }),
 );
 
 /**
@@ -70,16 +68,15 @@ export const UserIdParam = registry.registerParameter(
  */
 export const TicketIdParam = registry.registerParameter(
   "TicketId",
-  z.uuid()
-    .openapi({
-      param: {
-        name: "ticketId",
-        in: "path",
-        required: true,
-        description: "Unique identifier of the ticket",
-      },
-      example: "550e8400-e29b-41d4-a716-446655440002",
-    }),
+  z.uuid().openapi({
+    param: {
+      name: "ticketId",
+      in: "path",
+      required: true,
+      description: "Unique identifier of the ticket",
+    },
+    example: "550e8400-e29b-41d4-a716-446655440002",
+  }),
 );
 
 /**
@@ -87,16 +84,15 @@ export const TicketIdParam = registry.registerParameter(
  */
 export const MessageIdParam = registry.registerParameter(
   "MessageId",
-  z.uuid()
-    .openapi({
-      param: {
-        name: "messageId",
-        in: "path",
-        required: true,
-        description: "Unique identifier of the message",
-      },
-      example: "550e8400-e29b-41d4-a716-446655440003",
-    }),
+  z.uuid().openapi({
+    param: {
+      name: "messageId",
+      in: "path",
+      required: true,
+      description: "Unique identifier of the message",
+    },
+    example: "550e8400-e29b-41d4-a716-446655440003",
+  }),
 );
 
 /**

@@ -336,8 +336,8 @@ describe("validate edge cases", () => {
 
   it("should reject unknown keys with strict schema", async () => {
     const strictSchema = z.strictObject({
-            name: z.string(),
-          });
+      name: z.string(),
+    });
 
     const app = express();
     app.use(express.json());

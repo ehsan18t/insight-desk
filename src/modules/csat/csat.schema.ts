@@ -22,10 +22,7 @@ export const surveyQuerySchema = z.object({
   rating: z.coerce.number().int().min(1).max(5).optional(),
   dateFrom: z.iso.datetime().optional(),
   dateTo: z.iso.datetime().optional(),
-  responded: z
-    .string()
-    .transform((v) => v === "true")
-    .optional(),
+  responded: z.stringbool({ truthy: ["true"], falsy: ["false"] }).optional(),
 });
 
 export type SurveyQuery = z.infer<typeof surveyQuerySchema>;

@@ -36,12 +36,10 @@ const PlanLimitsSchema = z
   .object({
     ticketsPerMonth: z.int().describe("Maximum tickets per month (-1 = unlimited)"),
     messagesPerMonth: z.int().describe("Maximum messages per month (-1 = unlimited)"),
-    storagePerOrgMB: z.int()
-      .describe("Maximum storage in MB per organization (-1 = unlimited)"),
+    storagePerOrgMB: z.int().describe("Maximum storage in MB per organization (-1 = unlimited)"),
     apiRequestsPerMinute: z.int().describe("API rate limit per minute"),
     agentsPerOrg: z.int().describe("Maximum agents per organization (-1 = unlimited)"),
-    customersPerOrg: z.int()
-      .describe("Maximum customers per organization (-1 = unlimited)"),
+    customersPerOrg: z.int().describe("Maximum customers per organization (-1 = unlimited)"),
     slaEnabled: z.boolean().describe("Whether SLA management is enabled"),
     customFieldsEnabled: z.boolean().describe("Whether custom fields are enabled"),
     reportingEnabled: z.boolean().describe("Whether reporting is enabled"),

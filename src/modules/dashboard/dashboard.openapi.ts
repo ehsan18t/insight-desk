@@ -31,7 +31,10 @@ const DashboardStatsQuerySchema = z
  */
 const DashboardTrendsQuerySchema = z
   .object({
-    period: z.enum(["day", "week", "month"]).prefault("week").describe("Time period for trend data"),
+    period: z
+      .enum(["day", "week", "month"])
+      .prefault("week")
+      .describe("Time period for trend data"),
     periods: z.coerce
       .number()
       .int()

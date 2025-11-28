@@ -10,10 +10,7 @@ export const updateProfileSchema = z.object({
 export const userQuerySchema = z.object({
   search: z.string().max(100).optional(),
   role: z.enum(["customer", "agent", "admin", "owner"]).optional(),
-  isActive: z
-    .string()
-    .transform((v) => v === "true")
-    .optional(),
+  isActive: z.stringbool({ truthy: ["true"], falsy: ["false"] }).optional(),
   page: z.coerce.number().min(1).prefault(1),
   limit: z.coerce.number().min(1).max(100).prefault(20),
   sortBy: z.enum(["name", "email", "createdAt", "lastLoginAt"]).prefault("createdAt"),

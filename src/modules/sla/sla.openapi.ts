@@ -54,11 +54,13 @@ const CreateSlaPolicyRequestSchema = z
   .object({
     name: z.string().min(1).max(100).describe("Policy name (1-100 characters)"),
     priority: SlaPrioritySchema.describe("Priority level this policy applies to"),
-    firstResponseTime: z.int()
+    firstResponseTime: z
+      .int()
       .min(1)
       .max(10080)
       .describe("Target first response time in minutes (1 min to 7 days)"),
-    resolutionTime: z.int()
+    resolutionTime: z
+      .int()
       .min(1)
       .max(43200)
       .describe("Target resolution time in minutes (1 min to 30 days)"),
@@ -76,12 +78,14 @@ const CreateSlaPolicyRequestSchema = z
 const UpdateSlaPolicyRequestSchema = z
   .object({
     name: z.string().min(1).max(100).optional().describe("Policy name (1-100 characters)"),
-    firstResponseTime: z.int()
+    firstResponseTime: z
+      .int()
       .min(1)
       .max(10080)
       .optional()
       .describe("Target first response time in minutes (1 min to 7 days)"),
-    resolutionTime: z.int()
+    resolutionTime: z
+      .int()
       .min(1)
       .max(43200)
       .optional()

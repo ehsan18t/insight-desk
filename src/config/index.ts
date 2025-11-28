@@ -32,10 +32,7 @@ const envSchema = z.object({
   // Email (SMTP)
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().prefault(587),
-  SMTP_SECURE: z
-    .string()
-    .optional()
-    .transform((v) => v === "true"),
+  SMTP_SECURE: z.stringbool().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().prefault("InsightDesk <noreply@example.com>"),

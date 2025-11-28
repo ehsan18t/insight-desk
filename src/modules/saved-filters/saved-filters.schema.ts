@@ -70,11 +70,7 @@ export type UpdateSavedFilterInput = z.infer<typeof updateSavedFilterSchema>;
 // ─────────────────────────────────────────────────────────────
 
 export const savedFilterQuerySchema = z.object({
-  includeShared: z
-    .string()
-    .transform((v) => v === "true")
-    .pipe(z.boolean())
-    .default(true),
+  includeShared: z.stringbool({ truthy: ["true"], falsy: ["false"] }).default(true),
 });
 
 export type SavedFilterQuery = z.infer<typeof savedFilterQuerySchema>;

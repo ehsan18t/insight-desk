@@ -89,7 +89,7 @@ export const bulkUpdateSchema = z.object({
       removeTags: z.array(z.string()).max(10).optional(),
     })
     .refine((data) => Object.values(data).some((v) => v !== undefined), {
-        error: "At least one update field must be provided"
+      error: "At least one update field must be provided",
     }),
 });
 

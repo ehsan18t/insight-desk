@@ -106,14 +106,8 @@ export const updatePlanBody = z.object({
 });
 
 export const listPlansQuery = z.object({
-  includeInactive: z
-    .string()
-    .transform((v) => v === "true")
-    .optional(),
-  includeHidden: z
-    .string()
-    .transform((v) => v === "true")
-    .optional(),
+  includeInactive: z.stringbool({ truthy: ["true"], falsy: ["false"] }).optional(),
+  includeHidden: z.stringbool({ truthy: ["true"], falsy: ["false"] }).optional(),
 });
 
 // ─────────────────────────────────────────────────────────────
