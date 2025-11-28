@@ -13,9 +13,12 @@
     "isready",
     "presigner",
     "progid",
+    "relkind",
+    "relname",
     "RRGGBB",
     "shadcn",
     "signups",
+    "TECHSTART",
     "tsvector",
     "Valkey"
   ],
