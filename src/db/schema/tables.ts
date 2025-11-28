@@ -239,6 +239,32 @@ export const ticketActivities = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CATEGORIES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const categories = pgTable(
+  "categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    color: text("color"),
+    parentId: uuid("parent_id"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("categories_org_idx").on(table.organizationId),
+    index("categories_parent_idx").on(table.parentId),
+    uniqueIndex("categories_org_name_unique").on(table.organizationId, table.name),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SLA POLICIES
 // ═══════════════════════════════════════════════════════════════════════════
 

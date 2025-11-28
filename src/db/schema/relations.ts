@@ -5,6 +5,7 @@ import { relations } from "drizzle-orm";
 import {
   accounts,
   cannedResponses,
+  categories,
   organizations,
   sessions,
   slaPolicies,
@@ -38,6 +39,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   tickets: many(tickets),
   slaPolicies: many(slaPolicies),
   cannedResponses: many(cannedResponses),
+  categories: many(categories),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -73,6 +75,10 @@ export const ticketsRelations = relations(tickets, ({ one, many }) => ({
     fields: [tickets.assigneeId],
     references: [users.id],
     relationName: "assigned_tickets",
+  }),
+  category: one(categories, {
+    fields: [tickets.categoryId],
+    references: [categories.id],
   }),
   messages: many(ticketMessages),
   activities: many(ticketActivities),
@@ -117,6 +123,24 @@ export const slaPoliciesRelations = relations(slaPolicies, ({ one }) => ({
     fields: [slaPolicies.organizationId],
     references: [organizations.id],
   }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CATEGORY RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const categoriesRelations = relations(categories, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [categories.organizationId],
+    references: [organizations.id],
+  }),
+  parent: one(categories, {
+    fields: [categories.parentId],
+    references: [categories.id],
+    relationName: "parent_category",
+  }),
+  children: many(categories, { relationName: "parent_category" }),
+  tickets: many(tickets),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════

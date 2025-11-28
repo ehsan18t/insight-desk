@@ -17,6 +17,7 @@ import type {
   accounts,
   activityActionEnum,
   cannedResponses,
+  categories,
   messageTypeEnum,
   organizations,
   sessions,
@@ -66,6 +67,10 @@ export type ActivityAction = (typeof activityActionEnum.enumValues)[number];
 // SLA types
 export type SlaPolicy = typeof slaPolicies.$inferSelect;
 export type NewSlaPolicy = typeof slaPolicies.$inferInsert;
+
+// Category types
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;
 
 // Canned Response types
 export type CannedResponse = typeof cannedResponses.$inferSelect;

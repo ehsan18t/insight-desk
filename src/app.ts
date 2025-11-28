@@ -11,6 +11,7 @@ import { rateLimit } from "./middleware/rate-limit";
 // Import routes
 import { authRouter } from "./modules/auth";
 import { cannedResponsesRouter } from "./modules/canned-responses";
+import { categoriesRouter } from "./modules/categories";
 import { dashboardRouter } from "./modules/dashboard";
 import { organizationsRouter } from "./modules/organizations";
 import { slaRouter } from "./modules/sla";
@@ -97,6 +98,7 @@ export function createApp(): Express {
   app.use("/api/tickets", ticketsRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/organizations", organizationsRouter);
+  app.use("/api/categories", categoriesRouter);
   app.use("/api/sla-policies", slaRouter);
   app.use("/api/canned-responses", cannedResponsesRouter);
   app.use("/api/dashboard", dashboardRouter);
