@@ -76,6 +76,40 @@
 
 ---
 
+## 🌱 Database Schema Changes (MANDATORY)
+
+**Every schema change MUST include seed updates to maintain data consistency.**
+
+### When to Update Seeds
+- Adding a new table → Add seed function in `src/lib/seed/drizzle-seed.ts`
+- Adding a new column → Update the corresponding seed function
+- Adding a new enum → Update seed data to use new enum values
+- Changing column constraints → Verify seed data still validates
+- Removing/renaming columns → Update seed functions accordingly
+
+### Seed Architecture
+- **Auth tables** (`user`, `session`, `account`, `verification`): Use `src/lib/seed/auth-seed.ts` (better-auth API)
+- **All other tables**: Use `src/lib/seed/drizzle-seed.ts` (table-specific seed functions)
+- **Orchestrator**: `src/lib/seed/index.ts` coordinates dev/test seeds
+
+### How to Update
+1. Open `src/lib/seed/drizzle-seed.ts`
+2. Find or create the seed function for the affected table
+3. Add/modify seed data to match new schema
+4. For new tables, add function to `seedAllTables()` in proper order (respect FK constraints)
+5. For test seeds, ensure deterministic data (use fixed values, not random)
+
+### Verification
+```bash
+bun run db:reset      # Reset and reseed database
+bun run test:seed     # Verify test seeds work
+bun run test          # Run tests to ensure seeds are compatible
+```
+
+**Schema changes without seed updates will cause database errors.**
+
+---
+
 ## ✏️ Code Style
 
 ### Naming
@@ -256,6 +290,9 @@ bunx tsc --noEmit     # TypeScript check
 bun run db:generate   # Generate migrations
 bun run db:migrate    # Run migrations
 bun run db:studio     # Drizzle Studio
+bun run db:seed       # Seed development database
+bun run db:reset      # Reset and reseed database
+bun run test:seed     # Seed test database
 ```
 
 ---
@@ -270,6 +307,7 @@ bun run db:studio     # Drizzle Studio
 - `src/modules/auth/auth.middleware.ts` - Authentication middleware
 - `src/lib/openapi/` - OpenAPI configuration (registry, responses, security)
 - `src/modules/*/[module].openapi.ts` - Module-specific API documentation
+- `src/lib/seed/` - Seed data architecture (auth-seed, drizzle-seed, orchestrator)
 
 ---
 
