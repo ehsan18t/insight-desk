@@ -79,17 +79,18 @@ export const activitiesQuerySchema = z.object({
 // Bulk update schema
 export const bulkUpdateSchema = z.object({
   ticketIds: z.array(z.string().uuid()).min(1).max(100),
-  updates: z.object({
-    status: z.enum(ticketStatusValues).optional(),
-    priority: z.enum(ticketPriorityValues).optional(),
-    assigneeId: z.string().uuid().nullable().optional(),
-    categoryId: z.string().uuid().nullable().optional(),
-    addTags: z.array(z.string()).max(10).optional(),
-    removeTags: z.array(z.string()).max(10).optional(),
-  }).refine(
-    (data) => Object.values(data).some((v) => v !== undefined),
-    { message: "At least one update field must be provided" },
-  ),
+  updates: z
+    .object({
+      status: z.enum(ticketStatusValues).optional(),
+      priority: z.enum(ticketPriorityValues).optional(),
+      assigneeId: z.string().uuid().nullable().optional(),
+      categoryId: z.string().uuid().nullable().optional(),
+      addTags: z.array(z.string()).max(10).optional(),
+      removeTags: z.array(z.string()).max(10).optional(),
+    })
+    .refine((data) => Object.values(data).some((v) => v !== undefined), {
+      message: "At least one update field must be provided",
+    }),
 });
 
 // Bulk delete schema

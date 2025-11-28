@@ -52,10 +52,7 @@ function escapeCSV(value: string | number | null): string {
   return str;
 }
 
-function ticketToRow(
-  ticket: TicketWithRelations,
-  fields: TicketExportField[],
-): ExportRow {
+function ticketToRow(ticket: TicketWithRelations, fields: TicketExportField[]): ExportRow {
   const row: ExportRow = {};
 
   for (const field of fields) {
@@ -132,9 +129,7 @@ export const exportService = {
     organizationId: string,
     query: ExportQuery,
   ): Promise<{ content: string; filename: string }> {
-    const fields = (query.fields as TicketExportField[]) || [
-      ...TICKET_EXPORT_FIELDS,
-    ];
+    const fields = (query.fields as TicketExportField[]) || [...TICKET_EXPORT_FIELDS];
     const ticketsData = await this.fetchTickets(organizationId, query);
 
     // Build CSV header
@@ -149,10 +144,7 @@ export const exportService = {
     const content = [header, ...rows].join("\n");
     const filename = `tickets-export-${new Date().toISOString().slice(0, 10)}.csv`;
 
-    logger.info(
-      { organizationId, count: ticketsData.length },
-      "Exported tickets to CSV",
-    );
+    logger.info({ organizationId, count: ticketsData.length }, "Exported tickets to CSV");
 
     return { content, filename };
   },
@@ -162,9 +154,7 @@ export const exportService = {
     organizationId: string,
     query: ExportQuery,
   ): Promise<{ content: Buffer; filename: string }> {
-    const fields = (query.fields as TicketExportField[]) || [
-      ...TICKET_EXPORT_FIELDS,
-    ];
+    const fields = (query.fields as TicketExportField[]) || [...TICKET_EXPORT_FIELDS];
     const ticketsData = await this.fetchTickets(organizationId, query);
 
     // Build simple XML-based spreadsheet (SpreadsheetML)
@@ -175,19 +165,13 @@ export const exportService = {
     const content = Buffer.from(xmlContent, "utf-8");
     const filename = `tickets-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
-    logger.info(
-      { organizationId, count: ticketsData.length },
-      "Exported tickets to XLSX",
-    );
+    logger.info({ organizationId, count: ticketsData.length }, "Exported tickets to XLSX");
 
     return { content, filename };
   },
 
   // Fetch tickets with filters
-  async fetchTickets(
-    organizationId: string,
-    query: ExportQuery,
-  ): Promise<TicketWithRelations[]> {
+  async fetchTickets(organizationId: string, query: ExportQuery): Promise<TicketWithRelations[]> {
     const conditions = [eq(tickets.organizationId, organizationId)];
 
     if (query.status) {
@@ -304,7 +288,10 @@ function buildSimpleXLSX(fields: string[], rows: ExportRow[]): string {
 
   // Build header row
   const headerCells = fields
-    .map((f) => `<Cell><Data ss:Type="String">${escapeXML(fieldToLabel(f as TicketExportField))}</Data></Cell>`)
+    .map(
+      (f) =>
+        `<Cell><Data ss:Type="String">${escapeXML(fieldToLabel(f as TicketExportField))}</Data></Cell>`,
+    )
     .join("");
   const headerRow = `<Row ss:StyleID="Header">${headerCells}</Row>`;
 

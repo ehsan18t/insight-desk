@@ -23,15 +23,9 @@ function generateToken(): string {
 // ─────────────────────────────────────────────────────────────
 export const csatService = {
   // Send survey for a closed/resolved ticket
-  async sendSurvey(
-    ticketId: string,
-    organizationId: string,
-  ): Promise<CsatSurvey> {
+  async sendSurvey(ticketId: string, organizationId: string): Promise<CsatSurvey> {
     const ticket = await db.query.tickets.findFirst({
-      where: and(
-        eq(tickets.id, ticketId),
-        eq(tickets.organizationId, organizationId),
-      ),
+      where: and(eq(tickets.id, ticketId), eq(tickets.organizationId, organizationId)),
     });
 
     if (!ticket) {
@@ -72,7 +66,9 @@ export const csatService = {
   },
 
   // Get survey by token (for anonymous access)
-  async getByToken(token: string): Promise<CsatSurvey & { ticket: { ticketNumber: number; title: string } }> {
+  async getByToken(
+    token: string,
+  ): Promise<CsatSurvey & { ticket: { ticketNumber: number; title: string } }> {
     const survey = await db.query.csatSurveys.findFirst({
       where: eq(csatSurveys.token, token),
       with: {
@@ -98,10 +94,7 @@ export const csatService = {
   },
 
   // Submit survey response
-  async submitResponse(
-    token: string,
-    input: SubmitSurveyInput,
-  ): Promise<CsatSurvey> {
+  async submitResponse(token: string, input: SubmitSurveyInput): Promise<CsatSurvey> {
     const survey = await db.query.csatSurveys.findFirst({
       where: eq(csatSurveys.token, token),
     });
@@ -137,7 +130,10 @@ export const csatService = {
   async list(
     organizationId: string,
     query: SurveyQuery,
-  ): Promise<{ data: CsatSurvey[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
+  ): Promise<{
+    data: CsatSurvey[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }> {
     const conditions = [eq(csatSurveys.organizationId, organizationId)];
 
     if (query.agentId) {
@@ -204,15 +200,9 @@ export const csatService = {
   },
 
   // Get survey by ID
-  async getById(
-    surveyId: string,
-    organizationId: string,
-  ): Promise<CsatSurvey | null> {
+  async getById(surveyId: string, organizationId: string): Promise<CsatSurvey | null> {
     const survey = await db.query.csatSurveys.findFirst({
-      where: and(
-        eq(csatSurveys.id, surveyId),
-        eq(csatSurveys.organizationId, organizationId),
-      ),
+      where: and(eq(csatSurveys.id, surveyId), eq(csatSurveys.organizationId, organizationId)),
       with: {
         customer: {
           columns: { id: true, name: true, email: true },
@@ -286,9 +276,7 @@ export const csatService = {
     const totalResponded = statsResult?.respondedCount || 0;
 
     const npsScore =
-      totalResponded > 0
-        ? Math.round(((promoters - detractors) / totalResponded) * 100)
-        : 0;
+      totalResponded > 0 ? Math.round(((promoters - detractors) / totalResponded) * 100) : 0;
 
     return {
       totalSurveys: statsResult?.totalSurveys || 0,
@@ -342,10 +330,7 @@ export const csatService = {
     });
 
     // Group by agent
-    const agentMap = new Map<
-      string,
-      { name: string; ratings: number[]; total: number }
-    >();
+    const agentMap = new Map<string, { name: string; ratings: number[]; total: number }>();
 
     for (const survey of results) {
       if (!survey.agentId || !survey.agent) continue;
@@ -373,11 +358,7 @@ export const csatService = {
         responseCount: data.ratings.length,
         averageRating:
           data.ratings.length > 0
-            ? Number(
-                (
-                  data.ratings.reduce((sum, r) => sum + r, 0) / data.ratings.length
-                ).toFixed(2),
-              )
+            ? Number((data.ratings.reduce((sum, r) => sum + r, 0) / data.ratings.length).toFixed(2))
             : 0,
       }))
       .sort((a, b) => b.averageRating - a.averageRating);

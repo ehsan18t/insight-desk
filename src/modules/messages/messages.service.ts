@@ -79,7 +79,11 @@ export const messagesService = {
 
     // Send notification to ticket participants
     // Notify customer if agent replied
-    if (senderRole && ["agent", "admin", "owner"].includes(senderRole) && input.type !== "internal_note") {
+    if (
+      senderRole &&
+      ["agent", "admin", "owner"].includes(senderRole) &&
+      input.type !== "internal_note"
+    ) {
       sendNotification({
         type: "notification",
         userId: ticket.customerId,

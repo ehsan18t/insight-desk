@@ -4,8 +4,8 @@
  */
 
 import { createLogger } from "@/lib/logger";
-import { checkSlaBreaches, getSlaStats } from "./sla-breach";
 import { autoCloseStaleTickets, getAutoClosePreview } from "./auto-close";
+import { checkSlaBreaches, getSlaStats } from "./sla-breach";
 
 const logger = createLogger("jobs:scheduler");
 
@@ -24,11 +24,7 @@ const intervalIds: Map<string, NodeJS.Timeout> = new Map();
 /**
  * Register a job
  */
-function registerJob(
-  name: string,
-  intervalMs: number,
-  handler: () => Promise<void>,
-): void {
+function registerJob(name: string, intervalMs: number, handler: () => Promise<void>): void {
   jobs.set(name, {
     name,
     interval: intervalMs,

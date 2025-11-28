@@ -121,8 +121,14 @@ class S3StorageProvider implements StorageProvider {
   private bucket: string;
 
   constructor() {
-    if (!config.STORAGE_S3_BUCKET || !config.STORAGE_S3_ACCESS_KEY || !config.STORAGE_S3_SECRET_KEY) {
-      throw new Error("S3 storage requires STORAGE_S3_BUCKET, STORAGE_S3_ACCESS_KEY, and STORAGE_S3_SECRET_KEY");
+    if (
+      !config.STORAGE_S3_BUCKET ||
+      !config.STORAGE_S3_ACCESS_KEY ||
+      !config.STORAGE_S3_SECRET_KEY
+    ) {
+      throw new Error(
+        "S3 storage requires STORAGE_S3_BUCKET, STORAGE_S3_ACCESS_KEY, and STORAGE_S3_SECRET_KEY",
+      );
     }
 
     this.bucket = config.STORAGE_S3_BUCKET;
@@ -245,9 +251,10 @@ export function getStorageProvider(): StorageProvider {
 // ─────────────────────────────────────────────────────────────
 // File Validation
 // ─────────────────────────────────────────────────────────────
-export function validateFile(
-  file: { size: number; mimetype: string; originalname: string },
-): { valid: boolean; error?: string } {
+export function validateFile(file: { size: number; mimetype: string; originalname: string }): {
+  valid: boolean;
+  error?: string;
+} {
   // Check file size
   if (file.size > config.MAX_FILE_SIZE) {
     return {

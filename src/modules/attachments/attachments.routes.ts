@@ -7,12 +7,16 @@ import { Router } from "express";
 import multer from "multer";
 import { config } from "@/config";
 import { createLogger } from "@/lib/logger";
+import { storage } from "@/lib/storage";
 import { requireAuth } from "@/middleware/auth";
 import { requireOrg, requireOrgRole } from "@/middleware/organization";
 import { validateRequest } from "@/middleware/validate";
-import { storage } from "@/lib/storage";
+import {
+  attachmentIdSchema,
+  listAttachmentsSchema,
+  uploadAttachmentSchema,
+} from "./attachments.schema";
 import * as attachmentsService from "./attachments.service";
-import { attachmentIdSchema, listAttachmentsSchema, uploadAttachmentSchema } from "./attachments.schema";
 
 const router = Router();
 const logger = createLogger("attachments:routes");
@@ -95,107 +99,92 @@ router.post(
 // ─────────────────────────────────────────────────────────────
 // GET /api/attachments - List attachments
 // ─────────────────────────────────────────────────────────────
-router.get(
-  "/",
-  validateRequest({ query: listAttachmentsSchema }),
-  async (req, res) => {
-    try {
-      const { ticketId, page, limit } = req.query;
+router.get("/", validateRequest({ query: listAttachmentsSchema }), async (req, res) => {
+  try {
+    const { ticketId, page, limit } = req.query;
 
-      const result = await attachmentsService.listAttachments({
-        orgId: req.organization!.id,
-        ticketId: ticketId as string | undefined,
-        page: Number(page) || 1,
-        limit: Number(limit) || 20,
-      });
+    const result = await attachmentsService.listAttachments({
+      orgId: req.organization!.id,
+      ticketId: ticketId as string | undefined,
+      page: Number(page) || 1,
+      limit: Number(limit) || 20,
+    });
 
-      return res.json({
-        success: true,
-        data: result.attachments,
-        pagination: result.pagination,
-      });
-    } catch (error) {
-      logger.error({ error }, "Failed to list attachments");
-      return res.status(500).json({
-        success: false,
-        error: "Failed to list attachments",
-      });
-    }
-  },
-);
+    return res.json({
+      success: true,
+      data: result.attachments,
+      pagination: result.pagination,
+    });
+  } catch (error) {
+    logger.error({ error }, "Failed to list attachments");
+    return res.status(500).json({
+      success: false,
+      error: "Failed to list attachments",
+    });
+  }
+});
 
 // ─────────────────────────────────────────────────────────────
 // GET /api/attachments/:id - Get attachment metadata
 // ─────────────────────────────────────────────────────────────
-router.get(
-  "/:id",
-  validateRequest({ params: attachmentIdSchema }),
-  async (req, res) => {
-    try {
-      const attachment = await attachmentsService.getAttachmentById(
-        req.params.id,
-        req.organization!.id,
-      );
+router.get("/:id", validateRequest({ params: attachmentIdSchema }), async (req, res) => {
+  try {
+    const attachment = await attachmentsService.getAttachmentById(
+      req.params.id,
+      req.organization!.id,
+    );
 
-      if (!attachment) {
-        return res.status(404).json({
-          success: false,
-          error: "Attachment not found",
-        });
-      }
-
-      return res.json({
-        success: true,
-        data: attachment,
-      });
-    } catch (error) {
-      logger.error({ error }, "Failed to get attachment");
-      return res.status(500).json({
+    if (!attachment) {
+      return res.status(404).json({
         success: false,
-        error: "Failed to get attachment",
+        error: "Attachment not found",
       });
     }
-  },
-);
+
+    return res.json({
+      success: true,
+      data: attachment,
+    });
+  } catch (error) {
+    logger.error({ error }, "Failed to get attachment");
+    return res.status(500).json({
+      success: false,
+      error: "Failed to get attachment",
+    });
+  }
+});
 
 // ─────────────────────────────────────────────────────────────
 // GET /api/attachments/:id/download - Download attachment file
 // ─────────────────────────────────────────────────────────────
-router.get(
-  "/:id/download",
-  validateRequest({ params: attachmentIdSchema }),
-  async (req, res) => {
-    try {
-      const result = await attachmentsService.downloadAttachment(
-        req.params.id,
-        req.organization!.id,
-      );
+router.get("/:id/download", validateRequest({ params: attachmentIdSchema }), async (req, res) => {
+  try {
+    const result = await attachmentsService.downloadAttachment(req.params.id, req.organization!.id);
 
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          error: "Attachment not found",
-        });
-      }
-
-      // Set headers for file download
-      res.setHeader("Content-Type", result.mimeType);
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(result.filename)}"`,
-      );
-      res.setHeader("Content-Length", result.buffer.length);
-
-      return res.send(result.buffer);
-    } catch (error) {
-      logger.error({ error }, "Failed to download attachment");
-      return res.status(500).json({
+    if (!result) {
+      return res.status(404).json({
         success: false,
-        error: "Failed to download attachment",
+        error: "Attachment not found",
       });
     }
-  },
-);
+
+    // Set headers for file download
+    res.setHeader("Content-Type", result.mimeType);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    );
+    res.setHeader("Content-Length", result.buffer.length);
+
+    return res.send(result.buffer);
+  } catch (error) {
+    logger.error({ error }, "Failed to download attachment");
+    return res.status(500).json({
+      success: false,
+      error: "Failed to download attachment",
+    });
+  }
+});
 
 // ─────────────────────────────────────────────────────────────
 // DELETE /api/attachments/:id - Delete attachment
@@ -237,27 +226,24 @@ router.delete(
 // ─────────────────────────────────────────────────────────────
 // GET /api/attachments/ticket/:ticketId - Get all attachments for a ticket
 // ─────────────────────────────────────────────────────────────
-router.get(
-  "/ticket/:ticketId",
-  async (req, res) => {
-    try {
-      const attachments = await attachmentsService.getTicketAttachments(
-        req.params.ticketId,
-        req.organization!.id,
-      );
+router.get("/ticket/:ticketId", async (req, res) => {
+  try {
+    const attachments = await attachmentsService.getTicketAttachments(
+      req.params.ticketId,
+      req.organization!.id,
+    );
 
-      return res.json({
-        success: true,
-        data: attachments,
-      });
-    } catch (error) {
-      logger.error({ error }, "Failed to get ticket attachments");
-      return res.status(500).json({
-        success: false,
-        error: "Failed to get ticket attachments",
-      });
-    }
-  },
-);
+    return res.json({
+      success: true,
+      data: attachments,
+    });
+  } catch (error) {
+    logger.error({ error }, "Failed to get ticket attachments");
+    return res.status(500).json({
+      success: false,
+      error: "Failed to get ticket attachments",
+    });
+  }
+});
 
 export { router as attachmentsRouter };

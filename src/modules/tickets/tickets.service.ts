@@ -627,14 +627,14 @@ export const ticketsService = {
 
     // Verify all tickets belong to the organization
     const existingTickets = await db
-      .select({ id: tickets.id, status: tickets.status, priority: tickets.priority, tags: tickets.tags })
+      .select({
+        id: tickets.id,
+        status: tickets.status,
+        priority: tickets.priority,
+        tags: tickets.tags,
+      })
       .from(tickets)
-      .where(
-        and(
-          eq(tickets.organizationId, organizationId),
-          inArray(tickets.id, ticketIds),
-        ),
-      );
+      .where(and(eq(tickets.organizationId, organizationId), inArray(tickets.id, ticketIds)));
 
     const existingIds = new Set(existingTickets.map((t) => t.id));
     const notFoundIds = ticketIds.filter((id) => !existingIds.has(id));
@@ -725,12 +725,7 @@ export const ticketsService = {
     const existingTickets = await db
       .select({ id: tickets.id, status: tickets.status })
       .from(tickets)
-      .where(
-        and(
-          eq(tickets.organizationId, organizationId),
-          inArray(tickets.id, ticketIds),
-        ),
-      );
+      .where(and(eq(tickets.organizationId, organizationId), inArray(tickets.id, ticketIds)));
 
     const existingIds = new Set(existingTickets.map((t) => t.id));
     const notFoundIds = ticketIds.filter((id) => !existingIds.has(id));
@@ -809,12 +804,7 @@ export const ticketsService = {
     const existingTickets = await db
       .select({ id: tickets.id, assigneeId: tickets.assigneeId })
       .from(tickets)
-      .where(
-        and(
-          eq(tickets.organizationId, organizationId),
-          inArray(tickets.id, ticketIds),
-        ),
-      );
+      .where(and(eq(tickets.organizationId, organizationId), inArray(tickets.id, ticketIds)));
 
     const existingIds = new Set(existingTickets.map((t) => t.id));
     const notFoundIds = ticketIds.filter((id) => !existingIds.has(id));
@@ -853,7 +843,13 @@ export const ticketsService = {
     }
 
     logger.info(
-      { organizationId, ticketCount: ticketIds.length, assigned: result.assigned, assigneeId, userId },
+      {
+        organizationId,
+        ticketCount: ticketIds.length,
+        assigned: result.assigned,
+        assigneeId,
+        userId,
+      },
       "Bulk assign completed",
     );
 
@@ -874,10 +870,7 @@ export const ticketsService = {
 
     // Verify primary ticket exists and belongs to org
     const primaryTicket = await db.query.tickets.findFirst({
-      where: and(
-        eq(tickets.id, primaryTicketId),
-        eq(tickets.organizationId, organizationId),
-      ),
+      where: and(eq(tickets.id, primaryTicketId), eq(tickets.organizationId, organizationId)),
     });
 
     if (!primaryTicket) {
@@ -889,10 +882,7 @@ export const ticketsService = {
       .select()
       .from(tickets)
       .where(
-        and(
-          eq(tickets.organizationId, organizationId),
-          inArray(tickets.id, secondaryTicketIds),
-        ),
+        and(eq(tickets.organizationId, organizationId), inArray(tickets.id, secondaryTicketIds)),
       );
 
     const foundIds = new Set(secondaryTickets.map((t) => t.id));

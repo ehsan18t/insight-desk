@@ -46,10 +46,7 @@ export async function checkSlaBreaches(): Promise<SlaBreachResult> {
       .where(
         and(
           or(eq(tickets.status, "open"), eq(tickets.status, "pending")),
-          or(
-            isNotNull(tickets.slaFirstResponseDeadline),
-            isNotNull(tickets.slaResolutionDeadline),
-          ),
+          or(isNotNull(tickets.slaFirstResponseDeadline), isNotNull(tickets.slaResolutionDeadline)),
         ),
       );
 
@@ -183,10 +180,7 @@ export async function getSlaStats(organizationId: string): Promise<{
       and(
         eq(tickets.organizationId, organizationId),
         or(eq(tickets.status, "open"), eq(tickets.status, "pending")),
-        or(
-          isNotNull(tickets.slaFirstResponseDeadline),
-          isNotNull(tickets.slaResolutionDeadline),
-        ),
+        or(isNotNull(tickets.slaFirstResponseDeadline), isNotNull(tickets.slaResolutionDeadline)),
       ),
     );
 

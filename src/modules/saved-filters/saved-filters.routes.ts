@@ -43,24 +43,18 @@ router.get(
 // ─────────────────────────────────────────────────────────────
 // GET /api/saved-filters/default - Get default filter
 // ─────────────────────────────────────────────────────────────
-router.get(
-  "/default",
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const filter = await savedFiltersService.getDefault(
-        req.organizationId!,
-        req.user!.id,
-      );
+router.get("/default", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const filter = await savedFiltersService.getDefault(req.organizationId!, req.user!.id);
 
-      res.json({
-        success: true,
-        data: filter,
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+    res.json({
+      success: true,
+      data: filter,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ─────────────────────────────────────────────────────────────
 // GET /api/saved-filters/:id - Get filter by ID
@@ -101,11 +95,7 @@ router.post(
   validateRequest({ body: createSavedFilterSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const filter = await savedFiltersService.create(
-        req.body,
-        req.organizationId!,
-        req.user!.id,
-      );
+      const filter = await savedFiltersService.create(req.body, req.organizationId!, req.user!.id);
 
       res.status(201).json({
         success: true,
@@ -198,11 +188,7 @@ router.delete(
   validateRequest({ params: savedFilterIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await savedFiltersService.delete(
-        req.params.id,
-        req.organizationId!,
-        req.user!.id,
-      );
+      await savedFiltersService.delete(req.params.id, req.organizationId!, req.user!.id);
 
       res.status(204).send();
     } catch (error) {

@@ -162,11 +162,7 @@ router.patch(
         throw new ForbiddenError("Organization context required");
       }
 
-      const category = await categoriesService.update(
-        req.params.id,
-        req.organizationId,
-        req.body,
-      );
+      const category = await categoriesService.update(req.params.id, req.organizationId, req.body);
 
       res.json({
         success: true,

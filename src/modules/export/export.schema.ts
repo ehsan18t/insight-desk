@@ -9,9 +9,7 @@ export const exportQuerySchema = z.object({
     .string()
     .optional()
     .transform((v) => (v ? v.split(",") : undefined))
-    .describe(
-      "Comma-separated list of fields to include. Defaults to all fields.",
-    ),
+    .describe("Comma-separated list of fields to include. Defaults to all fields."),
   // Ticket filters
   status: z.enum(["open", "pending", "resolved", "closed"]).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),

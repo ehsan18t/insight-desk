@@ -6,8 +6,8 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { attachments, users } from "@/db/schema";
-import { storage } from "@/lib/storage";
 import type { UploadOptions } from "@/lib/storage";
+import { storage } from "@/lib/storage";
 import type { AttachmentListResponse, AttachmentResponse } from "./attachments.schema";
 
 // ─────────────────────────────────────────────────────────────
@@ -41,7 +41,16 @@ interface ListParams {
  * Upload a file and create attachment record
  */
 export async function uploadAttachment(params: UploadParams): Promise<AttachmentResponse> {
-  const { buffer, orgId, uploadedById, filename, mimeType, ticketId, messageId, folder = "general" } = params;
+  const {
+    buffer,
+    orgId,
+    uploadedById,
+    filename,
+    mimeType,
+    ticketId,
+    messageId,
+    folder = "general",
+  } = params;
 
   // Upload to storage
   const uploadOptions: UploadOptions = {
@@ -181,9 +190,7 @@ export async function deleteAttachment(id: string, orgId: string): Promise<boole
   await storage.delete(record.path);
 
   // Delete database record
-  await db
-    .delete(attachments)
-    .where(and(eq(attachments.id, id), eq(attachments.orgId, orgId)));
+  await db.delete(attachments).where(and(eq(attachments.id, id), eq(attachments.orgId, orgId)));
 
   return true;
 }

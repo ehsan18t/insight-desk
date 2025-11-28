@@ -1,7 +1,7 @@
 /**
  * Tags Service
  * Business logic for tag management
- * 
+ *
  * Tags are stored as text arrays on tickets but we also maintain
  * a dedicated tags table for metadata (color, usage stats)
  */

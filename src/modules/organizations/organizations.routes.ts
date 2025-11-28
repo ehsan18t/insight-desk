@@ -347,10 +347,7 @@ organizationsRouter.post(
   }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await organizationsService.acceptInvitation(
-        req.body.token,
-        req.user!.id,
-      );
+      const result = await organizationsService.acceptInvitation(req.body.token, req.user!.id);
 
       res.json({
         success: true,

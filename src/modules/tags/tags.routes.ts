@@ -60,10 +60,7 @@ router.get(
         throw new ForbiddenError("Organization context required");
       }
 
-      const tags = await tagsService.getPopular(
-        req.organizationId,
-        Number(req.query.limit) || 10,
-      );
+      const tags = await tagsService.getPopular(req.organizationId, Number(req.query.limit) || 10);
 
       res.json({
         success: true,

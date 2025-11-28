@@ -55,12 +55,7 @@ export async function autoCloseStaleTickets(
         updatedAt: tickets.updatedAt,
       })
       .from(tickets)
-      .where(
-        and(
-          eq(tickets.status, "resolved"),
-          lt(tickets.updatedAt, resolvedCutoff),
-        ),
-      );
+      .where(and(eq(tickets.status, "resolved"), lt(tickets.updatedAt, resolvedCutoff)));
 
     // Find pending tickets with no activity older than the cutoff
     const stalePendingTickets = await db
@@ -70,12 +65,7 @@ export async function autoCloseStaleTickets(
         updatedAt: tickets.updatedAt,
       })
       .from(tickets)
-      .where(
-        and(
-          eq(tickets.status, "pending"),
-          lt(tickets.updatedAt, pendingCutoff),
-        ),
-      );
+      .where(and(eq(tickets.status, "pending"), lt(tickets.updatedAt, pendingCutoff)));
 
     const ticketsToClose = [...staleResolvedTickets, ...stalePendingTickets];
     result.checked = ticketsToClose.length;
@@ -106,10 +96,7 @@ export async function autoCloseStaleTickets(
 
         result.closed++;
 
-        logger.info(
-          { ticketId: ticket.id, previousStatus: ticket.status },
-          "Ticket auto-closed",
-        );
+        logger.info({ ticketId: ticket.id, previousStatus: ticket.status }, "Ticket auto-closed");
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
         result.errors.push(`Ticket ${ticket.id}: ${errorMessage}`);

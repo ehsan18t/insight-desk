@@ -16,21 +16,12 @@ const logger = createLogger("saved-filters");
 // ─────────────────────────────────────────────────────────────
 export const savedFiltersService = {
   // List saved filters for user
-  async list(
-    organizationId: string,
-    userId: string,
-    includeShared = true,
-  ): Promise<SavedFilter[]> {
+  async list(organizationId: string, userId: string, includeShared = true): Promise<SavedFilter[]> {
     const conditions = [eq(savedFilters.organizationId, organizationId)];
 
     if (includeShared) {
       // Get user's filters + shared filters
-      conditions.push(
-        or(
-          eq(savedFilters.userId, userId),
-          eq(savedFilters.isShared, true),
-        )!,
-      );
+      conditions.push(or(eq(savedFilters.userId, userId), eq(savedFilters.isShared, true))!);
     } else {
       // Get only user's filters
       conditions.push(eq(savedFilters.userId, userId));
@@ -59,10 +50,7 @@ export const savedFiltersService = {
       where: and(
         eq(savedFilters.id, filterId),
         eq(savedFilters.organizationId, organizationId),
-        or(
-          eq(savedFilters.userId, userId),
-          eq(savedFilters.isShared, true),
-        ),
+        or(eq(savedFilters.userId, userId), eq(savedFilters.isShared, true)),
       ),
       with: {
         user: {
@@ -82,17 +70,11 @@ export const savedFiltersService = {
   ): Promise<SavedFilter> {
     // Get the next position
     const existingFilters = await db.query.savedFilters.findMany({
-      where: and(
-        eq(savedFilters.organizationId, organizationId),
-        eq(savedFilters.userId, userId),
-      ),
+      where: and(eq(savedFilters.organizationId, organizationId), eq(savedFilters.userId, userId)),
       columns: { position: true },
     });
 
-    const maxPosition = existingFilters.reduce(
-      (max, f) => Math.max(max, f.position),
-      -1,
-    );
+    const maxPosition = existingFilters.reduce((max, f) => Math.max(max, f.position), -1);
 
     // If this is set as default, unset other defaults
     if (input.isDefault) {
@@ -139,10 +121,7 @@ export const savedFiltersService = {
     userId: string,
   ): Promise<SavedFilter> {
     const filter = await db.query.savedFilters.findFirst({
-      where: and(
-        eq(savedFilters.id, filterId),
-        eq(savedFilters.organizationId, organizationId),
-      ),
+      where: and(eq(savedFilters.id, filterId), eq(savedFilters.organizationId, organizationId)),
     });
 
     if (!filter) {
@@ -192,16 +171,9 @@ export const savedFiltersService = {
   },
 
   // Delete saved filter
-  async delete(
-    filterId: string,
-    organizationId: string,
-    userId: string,
-  ): Promise<void> {
+  async delete(filterId: string, organizationId: string, userId: string): Promise<void> {
     const filter = await db.query.savedFilters.findFirst({
-      where: and(
-        eq(savedFilters.id, filterId),
-        eq(savedFilters.organizationId, organizationId),
-      ),
+      where: and(eq(savedFilters.id, filterId), eq(savedFilters.organizationId, organizationId)),
     });
 
     if (!filter) {
@@ -247,10 +219,7 @@ export const savedFiltersService = {
 
     // Return updated filters
     const updated = await db.query.savedFilters.findMany({
-      where: and(
-        eq(savedFilters.organizationId, organizationId),
-        eq(savedFilters.userId, userId),
-      ),
+      where: and(eq(savedFilters.organizationId, organizationId), eq(savedFilters.userId, userId)),
       orderBy: [asc(savedFilters.position)],
     });
 
@@ -260,10 +229,7 @@ export const savedFiltersService = {
   },
 
   // Get default filter for user
-  async getDefault(
-    organizationId: string,
-    userId: string,
-  ): Promise<SavedFilter | null> {
+  async getDefault(organizationId: string, userId: string): Promise<SavedFilter | null> {
     const filter = await db.query.savedFilters.findFirst({
       where: and(
         eq(savedFilters.organizationId, organizationId),
@@ -276,19 +242,12 @@ export const savedFiltersService = {
   },
 
   // Duplicate a filter
-  async duplicate(
-    filterId: string,
-    organizationId: string,
-    userId: string,
-  ): Promise<SavedFilter> {
+  async duplicate(filterId: string, organizationId: string, userId: string): Promise<SavedFilter> {
     const filter = await db.query.savedFilters.findFirst({
       where: and(
         eq(savedFilters.id, filterId),
         eq(savedFilters.organizationId, organizationId),
-        or(
-          eq(savedFilters.userId, userId),
-          eq(savedFilters.isShared, true),
-        ),
+        or(eq(savedFilters.userId, userId), eq(savedFilters.isShared, true)),
       ),
     });
 
@@ -298,17 +257,11 @@ export const savedFiltersService = {
 
     // Get the next position
     const existingFilters = await db.query.savedFilters.findMany({
-      where: and(
-        eq(savedFilters.organizationId, organizationId),
-        eq(savedFilters.userId, userId),
-      ),
+      where: and(eq(savedFilters.organizationId, organizationId), eq(savedFilters.userId, userId)),
       columns: { position: true },
     });
 
-    const maxPosition = existingFilters.reduce(
-      (max, f) => Math.max(max, f.position),
-      -1,
-    );
+    const maxPosition = existingFilters.reduce((max, f) => Math.max(max, f.position), -1);
 
     const [newFilter] = await db
       .insert(savedFilters)

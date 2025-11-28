@@ -452,7 +452,12 @@ export const attachments = pgTable(
 // ORGANIZATION INVITATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const inviteStatusEnum = pgEnum("invite_status", ["pending", "accepted", "expired", "cancelled"]);
+export const inviteStatusEnum = pgEnum("invite_status", [
+  "pending",
+  "accepted",
+  "expired",
+  "cancelled",
+]);
 
 export const organizationInvitations = pgTable(
   "organization_invitations",
