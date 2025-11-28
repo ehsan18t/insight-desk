@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InsightDesk API Documentation</title>
+    <meta
+      name="description"
+      content="API documentation for InsightDesk - Multi-tenant Customer Support Ticketing System"
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>"
+    />
+    <!-- Redoc CSS -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+      }
+      /* Custom Redoc styling */
+      .menu-content {
+        background-color: #1a1a2e !important;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Redoc element - loads the OpenAPI spec -->
+    <redoc
+      spec-url="./openapi.json"
+      hide-download-button="false"
+      theme='{
+        "colors": {
+          "primary": { "main": "#3b82f6" },
+          "success": { "main": "#22c55e" },
+          "warning": { "main": "#f59e0b" },
+          "error": { "main": "#ef4444" },
+          "text": { "primary": "#1f2937" }
+        },
+        "typography": {
+          "fontFamily": "Inter, system-ui, sans-serif",
+          "headings": { "fontFamily": "Inter, system-ui, sans-serif" },
+          "code": { "fontFamily": "JetBrains Mono, Consolas, monospace" }
+        },
+        "sidebar": {
+          "backgroundColor": "#f8fafc",
+          "textColor": "#334155"
+        },
+        "rightPanel": {
+          "backgroundColor": "#1e293b"
+        }
+      }'
+    ></redoc>
+
+    <!-- Redoc standalone script -->
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+  </body>
+</html>

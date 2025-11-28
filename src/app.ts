@@ -4,7 +4,7 @@ import cors from "cors";
 import express, { type Express } from "express";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
-import { config } from "./config";
+import { config, isApiDocsEnabled } from "./config";
 import { generateOpenAPIDocument } from "./lib/openapi";
 import { httpLogger } from "./lib/logger";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
@@ -104,24 +104,26 @@ export function createApp(): Express {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // API Documentation (Swagger UI) - Dynamically Generated
+  // API Documentation (Swagger UI) - Conditionally enabled
   // ─────────────────────────────────────────────────────────────
-  const openapiSpec = generateOpenAPIDocument();
+  if (isApiDocsEnabled) {
+    const openapiSpec = generateOpenAPIDocument();
 
-  // Serve raw OpenAPI JSON spec
-  app.get("/api/docs/openapi.json", (_req, res) => {
-    res.json(openapiSpec);
-  });
+    // Serve raw OpenAPI JSON spec
+    app.get("/api/docs/openapi.json", (_req, res) => {
+      res.json(openapiSpec);
+    });
 
-  // Swagger UI
-  app.use(
-    "/api-docs",
-    swaggerUi.serve,
-    swaggerUi.setup(openapiSpec, {
-      customCss: ".swagger-ui .topbar { display: none }",
-      customSiteTitle: "InsightDesk API Documentation",
-    }),
-  );
+    // Swagger UI
+    app.use(
+      config.API_DOCS_PATH,
+      swaggerUi.serve,
+      swaggerUi.setup(openapiSpec, {
+        customCss: ".swagger-ui .topbar { display: none }",
+        customSiteTitle: "InsightDesk API Documentation",
+      }),
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────
   // API Routes

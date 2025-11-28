@@ -204,6 +204,18 @@ bun run test          # Run tests to ensure seeds are compatible
 - Verify new/updated endpoints appear correctly
 - Test the "Try it out" functionality
 
+### Environment Configuration
+- `ENABLE_API_DOCS`: Set to `"true"` to enable live Swagger UI (defaults to `true` in development, `false` in production)
+- `API_DOCS_PATH`: Path where Swagger UI is mounted (defaults to `/api-docs`)
+
+### Static Documentation
+- Run `bun run docs:generate` to generate static OpenAPI documentation
+- Output files are created in `docs/` directory:
+  - `openapi.json` - OpenAPI spec in JSON format
+  - `openapi.yaml` - OpenAPI spec in YAML format
+  - `index.html` - Redoc HTML viewer
+- Static docs can be hosted on any static file server or CDN
+
 **API changes without documentation updates will be rejected.**
 
 ---
@@ -293,6 +305,7 @@ bun run db:studio     # Drizzle Studio
 bun run db:seed       # Seed development database
 bun run db:reset      # Reset and reseed database
 bun run test:seed     # Seed test database
+bun run docs:generate # Generate static OpenAPI documentation
 ```
 
 ---
