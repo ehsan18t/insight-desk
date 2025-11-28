@@ -11,6 +11,7 @@
     "insightdesk",
     "iovalkey",
     "isready",
+    "prefault",
     "presigner",
     "progid",
     "relkind",
@@ -18,6 +19,7 @@
     "RRGGBB",
     "shadcn",
     "signups",
+    "stringbool",
     "TECHSTART",
     "tsvector",
     "Valkey"
