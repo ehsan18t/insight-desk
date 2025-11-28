@@ -2,17 +2,15 @@ import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type Express } from "express";
-import fs from "node:fs";
-import path from "node:path";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
-import YAML from "yaml";
 import { config } from "./config";
+import { generateOpenAPIDocument } from "./lib/openapi";
 import { httpLogger } from "./lib/logger";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { rateLimit } from "./middleware/rate-limit";
 
-// Import routes
+// Import routes (these also register their OpenAPI definitions)
 import { attachmentsRouter } from "./modules/attachments";
 import { auditRouter } from "./modules/audit";
 import { authRouter } from "./modules/auth";
@@ -22,6 +20,7 @@ import { csatRoutes } from "./modules/csat";
 import { dashboardRouter } from "./modules/dashboard";
 import { exportRouter } from "./modules/export";
 import { jobsRouter } from "./modules/jobs";
+import "./modules/messages"; // Messages OpenAPI registration (nested under tickets)
 import { organizationsRouter } from "./modules/organizations";
 import { plansRouter } from "./modules/plans";
 import { savedFiltersRouter } from "./modules/saved-filters";
@@ -105,22 +104,24 @@ export function createApp(): Express {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // API Documentation (Swagger UI)
+  // API Documentation (Swagger UI) - Dynamically Generated
   // ─────────────────────────────────────────────────────────────
-  try {
-    const openapiPath = path.join(process.cwd(), "docs", "openapi.yaml");
-    const openapiSpec = YAML.parse(fs.readFileSync(openapiPath, "utf-8"));
-    app.use(
-      "/api-docs",
-      swaggerUi.serve,
-      swaggerUi.setup(openapiSpec, {
-        customCss: ".swagger-ui .topbar { display: none }",
-        customSiteTitle: "InsightDesk API Documentation",
-      }),
-    );
-  } catch (_error) {
-    httpLogger.warn("OpenAPI spec not found, Swagger UI disabled");
-  }
+  const openapiSpec = generateOpenAPIDocument();
+
+  // Serve raw OpenAPI JSON spec
+  app.get("/api/docs/openapi.json", (_req, res) => {
+    res.json(openapiSpec);
+  });
+
+  // Swagger UI
+  app.use(
+    "/api-docs",
+    swaggerUi.serve,
+    swaggerUi.setup(openapiSpec, {
+      customCss: ".swagger-ui .topbar { display: none }",
+      customSiteTitle: "InsightDesk API Documentation",
+    }),
+  );
 
   // ─────────────────────────────────────────────────────────────
   // API Routes
