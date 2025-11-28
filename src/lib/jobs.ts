@@ -1,16 +1,41 @@
+import { type Job, Queue, Worker } from "bullmq";
 import { and, eq } from "drizzle-orm";
-import type { Job, SendOptions } from "pg-boss";
-import { PgBoss } from "pg-boss";
 import { config } from "@/config";
 import { db } from "@/db";
 import { tickets, userOrganizations, users } from "@/db/schema";
 import { sendEmail } from "./email";
-import { logger } from "./logger";
+import { createLogger } from "./logger";
 import { broadcastTicketEvent, sendNotification } from "./socket";
 
-let boss: PgBoss | null = null;
+const logger = createLogger("jobs");
 
-// Job types
+// ─────────────────────────────────────────────────────────────
+// BullMQ Connection Configuration
+// ─────────────────────────────────────────────────────────────
+
+// Parse Valkey URL for BullMQ connection
+function parseValkeyUrl(url: string): { host: string; port: number; password?: string } {
+  try {
+    const parsed = new URL(url);
+    return {
+      host: parsed.hostname || "localhost",
+      port: Number.parseInt(parsed.port, 10) || 6379,
+      password: parsed.password || undefined,
+    };
+  } catch {
+    return { host: "localhost", port: 6379 };
+  }
+}
+
+const connectionConfig = {
+  ...parseValkeyUrl(config.VALKEY_URL),
+  maxRetriesPerRequest: null, // Required for BullMQ workers
+};
+
+// ─────────────────────────────────────────────────────────────
+// Job Types
+// ─────────────────────────────────────────────────────────────
+
 export interface EmailJobData {
   to: string;
   subject: string;
@@ -34,345 +59,469 @@ export interface SLABreachedJobData {
   organizationId: string;
 }
 
-// Job names
-export const JobNames = {
-  SEND_EMAIL: "send-email",
+// ─────────────────────────────────────────────────────────────
+// Queue Names
+// ─────────────────────────────────────────────────────────────
+
+export const QueueNames = {
+  EMAIL: "email",
   TICKET_NOTIFICATION: "ticket-notification",
   SLA_CHECK: "sla-check",
   SLA_BREACHED: "sla-breached",
-  CLEANUP_SESSIONS: "cleanup-sessions",
-  GENERATE_REPORTS: "generate-reports",
+  SCHEDULED: "scheduled",
 } as const;
 
-/**
- * Initialize pg-boss
- */
-export async function initializeJobQueue(): Promise<PgBoss> {
-  boss = new PgBoss({
-    connectionString: config.DATABASE_URL,
-    monitorIntervalSeconds: 60,
+// ─────────────────────────────────────────────────────────────
+// Queues
+// ─────────────────────────────────────────────────────────────
+
+let emailQueue: Queue<EmailJobData> | null = null;
+let ticketNotificationQueue: Queue<TicketNotificationJobData> | null = null;
+let slaCheckQueue: Queue<SLACheckJobData> | null = null;
+let slaBreachedQueue: Queue<SLABreachedJobData> | null = null;
+let scheduledQueue: Queue | null = null;
+
+// Workers
+let emailWorker: Worker<EmailJobData> | null = null;
+let ticketNotificationWorker: Worker<TicketNotificationJobData> | null = null;
+let slaCheckWorker: Worker<SLACheckJobData> | null = null;
+let slaBreachedWorker: Worker<SLABreachedJobData> | null = null;
+let scheduledWorker: Worker | null = null;
+
+// ─────────────────────────────────────────────────────────────
+// Initialize Job Queue System
+// ─────────────────────────────────────────────────────────────
+
+export async function initializeJobQueue(): Promise<void> {
+  // Create queues
+  emailQueue = new Queue<EmailJobData>(QueueNames.EMAIL, {
+    connection: connectionConfig,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 1000 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 500 },
+    },
   });
 
-  boss.on("error", (error: Error) => {
-    logger.error({ err: error }, "pg-boss error");
+  ticketNotificationQueue = new Queue<TicketNotificationJobData>(QueueNames.TICKET_NOTIFICATION, {
+    connection: connectionConfig,
+    defaultJobOptions: {
+      attempts: 2,
+      backoff: { type: "exponential", delay: 500 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 200 },
+    },
   });
 
-  boss.on("wip", (data) => {
-    logger.debug({ wip: data }, "Job queue work in progress");
+  slaCheckQueue = new Queue<SLACheckJobData>(QueueNames.SLA_CHECK, {
+    connection: connectionConfig,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: "fixed", delay: 5000 },
+      removeOnComplete: { count: 50 },
+      removeOnFail: { count: 100 },
+    },
   });
 
-  await boss.start();
-  logger.info("pg-boss job queue started");
+  slaBreachedQueue = new Queue<SLABreachedJobData>(QueueNames.SLA_BREACHED, {
+    connection: connectionConfig,
+    defaultJobOptions: {
+      attempts: 2,
+      backoff: { type: "exponential", delay: 1000 },
+      removeOnComplete: { count: 50 },
+      removeOnFail: { count: 100 },
+    },
+  });
 
-  await registerJobHandlers(boss);
-  await scheduleRecurringJobs(boss);
+  scheduledQueue = new Queue(QueueNames.SCHEDULED, {
+    connection: connectionConfig,
+    defaultJobOptions: {
+      removeOnComplete: { count: 10 },
+      removeOnFail: { count: 50 },
+    },
+  });
 
-  return boss;
+  // Create workers
+  await createWorkers();
+
+  // Schedule recurring jobs
+  await scheduleRecurringJobs();
+
+  logger.info("BullMQ job queue system initialized");
 }
 
-/**
- * Register all job handlers
- */
-async function registerJobHandlers(boss: PgBoss): Promise<void> {
-  // Email sending job
-  await boss.work<EmailJobData>(
-    JobNames.SEND_EMAIL,
-    { batchSize: 5, pollingIntervalSeconds: 5 },
-    async (jobs: Job<EmailJobData>[]) => {
-      for (const job of jobs) {
-        logger.info({ jobId: job.id, to: job.data.to }, "Processing email job");
-        try {
-          await sendEmail({
-            to: job.data.to,
-            subject: job.data.subject,
-            html: job.data.html,
+// ─────────────────────────────────────────────────────────────
+// Workers
+// ─────────────────────────────────────────────────────────────
+
+async function createWorkers(): Promise<void> {
+  // Email worker
+  emailWorker = new Worker<EmailJobData>(
+    QueueNames.EMAIL,
+    async (job: Job<EmailJobData>) => {
+      logger.info({ jobId: job.id, to: job.data.to }, "Processing email job");
+      await sendEmail({
+        to: job.data.to,
+        subject: job.data.subject,
+        html: job.data.html,
+      });
+      logger.info({ jobId: job.id }, "Email sent successfully");
+    },
+    {
+      connection: connectionConfig,
+      concurrency: 5,
+    },
+  );
+
+  emailWorker.on("failed", (job, err) => {
+    logger.error({ err, jobId: job?.id }, "Email job failed");
+  });
+
+  // Ticket notification worker
+  ticketNotificationWorker = new Worker<TicketNotificationJobData>(
+    QueueNames.TICKET_NOTIFICATION,
+    async (job: Job<TicketNotificationJobData>) => {
+      const { ticketId, action, actorId, recipientIds } = job.data;
+      logger.info({ jobId: job.id, ticketId, action }, "Processing notification job");
+
+      const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
+
+      if (!ticket) {
+        logger.warn({ ticketId }, "Ticket not found for notification");
+        return;
+      }
+
+      const [actor] = await db
+        .select({ name: users.name })
+        .from(users)
+        .where(eq(users.id, actorId))
+        .limit(1);
+
+      const actorName = actor?.name || "Someone";
+
+      const notificationMessages: Record<string, { title: string; message: string }> = {
+        created: {
+          title: "New Ticket Created",
+          message: `${actorName} created ticket #${ticket.ticketNumber}: ${ticket.title}`,
+        },
+        assigned: {
+          title: "Ticket Assigned",
+          message: `${actorName} assigned ticket #${ticket.ticketNumber} to you`,
+        },
+        updated: {
+          title: "Ticket Updated",
+          message: `${actorName} updated ticket #${ticket.ticketNumber}`,
+        },
+        message_added: {
+          title: "New Message",
+          message: `${actorName} replied to ticket #${ticket.ticketNumber}`,
+        },
+        resolved: {
+          title: "Ticket Resolved",
+          message: `Ticket #${ticket.ticketNumber} has been resolved`,
+        },
+        closed: {
+          title: "Ticket Closed",
+          message: `Ticket #${ticket.ticketNumber} has been closed`,
+        },
+      };
+
+      const notification = notificationMessages[action];
+
+      for (const userId of recipientIds) {
+        if (userId !== actorId) {
+          sendNotification({
+            type: "notification",
+            userId,
+            data: { ...notification, ticketId, action },
           });
-          logger.info({ jobId: job.id }, "Email sent successfully");
-        } catch (error) {
-          logger.error({ err: error, jobId: job.id }, "Email job failed");
-          throw error;
         }
       }
+
+      logger.info({ jobId: job.id }, "Notification job completed");
+    },
+    {
+      connection: connectionConfig,
+      concurrency: 5,
     },
   );
 
-  // Ticket notification job
-  await boss.work<TicketNotificationJobData>(
-    JobNames.TICKET_NOTIFICATION,
-    { batchSize: 5, pollingIntervalSeconds: 2 },
-    async (jobs: Job<TicketNotificationJobData>[]) => {
-      for (const job of jobs) {
-        const { ticketId, action, actorId, recipientIds } = job.data;
-        logger.info({ jobId: job.id, ticketId, action }, "Processing notification job");
+  ticketNotificationWorker.on("failed", (job, err) => {
+    logger.error({ err, jobId: job?.id }, "Notification job failed");
+  });
 
-        try {
-          const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
+  // SLA check worker
+  slaCheckWorker = new Worker<SLACheckJobData>(
+    QueueNames.SLA_CHECK,
+    async (job: Job<SLACheckJobData>) => {
+      const { ticketId, slaDeadline } = job.data;
+      logger.info({ ticketId }, "Processing SLA check");
 
-          if (!ticket) {
-            logger.warn({ ticketId }, "Ticket not found for notification");
-            continue;
-          }
+      const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
 
-          const [actor] = await db
-            .select({ name: users.name })
-            .from(users)
-            .where(eq(users.id, actorId))
-            .limit(1);
-
-          const actorName = actor?.name || "Someone";
-
-          const notificationMessages: Record<string, { title: string; message: string }> = {
-            created: {
-              title: "New Ticket Created",
-              message: `${actorName} created ticket #${ticket.ticketNumber}: ${ticket.title}`,
-            },
-            assigned: {
-              title: "Ticket Assigned",
-              message: `${actorName} assigned ticket #${ticket.ticketNumber} to you`,
-            },
-            updated: {
-              title: "Ticket Updated",
-              message: `${actorName} updated ticket #${ticket.ticketNumber}`,
-            },
-            message_added: {
-              title: "New Message",
-              message: `${actorName} replied to ticket #${ticket.ticketNumber}`,
-            },
-            resolved: {
-              title: "Ticket Resolved",
-              message: `Ticket #${ticket.ticketNumber} has been resolved`,
-            },
-            closed: {
-              title: "Ticket Closed",
-              message: `Ticket #${ticket.ticketNumber} has been closed`,
-            },
-          };
-
-          const notification = notificationMessages[action];
-
-          for (const userId of recipientIds) {
-            if (userId !== actorId) {
-              sendNotification({
-                type: "notification",
-                userId,
-                data: { ...notification, ticketId, action },
-              });
-            }
-          }
-
-          logger.info({ jobId: job.id }, "Notification job completed");
-        } catch (error) {
-          logger.error({ err: error, jobId: job.id }, "Notification job failed");
-          throw error;
-        }
+      if (!ticket) {
+        logger.warn({ ticketId }, "Ticket not found for SLA check");
+        return;
       }
+
+      const now = new Date();
+      const deadline = new Date(slaDeadline);
+
+      if (
+        ticket.status !== "closed" &&
+        ticket.status !== "resolved" &&
+        now > deadline &&
+        !ticket.slaBreached
+      ) {
+        await db
+          .update(tickets)
+          .set({ slaBreached: true, updatedAt: now })
+          .where(eq(tickets.id, ticketId));
+
+        // Queue SLA breached notification
+        await queueSLABreached({
+          ticketId,
+          organizationId: ticket.organizationId,
+        });
+
+        broadcastTicketEvent({
+          type: "ticket:updated",
+          ticketId,
+          organizationId: ticket.organizationId,
+          data: { slaBreached: true },
+        });
+
+        logger.info({ ticketId }, "SLA breached");
+      }
+    },
+    {
+      connection: connectionConfig,
+      concurrency: 3,
     },
   );
 
-  // SLA check job
-  await boss.work<SLACheckJobData>(
-    JobNames.SLA_CHECK,
-    { batchSize: 3, pollingIntervalSeconds: 10 },
-    async (jobs: Job<SLACheckJobData>[]) => {
-      for (const job of jobs) {
-        const { ticketId, slaDeadline } = job.data;
-        logger.info({ ticketId }, "Processing SLA check");
+  slaCheckWorker.on("failed", (job, err) => {
+    logger.error({ err, jobId: job?.id }, "SLA check job failed");
+  });
 
-        try {
-          const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
+  // SLA breached notification worker
+  slaBreachedWorker = new Worker<SLABreachedJobData>(
+    QueueNames.SLA_BREACHED,
+    async (job: Job<SLABreachedJobData>) => {
+      const { ticketId, organizationId } = job.data;
+      logger.info({ ticketId }, "Processing SLA breach notification");
 
-          if (!ticket) {
-            logger.warn({ ticketId }, "Ticket not found for SLA check");
-            continue;
-          }
+      const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
 
-          const now = new Date();
-          const deadline = new Date(slaDeadline);
+      if (!ticket) return;
 
-          if (
-            ticket.status !== "closed" &&
-            ticket.status !== "resolved" &&
-            now > deadline &&
-            !ticket.slaBreached
-          ) {
-            await db
-              .update(tickets)
-              .set({ slaBreached: true, updatedAt: now })
-              .where(eq(tickets.id, ticketId));
+      const notifyUserIds: string[] = [];
+      if (ticket.assigneeId) {
+        notifyUserIds.push(ticket.assigneeId);
+      }
 
-            await queueJob(JobNames.SLA_BREACHED, {
-              ticketId,
-              organizationId: ticket.organizationId,
-            });
+      // Notify admins
+      const admins = await db
+        .select({ userId: userOrganizations.userId })
+        .from(userOrganizations)
+        .where(
+          and(
+            eq(userOrganizations.organizationId, organizationId),
+            eq(userOrganizations.role, "admin"),
+          ),
+        );
 
-            broadcastTicketEvent({
-              type: "ticket:updated",
-              ticketId,
-              organizationId: ticket.organizationId,
-              data: { slaBreached: true },
-            });
-
-            logger.info({ ticketId }, "SLA breached");
-          }
-        } catch (error) {
-          logger.error({ err: error, jobId: job.id }, "SLA check job failed");
-          throw error;
+      for (const admin of admins) {
+        if (!notifyUserIds.includes(admin.userId)) {
+          notifyUserIds.push(admin.userId);
         }
       }
+
+      for (const userId of notifyUserIds) {
+        sendNotification({
+          type: "notification",
+          userId,
+          data: {
+            title: "SLA Breach Alert",
+            message: `Ticket #${ticket.ticketNumber} has breached its SLA deadline`,
+            ticketId,
+            action: "sla_breached",
+          },
+        });
+      }
+
+      logger.info({ ticketId }, "SLA breach notification sent");
+    },
+    {
+      connection: connectionConfig,
+      concurrency: 2,
     },
   );
 
-  // SLA breached notification
-  await boss.work<SLABreachedJobData>(
-    JobNames.SLA_BREACHED,
-    { pollingIntervalSeconds: 5 },
-    async (jobs: Job<SLABreachedJobData>[]) => {
-      for (const job of jobs) {
-        const { ticketId, organizationId } = job.data;
-        logger.info({ ticketId }, "Processing SLA breach notification");
+  slaBreachedWorker.on("failed", (job, err) => {
+    logger.error({ err, jobId: job?.id }, "SLA breach notification failed");
+  });
 
-        try {
-          const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
-
-          if (!ticket) continue;
-
-          const notifyUserIds: string[] = [];
-          if (ticket.assigneeId) {
-            notifyUserIds.push(ticket.assigneeId);
-          }
-
-          const admins = await db
-            .select({ userId: userOrganizations.userId })
-            .from(userOrganizations)
-            .where(
-              and(
-                eq(userOrganizations.organizationId, organizationId),
-                eq(userOrganizations.role, "admin"),
-              ),
-            );
-
-          for (const admin of admins) {
-            if (!notifyUserIds.includes(admin.userId)) {
-              notifyUserIds.push(admin.userId);
-            }
-          }
-
-          for (const userId of notifyUserIds) {
-            sendNotification({
-              type: "notification",
-              userId,
-              data: {
-                title: "SLA Breach Alert",
-                message: `Ticket #${ticket.ticketNumber} has breached its SLA deadline`,
-                ticketId,
-                action: "sla_breached",
-              },
-            });
-          }
-
-          logger.info({ ticketId }, "SLA breach notification sent");
-        } catch (error) {
-          logger.error({ err: error, jobId: job.id }, "SLA breach notification failed");
-          throw error;
-        }
+  // Scheduled jobs worker
+  scheduledWorker = new Worker(
+    QueueNames.SCHEDULED,
+    async (job: Job) => {
+      switch (job.name) {
+        case "cleanup-sessions":
+          logger.info("Running session cleanup");
+          // Add session cleanup logic here
+          break;
+        case "generate-reports":
+          logger.info("Running daily report generation");
+          // Add report generation logic here
+          break;
+        default:
+          logger.warn({ jobName: job.name }, "Unknown scheduled job");
       }
+    },
+    {
+      connection: connectionConfig,
+      concurrency: 1,
     },
   );
 
-  logger.info("Job handlers registered");
+  scheduledWorker.on("failed", (job, err) => {
+    logger.error({ err, jobId: job?.id, jobName: job?.name }, "Scheduled job failed");
+  });
+
+  logger.info("Workers created");
 }
 
-/**
- * Schedule recurring jobs
- */
-async function scheduleRecurringJobs(boss: PgBoss): Promise<void> {
-  await boss.schedule(JobNames.CLEANUP_SESSIONS, "0 * * * *", {});
-  await boss.schedule(JobNames.GENERATE_REPORTS, "0 0 * * *", {});
+// ─────────────────────────────────────────────────────────────
+// Recurring Jobs
+// ─────────────────────────────────────────────────────────────
 
-  await boss.work(JobNames.CLEANUP_SESSIONS, async () => {
-    logger.info("Running session cleanup");
-  });
+async function scheduleRecurringJobs(): Promise<void> {
+  if (!scheduledQueue) return;
 
-  await boss.work(JobNames.GENERATE_REPORTS, async () => {
-    logger.info("Running daily report generation");
-  });
+  // Session cleanup - every hour
+  await scheduledQueue.upsertJobScheduler(
+    "cleanup-sessions-scheduler",
+    { pattern: "0 * * * *" }, // Every hour at minute 0
+    { name: "cleanup-sessions", data: {} },
+  );
+
+  // Daily report generation - every day at midnight
+  await scheduledQueue.upsertJobScheduler(
+    "generate-reports-scheduler",
+    { pattern: "0 0 * * *" }, // Every day at 00:00
+    { name: "generate-reports", data: {} },
+  );
 
   logger.info("Recurring jobs scheduled");
 }
 
+// ─────────────────────────────────────────────────────────────
+// Queue Helper Functions
+// ─────────────────────────────────────────────────────────────
+
 /**
- * Get the pg-boss instance
+ * Queue an email job
  */
-export function getJobQueue(): PgBoss {
-  if (!boss) {
-    throw new Error("Job queue not initialized");
+export async function queueEmail(data: EmailJobData): Promise<string | undefined> {
+  if (!emailQueue) {
+    throw new Error("Email queue not initialized");
   }
-  return boss;
+  const job = await emailQueue.add("send-email", data);
+  return job.id;
 }
 
 /**
- * Queue a job with retry options
- */
-export async function queueJob<T extends object>(
-  name: string,
-  data: T,
-  options?: SendOptions,
-): Promise<string | null> {
-  const queue = getJobQueue();
-  return await queue.send(name, data, {
-    retryLimit: 3,
-    retryDelay: 60,
-    ...options,
-  });
-}
-
-/**
- * Queue email job
- */
-export async function queueEmail(data: EmailJobData): Promise<string | null> {
-  return await queueJob(JobNames.SEND_EMAIL, data, { retryLimit: 3 });
-}
-
-/**
- * Queue ticket notification job
+ * Queue a ticket notification job
  */
 export async function queueTicketNotification(
   data: TicketNotificationJobData,
-): Promise<string | null> {
-  return await queueJob(JobNames.TICKET_NOTIFICATION, data, { retryLimit: 2 });
+): Promise<string | undefined> {
+  if (!ticketNotificationQueue) {
+    throw new Error("Ticket notification queue not initialized");
+  }
+  const job = await ticketNotificationQueue.add("notify", data);
+  return job.id;
 }
 
 /**
- * Schedule SLA check job
+ * Schedule an SLA check job
  */
 export async function scheduleSLACheck(
   ticketId: string,
   slaDeadline: Date,
-): Promise<string | null> {
-  const queue = getJobQueue();
+): Promise<string | undefined> {
+  if (!slaCheckQueue) {
+    throw new Error("SLA check queue not initialized");
+  }
+
   const now = new Date();
   const delayMs = slaDeadline.getTime() - now.getTime();
 
-  if (delayMs <= 0) {
-    return await queueJob(JobNames.SLA_CHECK, {
-      ticketId,
-      slaDeadline: slaDeadline.toISOString(),
-    });
-  }
-
-  return await queue.send(
-    JobNames.SLA_CHECK,
+  const job = await slaCheckQueue.add(
+    "sla-check",
     { ticketId, slaDeadline: slaDeadline.toISOString() },
-    { startAfter: slaDeadline },
+    {
+      delay: Math.max(0, delayMs), // Can't have negative delay
+      jobId: `sla-${ticketId}`, // Unique job ID per ticket to avoid duplicates
+    },
   );
+
+  return job.id;
 }
 
 /**
- * Stop the job queue
+ * Queue an SLA breached notification
+ */
+async function queueSLABreached(data: SLABreachedJobData): Promise<string | undefined> {
+  if (!slaBreachedQueue) {
+    throw new Error("SLA breached queue not initialized");
+  }
+  const job = await slaBreachedQueue.add("sla-breached", data);
+  return job.id;
+}
+
+/**
+ * Generic queue job function (for backwards compatibility)
+ */
+export async function queueJob<T extends object>(
+  queueName: string,
+  jobName: string,
+  data: T,
+  options?: { delay?: number; priority?: number },
+): Promise<string | undefined> {
+  const queue = new Queue(queueName, { connection: connectionConfig });
+  const job = await queue.add(jobName, data, options);
+  await queue.close();
+  return job.id;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cleanup
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Stop all workers and close queues
  */
 export async function stopJobQueue(): Promise<void> {
-  if (boss) {
-    await boss.stop();
-    logger.info("pg-boss job queue stopped");
-  }
+  const closePromises: Promise<void>[] = [];
+
+  // Close workers first
+  if (emailWorker) closePromises.push(emailWorker.close());
+  if (ticketNotificationWorker) closePromises.push(ticketNotificationWorker.close());
+  if (slaCheckWorker) closePromises.push(slaCheckWorker.close());
+  if (slaBreachedWorker) closePromises.push(slaBreachedWorker.close());
+  if (scheduledWorker) closePromises.push(scheduledWorker.close());
+
+  // Close queues
+  if (emailQueue) closePromises.push(emailQueue.close());
+  if (ticketNotificationQueue) closePromises.push(ticketNotificationQueue.close());
+  if (slaCheckQueue) closePromises.push(slaCheckQueue.close());
+  if (slaBreachedQueue) closePromises.push(slaBreachedQueue.close());
+  if (scheduledQueue) closePromises.push(scheduledQueue.close());
+
+  await Promise.all(closePromises);
+
+  logger.info("BullMQ job queue system stopped");
 }
