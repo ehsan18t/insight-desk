@@ -51,7 +51,13 @@ const CategoryTreeNodeSchema: z.ZodType<{
   updatedAt: string;
   children: unknown[];
 }> = CategorySchema.extend({
-  children: z.lazy(() => z.array(CategoryTreeNodeSchema)).describe("Child categories"),
+  children: z
+    .lazy(() => z.array(CategoryTreeNodeSchema))
+    .openapi({
+      type: "array",
+      items: { $ref: "#/components/schemas/CategoryTreeNode" },
+      description: "Child categories",
+    }),
 }).openapi("CategoryTreeNode");
 
 /**
