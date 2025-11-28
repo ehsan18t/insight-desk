@@ -22,6 +22,7 @@ import type {
   organizations,
   sessions,
   slaPolicies,
+  tags,
   ticketActivities,
   ticketChannelEnum,
   ticketMessages,
@@ -71,6 +72,10 @@ export type NewSlaPolicy = typeof slaPolicies.$inferInsert;
 // Category types
 export type Category = typeof categories.$inferSelect;
 export type NewCategory = typeof categories.$inferInsert;
+
+// Tag types
+export type Tag = typeof tags.$inferSelect;
+export type NewTag = typeof tags.$inferInsert;
 
 // Canned Response types
 export type CannedResponse = typeof cannedResponses.$inferSelect;

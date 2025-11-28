@@ -9,6 +9,7 @@ import {
   organizations,
   sessions,
   slaPolicies,
+  tags,
   ticketActivities,
   ticketMessages,
   tickets,
@@ -40,6 +41,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   slaPolicies: many(slaPolicies),
   cannedResponses: many(cannedResponses),
   categories: many(categories),
+  tags: many(tags),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -141,6 +143,17 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   }),
   children: many(categories, { relationName: "parent_category" }),
   tickets: many(tickets),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TAG RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const tagsRelations = relations(tags, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [tags.organizationId],
+    references: [organizations.id],
+  }),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════

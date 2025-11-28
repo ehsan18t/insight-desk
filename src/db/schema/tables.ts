@@ -265,6 +265,28 @@ export const categories = pgTable(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
+// TAGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const tags = pgTable(
+  "tags",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    color: text("color"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("tags_org_idx").on(table.organizationId),
+    uniqueIndex("tags_org_name_unique").on(table.organizationId, table.name),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SLA POLICIES
 // ═══════════════════════════════════════════════════════════════════════════
 
