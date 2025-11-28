@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noExplicitAny: fine for routes handler */
 import { type NextFunction, type Request, type Response, Router } from "express";
 import { ForbiddenError } from "../../middleware/error-handler";
 import { validateRequest } from "../../middleware/validate";
