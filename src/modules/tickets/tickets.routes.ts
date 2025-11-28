@@ -4,6 +4,8 @@ import { validateRequest } from "@/middleware/validate";
 import { authenticate, requireRole } from "@/modules/auth/auth.middleware";
 import { messagesRouter } from "@/modules/messages";
 import {
+  activitiesQuerySchema,
+  type ActivitiesQuery,
   assignTicketSchema,
   createTicketSchema,
   type TicketQuery,
@@ -88,6 +90,31 @@ router.get(
       res.json({
         success: true,
         data: ticket,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// GET /api/tickets/:id/activities - Get ticket activity history
+// ─────────────────────────────────────────────────────────────
+router.get(
+  "/:id/activities",
+  validateRequest({ params: ticketIdParamSchema, query: activitiesQuerySchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await ticketsService.getActivities(
+        req.params.id,
+        req.user!.id,
+        req.userRole,
+        req.query as unknown as ActivitiesQuery,
+      );
+
+      res.json({
+        success: true,
+        ...result,
       });
     } catch (error) {
       next(error);

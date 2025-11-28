@@ -482,4 +482,67 @@ export const ticketsService = {
       total: stats.reduce((sum, s) => sum + s.count, 0),
     };
   },
+
+  // Get activities for a ticket (audit log/timeline)
+  async getActivities(
+    ticketId: string,
+    userId: string,
+    userRole?: string,
+    options: { page?: number; limit?: number } = {},
+  ) {
+    const { page = 1, limit = 50 } = options;
+
+    // Verify access to the ticket
+    const ticket = await db.query.tickets.findFirst({
+      where: eq(tickets.id, ticketId),
+    });
+
+    if (!ticket) {
+      throw new NotFoundError("Ticket not found");
+    }
+
+    // Check access: customer can only see their own tickets
+    if (userRole === "customer" && ticket.customerId !== userId) {
+      throw new ForbiddenError("Access denied");
+    }
+
+    // Get activities with user info
+    const activities = await db
+      .select({
+        id: ticketActivities.id,
+        action: ticketActivities.action,
+        metadata: ticketActivities.metadata,
+        createdAt: ticketActivities.createdAt,
+        user: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          avatarUrl: users.avatarUrl,
+        },
+      })
+      .from(ticketActivities)
+      .leftJoin(users, eq(ticketActivities.userId, users.id))
+      .where(eq(ticketActivities.ticketId, ticketId))
+      .orderBy(desc(ticketActivities.createdAt))
+      .limit(limit)
+      .offset((page - 1) * limit);
+
+    // Get total count
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(ticketActivities)
+      .where(eq(ticketActivities.ticketId, ticketId));
+
+    const total = countResult?.count || 0;
+
+    return {
+      data: activities,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  },
 };

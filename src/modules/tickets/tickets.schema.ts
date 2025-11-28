@@ -66,8 +66,15 @@ export const ticketIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
+// Activities query params schema
+export const activitiesQuerySchema = z.object({
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(50),
+});
+
 // Types
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 export type AssignTicketInput = z.infer<typeof assignTicketSchema>;
 export type TicketQuery = z.infer<typeof ticketQuerySchema>;
+export type ActivitiesQuery = z.infer<typeof activitiesQuerySchema>;
