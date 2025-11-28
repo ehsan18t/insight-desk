@@ -34,12 +34,12 @@ InsightDesk is a complete customer support platform designed for growing busines
 
 ### 👥 Team Collaboration
 
-| Role | Capabilities |
-|------|-------------|
+| Role         | Capabilities                                             |
+| ------------ | -------------------------------------------------------- |
 | **Customer** | Create tickets, view own tickets, reply to conversations |
-| **Agent** | Handle tickets, use templates, collaborate with team |
-| **Admin** | Manage members, configure settings, access reports |
-| **Owner** | Full control including billing and organization settings |
+| **Agent**    | Handle tickets, use templates, collaborate with team     |
+| **Admin**    | Manage members, configure settings, access reports       |
+| **Owner**    | Full control including billing and organization settings |
 
 ### ⏱️ SLA Management
 - Priority-based response and resolution targets
@@ -47,11 +47,11 @@ InsightDesk is a complete customer support platform designed for growing busines
 - Performance tracking and compliance reports
 
 | Priority | First Response | Resolution |
-|----------|---------------|------------|
-| Urgent | 1 hour | 4 hours |
-| High | 4 hours | 8 hours |
-| Medium | 8 hours | 24 hours |
-| Low | 24 hours | 72 hours |
+| -------- | -------------- | ---------- |
+| Urgent   | 1 hour         | 4 hours    |
+| High     | 4 hours        | 8 hours    |
+| Medium   | 8 hours        | 24 hours   |
+| Low      | 24 hours       | 72 hours   |
 
 ### ⭐ Customer Satisfaction (CSAT)
 - Automatic satisfaction surveys after resolution
@@ -87,16 +87,16 @@ InsightDesk is a complete customer support platform designed for growing busines
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Runtime | Bun |
-| Framework | Express 5.1 + TypeScript |
-| Database | PostgreSQL + Drizzle ORM |
-| Auth | Better Auth |
-| Real-time | Socket.IO |
-| Job Queue | BullMQ + Valkey |
+| Layer        | Technology                   |
+| ------------ | ---------------------------- |
+| Runtime      | Bun                          |
+| Framework    | Express 5.1 + TypeScript     |
+| Database     | PostgreSQL + Drizzle ORM     |
+| Auth         | Better Auth                  |
+| Real-time    | Socket.IO                    |
+| Job Queue    | BullMQ + Valkey              |
 | File Storage | S3-compatible (MinIO/AWS/R2) |
-| Email | Nodemailer + Templates |
+| Email        | Nodemailer + Templates       |
 
 ---
 
@@ -142,47 +142,47 @@ The API will be available at **http://localhost:3001**
 
 ## 📦 Development Services
 
-| Service | Port | URL |
-|---------|------|-----|
-| API Server | 3001 | http://localhost:3001 |
-| PostgreSQL | 5432 | Database |
-| Valkey | 6379 | Cache & Queue (Redis-compatible) |
-| Mailpit | 8025 | http://localhost:8025 (Email UI) |
-| MinIO | 9001 | http://localhost:9001 (Storage Console) |
+| Service    | Port | URL                                     |
+| ---------- | ---- | --------------------------------------- |
+| API Server | 3001 | http://localhost:3001                   |
+| PostgreSQL | 5432 | Database                                |
+| Valkey     | 6379 | Cache & Queue (Redis-compatible)        |
+| Mailpit    | 8025 | http://localhost:8025 (Email UI)        |
+| MinIO      | 9001 | http://localhost:9001 (Storage Console) |
 
 ---
 
 ## 📋 Available Scripts
 
 ### Development
-| Command | Description |
-|---------|-------------|
+| Command         | Description                |
+| --------------- | -------------------------- |
 | `bun run setup` | Full dev environment setup |
-| `bun run dev` | Start with hot reload |
-| `bun run start` | Start production server |
+| `bun run dev`   | Start with hot reload      |
+| `bun run start` | Start production server    |
 
 ### Docker
-| Command | Description |
-|---------|-------------|
-| `bun run docker:up` | Start all services |
-| `bun run docker:down` | Stop all services |
-| `bun run docker:logs` | View service logs |
+| Command               | Description        |
+| --------------------- | ------------------ |
+| `bun run docker:up`   | Start all services |
+| `bun run docker:down` | Stop all services  |
+| `bun run docker:logs` | View service logs  |
 
 ### Database
-| Command | Description |
-|---------|-------------|
-| `bun run db:generate` | Generate migrations |
-| `bun run db:migrate` | Apply migrations |
-| `bun run db:push` | Push schema (dev only) |
-| `bun run db:studio` | Open Drizzle Studio |
-| `bun run db:seed` | Seed demo data |
+| Command               | Description            |
+| --------------------- | ---------------------- |
+| `bun run db:generate` | Generate migrations    |
+| `bun run db:migrate`  | Apply migrations       |
+| `bun run db:push`     | Push schema (dev only) |
+| `bun run db:studio`   | Open Drizzle Studio    |
+| `bun run db:seed`     | Seed demo data         |
 
 ### Quality
-| Command | Description |
-|---------|-------------|
-| `bun run test` | Run tests |
-| `bun run typecheck` | TypeScript check |
-| `bun run check` | Lint & format check |
+| Command             | Description         |
+| ------------------- | ------------------- |
+| `bun run test`      | Run tests           |
+| `bun run typecheck` | TypeScript check    |
+| `bun run check`     | Lint & format check |
 
 ---
 

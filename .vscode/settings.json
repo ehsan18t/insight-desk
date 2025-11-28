@@ -8,6 +8,7 @@
     "isready",
     "shadcn",
     "signups",
+    "tsvector",
     "Valkey"
   ],
   "editor.defaultFormatter": "biomejs.biome",
