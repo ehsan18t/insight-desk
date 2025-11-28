@@ -59,6 +59,18 @@ export const inviteMemberSchema = z.object({
   role: z.enum(["customer", "agent", "admin"]).default("customer"),
 });
 
+// Accept invitation schema
+export const acceptInvitationSchema = z.object({
+  token: z.string(),
+});
+
+// List invitations schema
+export const listInvitationsSchema = z.object({
+  status: z.enum(["pending", "accepted", "expired", "cancelled"]).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+});
+
 // Update member role schema
 export const updateMemberRoleSchema = z.object({
   role: z.enum(["customer", "agent", "admin"]),
@@ -76,3 +88,5 @@ export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
 export type OrganizationQuery = z.infer<typeof organizationQuerySchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
 export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
+export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
+export type ListInvitationsInput = z.infer<typeof listInvitationsSchema>;

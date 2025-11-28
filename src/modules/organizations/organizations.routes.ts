@@ -4,8 +4,10 @@ import { ForbiddenError } from "@/middleware/error-handler";
 import { validateRequest } from "@/middleware/validate";
 import { authenticate } from "@/modules/auth/auth.middleware";
 import {
+  acceptInvitationSchema,
   createOrganizationSchema,
   inviteMemberSchema,
+  listInvitationsSchema,
   memberIdParamSchema,
   organizationIdParamSchema,
   organizationQuerySchema,
@@ -196,6 +198,176 @@ organizationsRouter.post(
       if (error instanceof Error && error.message.includes("already a member")) {
         res.status(409).json({ success: false, error: error.message });
         return;
+      }
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/organizations/:organizationId/invitations
+ * List invitations for the organization (admin/owner only)
+ */
+organizationsRouter.get(
+  "/:organizationId/invitations",
+  validateRequest({
+    params: organizationIdParamSchema,
+    query: listInvitationsSchema,
+  }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const hasPermission = await organizationsService.checkUserRole(
+        req.user!.id,
+        req.params.organizationId,
+        ["admin", "owner"],
+      );
+
+      if (!hasPermission) {
+        throw new ForbiddenError("Admin or owner role required");
+      }
+
+      const result = await organizationsService.listInvitations(
+        req.params.organizationId,
+        req.query as any,
+      );
+
+      res.json({ success: true, ...result });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * DELETE /api/organizations/:organizationId/invitations/:invitationId
+ * Cancel a pending invitation (admin/owner only)
+ */
+organizationsRouter.delete(
+  "/:organizationId/invitations/:invitationId",
+  validateRequest({
+    params: organizationIdParamSchema,
+  }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const hasPermission = await organizationsService.checkUserRole(
+        req.user!.id,
+        req.params.organizationId,
+        ["admin", "owner"],
+      );
+
+      if (!hasPermission) {
+        throw new ForbiddenError("Admin or owner role required");
+      }
+
+      const cancelled = await organizationsService.cancelInvitation(
+        req.params.organizationId,
+        req.params.invitationId,
+      );
+
+      if (!cancelled) {
+        res.status(404).json({ success: false, error: "Invitation not found or not pending" });
+        return;
+      }
+
+      res.json({ success: true, message: "Invitation cancelled" });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/organizations/:organizationId/invitations/:invitationId/resend
+ * Resend a pending invitation (admin/owner only)
+ */
+organizationsRouter.post(
+  "/:organizationId/invitations/:invitationId/resend",
+  validateRequest({
+    params: organizationIdParamSchema,
+  }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const hasPermission = await organizationsService.checkUserRole(
+        req.user!.id,
+        req.params.organizationId,
+        ["admin", "owner"],
+      );
+
+      if (!hasPermission) {
+        throw new ForbiddenError("Admin or owner role required");
+      }
+
+      const result = await organizationsService.resendInvitation(
+        req.params.organizationId,
+        req.params.invitationId,
+      );
+
+      if (!result.success) {
+        res.status(404).json({ success: false, error: "Invitation not found or not pending" });
+        return;
+      }
+
+      res.json({ success: true, message: "Invitation resent", expiresAt: result.expiresAt });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * GET /api/organizations/invitations/preview/:token
+ * Get invitation details by token (no auth required)
+ */
+organizationsRouter.get(
+  "/invitations/preview/:token",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const invitation = await organizationsService.getInvitationByToken(req.params.token);
+
+      if (!invitation) {
+        res.status(404).json({ success: false, error: "Invitation not found or expired" });
+        return;
+      }
+
+      res.json({ success: true, data: invitation });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+/**
+ * POST /api/organizations/invitations/accept
+ * Accept an invitation (requires auth)
+ */
+organizationsRouter.post(
+  "/invitations/accept",
+  validateRequest({
+    body: acceptInvitationSchema,
+  }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await organizationsService.acceptInvitation(
+        req.body.token,
+        req.user!.id,
+      );
+
+      res.json({
+        success: true,
+        message: "Invitation accepted",
+        organizationId: result.organizationId,
+        role: result.role,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes("Invalid or expired")) {
+          res.status(400).json({ success: false, error: error.message });
+          return;
+        }
+        if (error.message.includes("different email")) {
+          res.status(403).json({ success: false, error: error.message });
+          return;
+        }
       }
       next(error);
     }

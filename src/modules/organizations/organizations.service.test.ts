@@ -34,6 +34,10 @@ vi.mock("@/db", () => ({
       userOrganizations: {
         findFirst: vi.fn(),
       },
+      organizationInvitations: {
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+      },
     },
   },
   closeDatabaseConnection: vi.fn(),
@@ -333,6 +337,22 @@ describe("organizationsService", () => {
 
     it("should create invitation for non-existent user", async () => {
       vi.mocked(db.query.users.findFirst).mockResolvedValue(undefined);
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(undefined);
+      vi.mocked(db.insert).mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{
+            id: "inv-123",
+            orgId: "org-123",
+            email: "new@test.com",
+            role: "agent",
+            token: "test-token",
+            status: "pending",
+            invitedById: "inviter-123",
+            expiresAt: new Date(),
+            createdAt: new Date(),
+          }]),
+        }),
+      } as any);
 
       const result = await organizationsService.inviteMember(
         "org-123",
@@ -341,6 +361,7 @@ describe("organizationsService", () => {
       );
 
       expect(result.invited).toBe(true);
+      expect(result.invitationId).toBe("inv-123");
       expect(result.message).toContain("Invitation sent");
     });
   });

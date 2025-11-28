@@ -1,7 +1,9 @@
-import { and, asc, count, desc, eq, ilike, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, ilike, type SQL } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import { db } from "@/db";
 import {
   type Organization,
+  organizationInvitations,
   type OrganizationSettings,
   organizations,
   type UserRole,
@@ -11,6 +13,7 @@ import {
 import type {
   CreateOrganizationInput,
   InviteMemberInput,
+  ListInvitationsInput,
   OrganizationQuery,
   UpdateMemberRoleInput,
   UpdateOrganizationInput,
@@ -308,8 +311,8 @@ export const organizationsService = {
   async inviteMember(
     organizationId: string,
     input: InviteMemberInput,
-    _inviterId: string,
-  ): Promise<{ userId?: string; invited: boolean; message: string }> {
+    inviterId: string,
+  ): Promise<{ userId?: string; invitationId?: string; invited: boolean; message: string }> {
     // Check if user exists
     const existingUser = await db.query.users.findFirst({
       where: eq(users.email, input.email.toLowerCase()),
@@ -342,13 +345,283 @@ export const organizationsService = {
       };
     }
 
-    // For users that don't exist, we'd typically create an invitation record
-    // and send an email. For now, we'll return a message indicating this.
-    // In a full implementation, this would integrate with the email system.
+    // Check if there's already a pending invitation for this email
+    const existingInvitation = await db.query.organizationInvitations.findFirst({
+      where: and(
+        eq(organizationInvitations.orgId, organizationId),
+        eq(organizationInvitations.email, input.email.toLowerCase()),
+        eq(organizationInvitations.status, "pending"),
+      ),
+    });
+
+    if (existingInvitation) {
+      // Return existing invitation
+      return {
+        invitationId: existingInvitation.id,
+        invited: true,
+        message: `Invitation already sent to ${input.email}`,
+      };
+    }
+
+    // Create invitation record
+    const token = nanoid(32);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+
+    const [invitation] = await db
+      .insert(organizationInvitations)
+      .values({
+        orgId: organizationId,
+        email: input.email.toLowerCase(),
+        role: input.role,
+        token,
+        invitedById: inviterId,
+        expiresAt,
+      })
+      .returning();
+
+    // TODO: Send invitation email with token
+    // This would integrate with an email service like SendGrid, Resend, etc.
+
     return {
+      invitationId: invitation.id,
       invited: true,
-      message: `Invitation sent to ${input.email}. They will be added when they sign up.`,
+      message: `Invitation sent to ${input.email}. They will be added when they accept.`,
     };
+  },
+
+  /**
+   * Accept an invitation by token
+   */
+  async acceptInvitation(
+    token: string,
+    userId: string,
+  ): Promise<{ organizationId: string; role: string }> {
+    // Find the invitation
+    const invitation = await db.query.organizationInvitations.findFirst({
+      where: and(
+        eq(organizationInvitations.token, token),
+        eq(organizationInvitations.status, "pending"),
+        gt(organizationInvitations.expiresAt, new Date()),
+      ),
+    });
+
+    if (!invitation) {
+      throw new Error("Invalid or expired invitation");
+    }
+
+    // Get the user's email to verify it matches
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Check if email matches (case insensitive)
+    if (user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+      throw new Error("This invitation was sent to a different email address");
+    }
+
+    // Check if already a member
+    const existingMembership = await db.query.userOrganizations.findFirst({
+      where: and(
+        eq(userOrganizations.userId, userId),
+        eq(userOrganizations.organizationId, invitation.orgId),
+      ),
+    });
+
+    if (existingMembership) {
+      // Mark invitation as accepted
+      await db
+        .update(organizationInvitations)
+        .set({
+          status: "accepted",
+          acceptedAt: new Date(),
+          acceptedById: userId,
+        })
+        .where(eq(organizationInvitations.id, invitation.id));
+
+      return {
+        organizationId: invitation.orgId,
+        role: existingMembership.role,
+      };
+    }
+
+    // Add user to organization
+    await db.insert(userOrganizations).values({
+      userId,
+      organizationId: invitation.orgId,
+      role: invitation.role,
+    });
+
+    // Mark invitation as accepted
+    await db
+      .update(organizationInvitations)
+      .set({
+        status: "accepted",
+        acceptedAt: new Date(),
+        acceptedById: userId,
+      })
+      .where(eq(organizationInvitations.id, invitation.id));
+
+    return {
+      organizationId: invitation.orgId,
+      role: invitation.role,
+    };
+  },
+
+  /**
+   * Get invitation by token (for preview before accepting)
+   */
+  async getInvitationByToken(token: string): Promise<{
+    id: string;
+    organization: { id: string; name: string };
+    role: string;
+    email: string;
+    expiresAt: Date;
+    isExpired: boolean;
+  } | null> {
+    const invitation = await db.query.organizationInvitations.findFirst({
+      where: eq(organizationInvitations.token, token),
+      with: {
+        organization: true,
+      },
+    });
+
+    if (!invitation || invitation.status !== "pending") {
+      return null;
+    }
+
+    return {
+      id: invitation.id,
+      organization: {
+        id: invitation.organization.id,
+        name: invitation.organization.name,
+      },
+      role: invitation.role,
+      email: invitation.email,
+      expiresAt: invitation.expiresAt,
+      isExpired: new Date() > invitation.expiresAt,
+    };
+  },
+
+  /**
+   * List invitations for an organization
+   */
+  async listInvitations(
+    organizationId: string,
+    input: ListInvitationsInput,
+  ): Promise<{
+    invitations: Array<{
+      id: string;
+      email: string;
+      role: string;
+      status: string;
+      invitedBy: { id: string; name: string | null; email: string };
+      createdAt: Date;
+      expiresAt: Date;
+    }>;
+    pagination: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const { status, page = 1, limit = 20 } = input;
+    const offset = (page - 1) * limit;
+
+    // Build where conditions
+    const conditions: SQL[] = [eq(organizationInvitations.orgId, organizationId)];
+    if (status) {
+      conditions.push(eq(organizationInvitations.status, status));
+    }
+
+    // Get total count
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(organizationInvitations)
+      .where(and(...conditions));
+
+    // Get invitations
+    const invitations = await db.query.organizationInvitations.findMany({
+      where: and(...conditions),
+      with: {
+        invitedBy: true,
+      },
+      orderBy: [desc(organizationInvitations.createdAt)],
+      limit,
+      offset,
+    });
+
+    return {
+      invitations: invitations.map((inv) => ({
+        id: inv.id,
+        email: inv.email,
+        role: inv.role,
+        status: inv.status,
+        invitedBy: {
+          id: inv.invitedBy.id,
+          name: inv.invitedBy.name,
+          email: inv.invitedBy.email,
+        },
+        createdAt: inv.createdAt,
+        expiresAt: inv.expiresAt,
+      })),
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  },
+
+  /**
+   * Cancel a pending invitation
+   */
+  async cancelInvitation(organizationId: string, invitationId: string): Promise<boolean> {
+    const [updated] = await db
+      .update(organizationInvitations)
+      .set({ status: "cancelled" })
+      .where(
+        and(
+          eq(organizationInvitations.id, invitationId),
+          eq(organizationInvitations.orgId, organizationId),
+          eq(organizationInvitations.status, "pending"),
+        ),
+      )
+      .returning();
+
+    return !!updated;
+  },
+
+  /**
+   * Resend an invitation (update expiration and potentially send email again)
+   */
+  async resendInvitation(
+    organizationId: string,
+    invitationId: string,
+  ): Promise<{ success: boolean; expiresAt?: Date }> {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+
+    const [updated] = await db
+      .update(organizationInvitations)
+      .set({ expiresAt })
+      .where(
+        and(
+          eq(organizationInvitations.id, invitationId),
+          eq(organizationInvitations.orgId, organizationId),
+          eq(organizationInvitations.status, "pending"),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      return { success: false };
+    }
+
+    // TODO: Resend invitation email
+
+    return { success: true, expiresAt };
   },
 
   /**

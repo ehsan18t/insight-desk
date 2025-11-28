@@ -447,3 +447,36 @@ export const attachments = pgTable(
     index("attachments_uploaded_by_idx").on(table.uploadedById),
   ],
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORGANIZATION INVITATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const inviteStatusEnum = pgEnum("invite_status", ["pending", "accepted", "expired", "cancelled"]);
+
+export const organizationInvitations = pgTable(
+  "organization_invitations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: userRoleEnum("role").notNull().default("member"),
+    token: text("token").notNull().unique(),
+    status: inviteStatusEnum("status").notNull().default("pending"),
+    invitedById: uuid("invited_by_id")
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    acceptedById: uuid("accepted_by_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("invitations_org_idx").on(table.orgId),
+    index("invitations_email_idx").on(table.email),
+    index("invitations_token_idx").on(table.token),
+    index("invitations_status_idx").on(table.status),
+  ],
+);

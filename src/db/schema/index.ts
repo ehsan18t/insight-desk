@@ -19,7 +19,9 @@ import type {
   attachments,
   cannedResponses,
   categories,
+  inviteStatusEnum,
   messageTypeEnum,
+  organizationInvitations,
   organizations,
   sessions,
   slaPolicies,
@@ -93,3 +95,8 @@ export type NewVerification = typeof verifications.$inferInsert;
 // Attachment types
 export type AttachmentRecord = typeof attachments.$inferSelect;
 export type NewAttachmentRecord = typeof attachments.$inferInsert;
+
+// Organization Invitation types
+export type OrganizationInvitation = typeof organizationInvitations.$inferSelect;
+export type NewOrganizationInvitation = typeof organizationInvitations.$inferInsert;
+export type InviteStatus = (typeof inviteStatusEnum.enumValues)[number];

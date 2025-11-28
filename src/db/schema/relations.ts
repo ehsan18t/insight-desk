@@ -7,6 +7,7 @@ import {
   attachments,
   cannedResponses,
   categories,
+  organizationInvitations,
   organizations,
   sessions,
   slaPolicies,
@@ -43,6 +44,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   cannedResponses: many(cannedResponses),
   categories: many(categories),
   tags: many(tags),
+  invitations: many(organizationInvitations),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -214,5 +216,26 @@ export const attachmentsRelations = relations(attachments, ({ one }) => ({
   uploadedBy: one(users, {
     fields: [attachments.uploadedById],
     references: [users.id],
+  }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORGANIZATION INVITATION RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const organizationInvitationsRelations = relations(organizationInvitations, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationInvitations.orgId],
+    references: [organizations.id],
+  }),
+  invitedBy: one(users, {
+    fields: [organizationInvitations.invitedById],
+    references: [users.id],
+    relationName: "invited_by",
+  }),
+  acceptedBy: one(users, {
+    fields: [organizationInvitations.acceptedById],
+    references: [users.id],
+    relationName: "accepted_by",
   }),
 }));
