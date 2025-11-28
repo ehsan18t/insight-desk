@@ -5,14 +5,18 @@ import { relations } from "drizzle-orm";
 import {
   accounts,
   attachments,
+  auditLogs,
   cannedResponses,
   categories,
   csatSurveys,
   organizationInvitations,
+  organizationSubscriptions,
   organizations,
   savedFilters,
   sessions,
   slaPolicies,
+  subscriptionPlans,
+  subscriptionUsage,
   tags,
   ticketActivities,
   ticketMessages,
@@ -39,7 +43,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 // ORGANIZATION RELATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const organizationsRelations = relations(organizations, ({ many }) => ({
+export const organizationsRelations = relations(organizations, ({ one, many }) => ({
   members: many(userOrganizations),
   tickets: many(tickets),
   slaPolicies: many(slaPolicies),
@@ -47,6 +51,12 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   categories: many(categories),
   tags: many(tags),
   invitations: many(organizationInvitations),
+  subscription: one(organizationSubscriptions, {
+    fields: [organizations.id],
+    references: [organizationSubscriptions.organizationId],
+  }),
+  usage: many(subscriptionUsage),
+  auditLogs: many(auditLogs),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -279,5 +289,63 @@ export const csatSurveysRelations = relations(csatSurveys, ({ one }) => ({
     fields: [csatSurveys.agentId],
     references: [users.id],
     relationName: "csat_agent",
+  }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBSCRIPTION PLAN RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const subscriptionPlansRelations = relations(subscriptionPlans, ({ many }) => ({
+  subscriptions: many(organizationSubscriptions),
+  previousSubscriptions: many(organizationSubscriptions, { relationName: "previous_plan" }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORGANIZATION SUBSCRIPTION RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const organizationSubscriptionsRelations = relations(
+  organizationSubscriptions,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [organizationSubscriptions.organizationId],
+      references: [organizations.id],
+    }),
+    plan: one(subscriptionPlans, {
+      fields: [organizationSubscriptions.planId],
+      references: [subscriptionPlans.id],
+    }),
+    previousPlan: one(subscriptionPlans, {
+      fields: [organizationSubscriptions.previousPlanId],
+      references: [subscriptionPlans.id],
+      relationName: "previous_plan",
+    }),
+  }),
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBSCRIPTION USAGE RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const subscriptionUsageRelations = relations(subscriptionUsage, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [subscriptionUsage.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIT LOG RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [auditLogs.organizationId],
+    references: [organizations.id],
+  }),
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
   }),
 }));

@@ -10,6 +10,7 @@ import { rateLimit } from "./middleware/rate-limit";
 
 // Import routes
 import { attachmentsRouter } from "./modules/attachments";
+import { auditRouter } from "./modules/audit";
 import { authRouter } from "./modules/auth";
 import { cannedResponsesRouter } from "./modules/canned-responses";
 import { categoriesRouter } from "./modules/categories";
@@ -18,8 +19,10 @@ import { dashboardRouter } from "./modules/dashboard";
 import { exportRouter } from "./modules/export";
 import { jobsRouter } from "./modules/jobs";
 import { organizationsRouter } from "./modules/organizations";
+import { plansRouter } from "./modules/plans";
 import { savedFiltersRouter } from "./modules/saved-filters";
 import { slaRouter } from "./modules/sla";
+import { subscriptionsRouter } from "./modules/subscriptions";
 import { tagsRouter } from "./modules/tags";
 import { ticketsRouter } from "./modules/tickets";
 import { usersRouter } from "./modules/users";
@@ -114,6 +117,9 @@ export function createApp(): Express {
   app.use("/api/export", exportRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/jobs", jobsRouter);
+  app.use("/api/plans", plansRouter);
+  app.use("/api/subscriptions", subscriptionsRouter);
+  app.use("/api/audit", auditRouter);
 
   // Placeholder route for testing
   app.get("/api", (_req, res) => {

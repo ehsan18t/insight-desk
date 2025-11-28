@@ -11,6 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import { sendTemplateEmail } from "@/lib/email";
+import { subscriptionsService } from "@/modules/subscriptions";
 import type {
   CreateOrganizationInput,
   InviteMemberInput,
@@ -71,6 +72,14 @@ export const organizationsService = {
 
       return org;
     });
+
+    // Auto-assign default subscription (free plan)
+    try {
+      await subscriptionsService.createForOrganization(result.id);
+    } catch {
+      // Log but don't fail org creation if subscription setup fails
+      console.warn(`Failed to create subscription for org ${result.id}`);
+    }
 
     return result;
   },

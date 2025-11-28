@@ -6,6 +6,7 @@
 import { createLogger } from "@/lib/logger";
 import { autoCloseStaleTickets, getAutoClosePreview } from "./auto-close";
 import { checkSlaBreaches, getSlaStats } from "./sla-breach";
+import { getExpiringSubscriptions, resetExpiredSubscriptionUsage } from "./subscription-reset";
 
 const logger = createLogger("jobs:scheduler");
 
@@ -81,6 +82,10 @@ export function startScheduler(): void {
     await autoCloseStaleTickets();
   }); // Every hour
 
+  registerJob("subscription-reset", 60 * 60 * 1000, async () => {
+    await resetExpiredSubscriptionUsage();
+  }); // Every hour
+
   // Start job intervals
   for (const [name, job] of jobs) {
     const intervalId = setInterval(() => runJob(name), job.interval);
@@ -137,4 +142,11 @@ export async function triggerJob(name: string): Promise<boolean> {
 }
 
 // Export individual job functions for manual use
-export { checkSlaBreaches, getSlaStats, autoCloseStaleTickets, getAutoClosePreview };
+export {
+  checkSlaBreaches,
+  getSlaStats,
+  autoCloseStaleTickets,
+  getAutoClosePreview,
+  resetExpiredSubscriptionUsage,
+  getExpiringSubscriptions,
+};

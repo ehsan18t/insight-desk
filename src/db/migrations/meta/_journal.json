@@ -15,6 +15,13 @@
       "when": 1764336270311,
       "tag": "0001_oval_jetstream",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1764347361334,
+      "tag": "0002_huge_mentallo",
+      "breakpoints": true
     }
   ]
 }

@@ -579,3 +579,253 @@ export const csatSurveys = pgTable(
     index("csat_rating_idx").on(table.rating),
   ],
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBSCRIPTION SYSTEM ENUMS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const subscriptionStatusEnum = pgEnum("subscription_status", [
+  "active",
+  "trialing",
+  "past_due",
+  "canceled",
+  "expired",
+]);
+
+export const billingIntervalEnum = pgEnum("billing_interval", ["monthly", "yearly", "lifetime"]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBSCRIPTION PLANS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface PlanLimits {
+  ticketsPerMonth: number; // -1 for unlimited
+  messagesPerMonth: number; // -1 for unlimited
+  storagePerOrgMB: number; // -1 for unlimited
+  apiRequestsPerMinute: number; // Rate limit for API requests
+  agentsPerOrg: number; // -1 for unlimited
+  customersPerOrg: number; // -1 for unlimited
+  slaEnabled: boolean;
+  customFieldsEnabled: boolean;
+  reportingEnabled: boolean;
+  apiAccessEnabled: boolean;
+  prioritySupport: boolean;
+}
+
+export interface PlanFeatures {
+  ticketManagement: boolean;
+  emailChannel: boolean;
+  chatWidget: boolean;
+  apiChannel: boolean;
+  cannedResponses: boolean;
+  tags: boolean;
+  categories: boolean;
+  fileAttachments: boolean;
+  csatSurveys: boolean;
+  slaManagement: boolean;
+  customFields: boolean;
+  analytics: boolean;
+  advancedReporting: boolean;
+  dataExport: boolean;
+  customBranding: boolean;
+  singleSignOn: boolean;
+  auditLog: boolean;
+  multipleWorkspaces: boolean;
+}
+
+export const subscriptionPlans = pgTable(
+  "subscription_plans",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    description: text("description"),
+    // Pricing
+    price: integer("price").notNull().default(0), // Price in cents (0 = free)
+    currency: text("currency").notNull().default("USD"),
+    billingInterval: billingIntervalEnum("billing_interval").notNull().default("monthly"),
+    // Limits and features as JSONB
+    limits: jsonb("limits").$type<PlanLimits>().notNull(),
+    features: jsonb("features").$type<PlanFeatures>().notNull(),
+    // Plan settings
+    isActive: boolean("is_active").notNull().default(true),
+    isDefault: boolean("is_default").notNull().default(false), // Auto-assign on org creation
+    isVisible: boolean("is_visible").notNull().default(true), // Show in pricing page
+    // Alert settings
+    alertsEnabled: boolean("alerts_enabled").notNull().default(true),
+    alertThreshold: integer("alert_threshold").notNull().default(90), // Alert at X% usage
+    // Display order for pricing page
+    position: integer("position").notNull().default(0),
+    // For external billing integration
+    stripeProductId: text("stripe_product_id"),
+    stripePriceId: text("stripe_price_id"),
+    // Metadata for custom fields
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    // Timestamps
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("plan_slug_idx").on(table.slug),
+    index("plan_is_active_idx").on(table.isActive),
+    index("plan_is_default_idx").on(table.isDefault),
+    index("plan_is_visible_idx").on(table.isVisible),
+    index("plan_position_idx").on(table.position),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ORGANIZATION SUBSCRIPTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const organizationSubscriptions = pgTable(
+  "organization_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" })
+      .unique(), // One subscription per org
+    planId: uuid("plan_id")
+      .notNull()
+      .references(() => subscriptionPlans.id, { onDelete: "restrict" }),
+    status: subscriptionStatusEnum("status").notNull().default("active"),
+    // Billing period
+    currentPeriodStart: timestamp("current_period_start", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }).notNull(),
+    // Cancel management
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+    // External billing (Stripe, etc.)
+    externalSubscriptionId: text("external_subscription_id"),
+    externalCustomerId: text("external_customer_id"),
+    // Previous plan for tracking upgrades/downgrades
+    previousPlanId: uuid("previous_plan_id").references(() => subscriptionPlans.id, {
+      onDelete: "set null",
+    }),
+    // Metadata
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    // Timestamps
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("subscription_org_idx").on(table.organizationId),
+    index("subscription_plan_idx").on(table.planId),
+    index("subscription_status_idx").on(table.status),
+    index("subscription_period_end_idx").on(table.currentPeriodEnd),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUBSCRIPTION USAGE TRACKING
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const subscriptionUsage = pgTable(
+  "subscription_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    // Period tracking
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    // Usage counters
+    ticketsCreated: integer("tickets_created").notNull().default(0),
+    messagesCreated: integer("messages_created").notNull().default(0),
+    storageUsedMB: integer("storage_used_mb").notNull().default(0),
+    apiRequestsCount: integer("api_requests_count").notNull().default(0),
+    // Remaining limits (for quick checks)
+    ticketsRemaining: integer("tickets_remaining").notNull().default(0),
+    messagesRemaining: integer("messages_remaining").notNull().default(0),
+    storageRemainingMB: integer("storage_remaining_mb").notNull().default(0),
+    // Alert tracking
+    ticketAlertSentAt: timestamp("ticket_alert_sent_at", { withTimezone: true }),
+    messageAlertSentAt: timestamp("message_alert_sent_at", { withTimezone: true }),
+    storageAlertSentAt: timestamp("storage_alert_sent_at", { withTimezone: true }),
+    // Timestamps
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("usage_org_idx").on(table.organizationId),
+    index("usage_period_idx").on(table.periodStart, table.periodEnd),
+    // Unique constraint: one usage record per org per period
+    uniqueIndex("usage_org_period_idx").on(
+      table.organizationId,
+      table.periodStart,
+      table.periodEnd,
+    ),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AUDIT LOGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const auditActionEnum = pgEnum("audit_action", [
+  // Auth actions
+  "user_login",
+  "user_logout",
+  "user_password_changed",
+  "user_email_changed",
+  // Organization actions
+  "organization_created",
+  "organization_updated",
+  "organization_deleted",
+  // Subscription actions
+  "subscription_created",
+  "subscription_upgraded",
+  "subscription_downgraded",
+  "subscription_canceled",
+  "subscription_renewed",
+  // User management
+  "user_invited",
+  "user_removed",
+  "user_role_changed",
+  // Settings changes
+  "settings_updated",
+  "sla_policy_created",
+  "sla_policy_updated",
+  "sla_policy_deleted",
+  // Data export
+  "data_exported",
+  // API access
+  "api_key_created",
+  "api_key_revoked",
+]);
+
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    action: auditActionEnum("action").notNull(),
+    // Target resource
+    resourceType: text("resource_type"), // 'user', 'ticket', 'organization', etc.
+    resourceId: text("resource_id"),
+    // Request context
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    // Change details
+    previousValue: jsonb("previous_value").$type<Record<string, unknown>>(),
+    newValue: jsonb("new_value").$type<Record<string, unknown>>(),
+    // Additional context
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().default({}),
+    // Timestamp
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("audit_org_idx").on(table.organizationId),
+    index("audit_user_idx").on(table.userId),
+    index("audit_action_idx").on(table.action),
+    index("audit_resource_idx").on(table.resourceType, table.resourceId),
+    index("audit_created_at_idx").on(table.createdAt),
+  ],
+);

@@ -8,6 +8,8 @@ export type {
   ActivityMetadata,
   Attachment,
   OrganizationSettings,
+  PlanFeatures,
+  PlanLimits,
   SavedFilterCriteria,
 } from "./tables";
 // Tables and Enums
@@ -18,16 +20,23 @@ import type {
   accounts,
   activityActionEnum,
   attachments,
+  auditActionEnum,
+  auditLogs,
+  billingIntervalEnum,
   cannedResponses,
   categories,
   csatSurveys,
   inviteStatusEnum,
   messageTypeEnum,
   organizationInvitations,
+  organizationSubscriptions,
   organizations,
   savedFilters,
   sessions,
   slaPolicies,
+  subscriptionPlans,
+  subscriptionStatusEnum,
+  subscriptionUsage,
   tags,
   ticketActivities,
   ticketChannelEnum,
@@ -111,3 +120,22 @@ export type NewSavedFilter = typeof savedFilters.$inferInsert;
 // CSAT Survey types
 export type CsatSurvey = typeof csatSurveys.$inferSelect;
 export type NewCsatSurvey = typeof csatSurveys.$inferInsert;
+
+// Subscription Plan types
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type NewSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
+export type SubscriptionStatus = (typeof subscriptionStatusEnum.enumValues)[number];
+export type BillingInterval = (typeof billingIntervalEnum.enumValues)[number];
+
+// Organization Subscription types
+export type OrganizationSubscription = typeof organizationSubscriptions.$inferSelect;
+export type NewOrganizationSubscription = typeof organizationSubscriptions.$inferInsert;
+
+// Subscription Usage types
+export type SubscriptionUsageRecord = typeof subscriptionUsage.$inferSelect;
+export type NewSubscriptionUsageRecord = typeof subscriptionUsage.$inferInsert;
+
+// Audit Log types
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type NewAuditLog = typeof auditLogs.$inferInsert;
+export type AuditAction = (typeof auditActionEnum.enumValues)[number];

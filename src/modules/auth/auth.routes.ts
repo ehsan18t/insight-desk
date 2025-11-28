@@ -28,8 +28,8 @@ const logger = createLogger("auth");
 // Apply rate limiting to auth endpoints
 router.use(authRateLimit);
 
-// Mount Better Auth handler
-router.all("/*", toNodeHandler(auth));
+// Mount Better Auth handler - use "{*path}" for Express 5 compatibility
+router.all("/{*path}", toNodeHandler(auth));
 
 // ─────────────────────────────────────────────────────────────
 // Custom auth endpoints
