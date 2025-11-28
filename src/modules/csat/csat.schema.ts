@@ -5,7 +5,7 @@ import { z } from "zod";
 // ─────────────────────────────────────────────────────────────
 
 export const submitSurveySchema = z.object({
-  rating: z.number().int().min(1).max(5, "Rating must be between 1 and 5"),
+  rating: z.int().min(1).max(5, "Rating must be between 1 and 5"),
   feedback: z.string().max(2000, "Feedback must be 2000 characters or less").optional(),
 });
 
@@ -16,12 +16,12 @@ export type SubmitSurveyInput = z.infer<typeof submitSurveySchema>;
 // ─────────────────────────────────────────────────────────────
 
 export const surveyQuerySchema = z.object({
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
-  agentId: z.string().uuid().optional(),
+  page: z.coerce.number().int().positive().prefault(1),
+  limit: z.coerce.number().int().positive().max(100).prefault(20),
+  agentId: z.uuid().optional(),
   rating: z.coerce.number().int().min(1).max(5).optional(),
-  dateFrom: z.string().datetime().optional(),
-  dateTo: z.string().datetime().optional(),
+  dateFrom: z.iso.datetime().optional(),
+  dateTo: z.iso.datetime().optional(),
   responded: z
     .string()
     .transform((v) => v === "true")
@@ -43,7 +43,7 @@ export const surveyTokenParamSchema = z.object({
 // ─────────────────────────────────────────────────────────────
 
 export const surveyIdParamSchema = z.object({
-  id: z.string().uuid("Invalid survey ID"),
+  id: z.uuid("Invalid survey ID"),
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -51,9 +51,9 @@ export const surveyIdParamSchema = z.object({
 // ─────────────────────────────────────────────────────────────
 
 export const statsQuerySchema = z.object({
-  agentId: z.string().uuid().optional(),
-  dateFrom: z.string().datetime().optional(),
-  dateTo: z.string().datetime().optional(),
+  agentId: z.uuid().optional(),
+  dateFrom: z.iso.datetime().optional(),
+  dateTo: z.iso.datetime().optional(),
 });
 
 export type StatsQuery = z.infer<typeof statsQuerySchema>;

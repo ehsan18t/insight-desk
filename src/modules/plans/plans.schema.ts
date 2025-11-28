@@ -10,38 +10,38 @@ import { z } from "zod";
 // ─────────────────────────────────────────────────────────────
 
 export const planLimitsSchema = z.object({
-  ticketsPerMonth: z.number().int().min(-1).default(100), // -1 = unlimited
-  messagesPerMonth: z.number().int().min(-1).default(500),
-  storagePerOrgMB: z.number().int().min(-1).default(500),
-  apiRequestsPerMinute: z.number().int().min(1).default(60),
-  agentsPerOrg: z.number().int().min(-1).default(3),
-  customersPerOrg: z.number().int().min(-1).default(100),
-  slaEnabled: z.boolean().default(false),
-  customFieldsEnabled: z.boolean().default(false),
-  reportingEnabled: z.boolean().default(true),
-  apiAccessEnabled: z.boolean().default(false),
-  prioritySupport: z.boolean().default(false),
+  ticketsPerMonth: z.int().min(-1).prefault(100), // -1 = unlimited
+  messagesPerMonth: z.int().min(-1).prefault(500),
+  storagePerOrgMB: z.int().min(-1).prefault(500),
+  apiRequestsPerMinute: z.int().min(1).prefault(60),
+  agentsPerOrg: z.int().min(-1).prefault(3),
+  customersPerOrg: z.int().min(-1).prefault(100),
+  slaEnabled: z.boolean().prefault(false),
+  customFieldsEnabled: z.boolean().prefault(false),
+  reportingEnabled: z.boolean().prefault(true),
+  apiAccessEnabled: z.boolean().prefault(false),
+  prioritySupport: z.boolean().prefault(false),
 });
 
 export const planFeaturesSchema = z.object({
-  ticketManagement: z.boolean().default(true),
-  emailChannel: z.boolean().default(true),
-  chatWidget: z.boolean().default(false),
-  apiChannel: z.boolean().default(false),
-  cannedResponses: z.boolean().default(true),
-  tags: z.boolean().default(true),
-  categories: z.boolean().default(true),
-  fileAttachments: z.boolean().default(true),
-  csatSurveys: z.boolean().default(false),
-  slaManagement: z.boolean().default(false),
-  customFields: z.boolean().default(false),
-  analytics: z.boolean().default(false),
-  advancedReporting: z.boolean().default(false),
-  dataExport: z.boolean().default(false),
-  customBranding: z.boolean().default(false),
-  singleSignOn: z.boolean().default(false),
-  auditLog: z.boolean().default(false),
-  multipleWorkspaces: z.boolean().default(false),
+  ticketManagement: z.boolean().prefault(true),
+  emailChannel: z.boolean().prefault(true),
+  chatWidget: z.boolean().prefault(false),
+  apiChannel: z.boolean().prefault(false),
+  cannedResponses: z.boolean().prefault(true),
+  tags: z.boolean().prefault(true),
+  categories: z.boolean().prefault(true),
+  fileAttachments: z.boolean().prefault(true),
+  csatSurveys: z.boolean().prefault(false),
+  slaManagement: z.boolean().prefault(false),
+  customFields: z.boolean().prefault(false),
+  analytics: z.boolean().prefault(false),
+  advancedReporting: z.boolean().prefault(false),
+  dataExport: z.boolean().prefault(false),
+  customBranding: z.boolean().prefault(false),
+  singleSignOn: z.boolean().prefault(false),
+  auditLog: z.boolean().prefault(false),
+  multipleWorkspaces: z.boolean().prefault(false),
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ export const planFeaturesSchema = z.object({
 // ─────────────────────────────────────────────────────────────
 
 export const planIdParam = z.object({
-  id: z.string().uuid("Invalid plan ID"),
+  id: z.uuid("Invalid plan ID"),
 });
 
 export const planSlugParam = z.object({
@@ -64,20 +64,20 @@ export const createPlanBody = z.object({
     .max(50, "Slug too long")
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes"),
   description: z.string().max(500, "Description too long").optional(),
-  price: z.number().int().min(0, "Price must be non-negative").default(0), // In cents
-  currency: z.string().length(3, "Currency must be 3 characters").default("USD"),
-  billingInterval: z.enum(["monthly", "yearly", "lifetime"]).default("monthly"),
+  price: z.int().min(0, "Price must be non-negative").prefault(0), // In cents
+  currency: z.string().length(3, "Currency must be 3 characters").prefault("USD"),
+  billingInterval: z.enum(["monthly", "yearly", "lifetime"]).prefault("monthly"),
   limits: planLimitsSchema,
   features: planFeaturesSchema,
-  isActive: z.boolean().default(true),
-  isDefault: z.boolean().default(false),
-  isVisible: z.boolean().default(true),
-  alertsEnabled: z.boolean().default(true),
-  alertThreshold: z.number().int().min(50).max(100).default(90),
-  position: z.number().int().min(0).default(0),
+  isActive: z.boolean().prefault(true),
+  isDefault: z.boolean().prefault(false),
+  isVisible: z.boolean().prefault(true),
+  alertsEnabled: z.boolean().prefault(true),
+  alertThreshold: z.int().min(50).max(100).prefault(90),
+  position: z.int().min(0).prefault(0),
   stripeProductId: z.string().optional(),
   stripePriceId: z.string().optional(),
-  metadata: z.record(z.string(), z.unknown()).default({}),
+  metadata: z.record(z.string(), z.unknown()).prefault({}),
 });
 
 export const updatePlanBody = z.object({
@@ -89,7 +89,7 @@ export const updatePlanBody = z.object({
     .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with dashes")
     .optional(),
   description: z.string().max(500, "Description too long").optional().nullable(),
-  price: z.number().int().min(0, "Price must be non-negative").optional(),
+  price: z.int().min(0, "Price must be non-negative").optional(),
   currency: z.string().length(3, "Currency must be 3 characters").optional(),
   billingInterval: z.enum(["monthly", "yearly", "lifetime"]).optional(),
   limits: planLimitsSchema.partial().optional(),
@@ -98,8 +98,8 @@ export const updatePlanBody = z.object({
   isDefault: z.boolean().optional(),
   isVisible: z.boolean().optional(),
   alertsEnabled: z.boolean().optional(),
-  alertThreshold: z.number().int().min(50).max(100).optional(),
-  position: z.number().int().min(0).optional(),
+  alertThreshold: z.int().min(50).max(100).optional(),
+  position: z.int().min(0).optional(),
   stripeProductId: z.string().optional().nullable(),
   stripePriceId: z.string().optional().nullable(),
   metadata: z.record(z.string(), z.unknown()).optional(),

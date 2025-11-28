@@ -91,13 +91,13 @@ const UpdateCannedResponseRequestSchema = z
  */
 const ListCannedResponsesQuerySchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1).describe("Page number (starting from 1)"),
+    page: z.coerce.number().int().min(1).prefault(1).describe("Page number (starting from 1)"),
     limit: z.coerce
       .number()
       .int()
       .min(1)
       .max(100)
-      .default(50)
+      .prefault(50)
       .describe("Number of results per page (1-100)"),
     category: z.string().max(100).optional().describe("Filter by category"),
     search: z.string().max(200).optional().describe("Search in title and content"),
@@ -110,7 +110,7 @@ const ListCannedResponsesQuerySchema = z
 const CategorySchema = z
   .object({
     category: z.string().describe("Category name"),
-    count: z.number().int().describe("Number of responses in this category"),
+    count: z.int().describe("Number of responses in this category"),
   })
   .openapi("Category");
 

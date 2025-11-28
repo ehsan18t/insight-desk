@@ -31,8 +31,8 @@ const DateRangeSchema = z
     field: z
       .enum(["createdAt", "updatedAt", "resolvedAt", "closedAt"])
       .describe("Date field to filter by"),
-    from: z.string().datetime().optional().describe("Start date (ISO 8601)"),
-    to: z.string().datetime().optional().describe("End date (ISO 8601)"),
+    from: z.iso.datetime().optional().describe("Start date (ISO 8601)"),
+    to: z.iso.datetime().optional().describe("End date (ISO 8601)"),
   })
   .openapi("DateRange");
 
@@ -79,7 +79,7 @@ const SavedFilterSchema = z
     sortOrder: SortOrderSchema.describe("Sort order (ascending or descending)"),
     color: z.string().nullable().describe("Filter color (hex format #RRGGBB)"),
     icon: z.string().nullable().describe("Filter icon identifier"),
-    position: z.number().int().describe("Display order position"),
+    position: z.int().describe("Display order position"),
     organizationId: UuidSchema.describe("Organization ID"),
     userId: UuidSchema.describe("Owner user ID"),
     createdAt: TimestampSchema.describe("Creation timestamp"),
@@ -99,10 +99,10 @@ const CreateSavedFilterRequestSchema = z
       .optional()
       .describe("Filter description (up to 500 characters)"),
     criteria: FilterCriteriaSchema.describe("Filter criteria"),
-    isDefault: z.boolean().default(false).describe("Set as default filter"),
-    isShared: z.boolean().default(false).describe("Share with organization"),
-    sortBy: SortBySchema.default("createdAt").describe("Sort field"),
-    sortOrder: SortOrderSchema.default("desc").describe("Sort order"),
+    isDefault: z.boolean().prefault(false).describe("Set as default filter"),
+    isShared: z.boolean().prefault(false).describe("Share with organization"),
+    sortBy: SortBySchema.prefault("createdAt").describe("Sort field"),
+    sortOrder: SortOrderSchema.prefault("desc").describe("Sort order"),
     color: z
       .string()
       .regex(/^#[0-9A-Fa-f]{6}$/)
@@ -131,7 +131,7 @@ const UpdateSavedFilterRequestSchema = z
       .nullable()
       .describe("New color or null to remove"),
     icon: z.string().max(50).optional().nullable().describe("New icon or null to remove"),
-    position: z.number().int().min(0).optional().describe("New position"),
+    position: z.int().min(0).optional().describe("New position"),
   })
   .openapi("UpdateSavedFilterRequest");
 
@@ -140,7 +140,7 @@ const UpdateSavedFilterRequestSchema = z
  */
 const ListSavedFiltersQuerySchema = z
   .object({
-    includeShared: z.boolean().default(true).describe("Include filters shared by other users"),
+    includeShared: z.boolean().prefault(true).describe("Include filters shared by other users"),
   })
   .openapi("ListSavedFiltersQuery");
 

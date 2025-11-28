@@ -33,7 +33,7 @@ const UserSummarySchema = z
     id: UuidSchema.describe("User's unique identifier"),
     email: EmailSchema,
     name: z.string().describe("User's display name"),
-    avatarUrl: z.string().url().nullable().describe("URL to user's avatar image"),
+    avatarUrl: z.url().nullable().describe("URL to user's avatar image"),
     role: UserRoleSchema.describe("User's role in the organization"),
     isActive: z.boolean().describe("Whether the account is active"),
     emailVerified: z.boolean().describe("Whether email has been verified"),
@@ -50,7 +50,7 @@ const UserProfileSchema = z
     id: UuidSchema.describe("User's unique identifier"),
     email: EmailSchema,
     name: z.string().describe("User's display name"),
-    avatarUrl: z.string().url().nullable().describe("URL to user's avatar image"),
+    avatarUrl: z.url().nullable().describe("URL to user's avatar image"),
     emailVerified: z.boolean().describe("Whether email has been verified"),
     isActive: z.boolean().describe("Whether the account is active"),
     createdAt: TimestampSchema.describe("Account creation timestamp"),
@@ -73,7 +73,7 @@ const AgentSchema = z
     id: UuidSchema.describe("Agent's unique identifier"),
     name: z.string().describe("Agent's display name"),
     email: EmailSchema,
-    avatarUrl: z.string().url().nullable().describe("URL to agent's avatar image"),
+    avatarUrl: z.url().nullable().describe("URL to agent's avatar image"),
     role: z.enum(["agent", "admin", "owner"]).describe("Agent's role"),
   })
   .openapi("Agent");
@@ -84,7 +84,7 @@ const AgentSchema = z
 const UpdateProfileRequestSchema = z
   .object({
     name: z.string().min(2).max(100).optional().describe("New display name (2-100 characters)"),
-    avatarUrl: z.string().url().nullable().optional().describe("New avatar URL or null to remove"),
+    avatarUrl: z.url().nullable().optional().describe("New avatar URL or null to remove"),
   })
   .openapi("UpdateProfileRequest");
 
@@ -105,13 +105,13 @@ const UserQuerySchema = z
     search: z.string().max(100).optional().describe("Search by name or email"),
     role: UserRoleSchema.optional().describe("Filter by role"),
     isActive: z.string().optional().describe("Filter by active status ('true' or 'false')"),
-    page: z.coerce.number().min(1).default(1).describe("Page number"),
-    limit: z.coerce.number().min(1).max(100).default(20).describe("Items per page"),
+    page: z.coerce.number().min(1).prefault(1).describe("Page number"),
+    limit: z.coerce.number().min(1).max(100).prefault(20).describe("Items per page"),
     sortBy: z
       .enum(["name", "email", "createdAt", "lastLoginAt"])
-      .default("createdAt")
+      .prefault("createdAt")
       .describe("Field to sort by"),
-    sortOrder: z.enum(["asc", "desc"]).default("desc").describe("Sort direction"),
+    sortOrder: z.enum(["asc", "desc"]).prefault("desc").describe("Sort direction"),
   })
   .openapi("UserQuery");
 
@@ -327,7 +327,7 @@ Retrieve detailed information about a specific user in the organization.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().default("User not found in this organization"),
+            error: z.string().prefault("User not found in this organization"),
           }),
         },
       },
@@ -394,7 +394,7 @@ Change a user's role within the organization.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().default("Cannot change owner role or your own role"),
+            error: z.string().prefault("Cannot change owner role or your own role"),
           }),
         },
       },
@@ -442,7 +442,7 @@ Deactivate a user's account, preventing them from signing in.
             .object({
               success: z.literal(true),
               data: UserWithRoleSchema,
-              message: z.string().default("User deactivated successfully"),
+              message: z.string().prefault("User deactivated successfully"),
             })
             .openapi("DeactivateUserResponse"),
         },
@@ -455,7 +455,7 @@ Deactivate a user's account, preventing them from signing in.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().default("Cannot deactivate yourself or organization owner"),
+            error: z.string().prefault("Cannot deactivate yourself or organization owner"),
           }),
         },
       },
@@ -500,7 +500,7 @@ Reactivate a previously deactivated user account.
             .object({
               success: z.literal(true),
               data: UserWithRoleSchema,
-              message: z.string().default("User reactivated successfully"),
+              message: z.string().prefault("User reactivated successfully"),
             })
             .openapi("ReactivateUserResponse"),
         },
@@ -557,7 +557,7 @@ Remove a user from the current organization.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().default("Cannot remove yourself or organization owner"),
+            error: z.string().prefault("Cannot remove yourself or organization owner"),
           }),
         },
       },
@@ -568,7 +568,7 @@ Remove a user from the current organization.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().default("User is not a member of this organization"),
+            error: z.string().prefault("User is not a member of this organization"),
           }),
         },
       },

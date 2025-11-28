@@ -7,16 +7,16 @@ import { z } from "zod";
 export const filterCriteriaSchema = z.object({
   status: z.array(z.enum(["open", "pending", "resolved", "closed"])).optional(),
   priority: z.array(z.enum(["low", "medium", "high", "urgent"])).optional(),
-  assigneeId: z.string().uuid().nullable().optional(),
-  customerId: z.string().uuid().optional(),
+  assigneeId: z.uuid().nullable().optional(),
+  customerId: z.uuid().optional(),
   tags: z.array(z.string()).optional(),
-  categoryId: z.string().uuid().optional(),
+  categoryId: z.uuid().optional(),
   search: z.string().optional(),
   dateRange: z
     .object({
       field: z.enum(["createdAt", "updatedAt", "resolvedAt", "closedAt"]),
-      from: z.string().datetime().optional(),
-      to: z.string().datetime().optional(),
+      from: z.iso.datetime().optional(),
+      to: z.iso.datetime().optional(),
     })
     .optional(),
 });
@@ -29,10 +29,10 @@ export const createSavedFilterSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
   description: z.string().max(500, "Description must be 500 characters or less").optional(),
   criteria: filterCriteriaSchema,
-  isDefault: z.boolean().default(false),
-  isShared: z.boolean().default(false),
-  sortBy: z.enum(["createdAt", "updatedAt", "priority", "status"]).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  isDefault: z.boolean().prefault(false),
+  isShared: z.boolean().prefault(false),
+  sortBy: z.enum(["createdAt", "updatedAt", "priority", "status"]).prefault("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).prefault("desc"),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color")
@@ -60,7 +60,7 @@ export const updateSavedFilterSchema = z.object({
     .optional()
     .nullable(),
   icon: z.string().max(50).optional().nullable(),
-  position: z.number().int().min(0).optional(),
+  position: z.int().min(0).optional(),
 });
 
 export type UpdateSavedFilterInput = z.infer<typeof updateSavedFilterSchema>;
@@ -84,7 +84,7 @@ export type SavedFilterQuery = z.infer<typeof savedFilterQuerySchema>;
 // ─────────────────────────────────────────────────────────────
 
 export const savedFilterIdParamSchema = z.object({
-  id: z.string().uuid("Invalid filter ID"),
+  id: z.uuid("Invalid filter ID"),
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ export const savedFilterIdParamSchema = z.object({
 // ─────────────────────────────────────────────────────────────
 
 export const reorderFiltersSchema = z.object({
-  filterIds: z.array(z.string().uuid()).min(1, "At least one filter ID is required"),
+  filterIds: z.array(z.uuid()).min(1, "At least one filter ID is required"),
 });
 
 export type ReorderFiltersInput = z.infer<typeof reorderFiltersSchema>;

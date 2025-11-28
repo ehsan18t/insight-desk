@@ -39,8 +39,8 @@ const AttachmentSchema = z
     filename: z.string().describe("Stored filename (UUID-based)"),
     originalName: z.string().describe("Original file name"),
     mimeType: z.string().describe("MIME type of the file"),
-    size: z.number().int().positive().describe("File size in bytes"),
-    url: z.string().url().describe("Public URL to access the file"),
+    size: z.int().positive().describe("File size in bytes"),
+    url: z.url().describe("Public URL to access the file"),
     ticketId: UuidSchema.nullable().describe("Associated ticket ID"),
     commentId: UuidSchema.nullable().describe("Associated comment ID"),
     uploadedBy: UuidSchema.describe("User ID who uploaded the file"),
@@ -56,7 +56,7 @@ const UploadAttachmentRequestSchema = z
     file: z.any().describe("File to upload (binary)"),
     ticketId: UuidSchema.optional().describe("Associate with a specific ticket"),
     commentId: UuidSchema.optional().describe("Associate with a specific comment"),
-    folder: AttachmentFolderSchema.default("general").describe("Storage folder category"),
+    folder: AttachmentFolderSchema.prefault("general").describe("Storage folder category"),
   })
   .openapi("UploadAttachmentRequest");
 
@@ -66,13 +66,13 @@ const UploadAttachmentRequestSchema = z
 const ListAttachmentsQuerySchema = z
   .object({
     ticketId: UuidSchema.optional().describe("Filter by ticket ID"),
-    page: z.coerce.number().int().positive().default(1).describe("Page number for pagination"),
+    page: z.coerce.number().int().positive().prefault(1).describe("Page number for pagination"),
     limit: z.coerce
       .number()
       .int()
       .positive()
       .max(100)
-      .default(20)
+      .prefault(20)
       .describe("Number of items per page (1-100)"),
   })
   .openapi("ListAttachmentsQuery");

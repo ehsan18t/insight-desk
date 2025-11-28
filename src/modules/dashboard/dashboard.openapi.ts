@@ -31,13 +31,13 @@ const DashboardStatsQuerySchema = z
  */
 const DashboardTrendsQuerySchema = z
   .object({
-    period: z.enum(["day", "week", "month"]).default("week").describe("Time period for trend data"),
+    period: z.enum(["day", "week", "month"]).prefault("week").describe("Time period for trend data"),
     periods: z.coerce
       .number()
       .int()
       .min(1)
       .max(52)
-      .default(7)
+      .prefault(7)
       .describe("Number of periods to look back (1-52)"),
   })
   .openapi("DashboardTrendsQuery");
@@ -47,11 +47,11 @@ const DashboardTrendsQuerySchema = z
  */
 const TicketCountsSchema = z
   .object({
-    total: z.number().int().nonnegative().describe("Total ticket count"),
-    open: z.number().int().nonnegative().describe("Open tickets"),
-    pending: z.number().int().nonnegative().describe("Pending tickets"),
-    resolved: z.number().int().nonnegative().describe("Resolved tickets"),
-    closed: z.number().int().nonnegative().describe("Closed tickets"),
+    total: z.int().nonnegative().describe("Total ticket count"),
+    open: z.int().nonnegative().describe("Open tickets"),
+    pending: z.int().nonnegative().describe("Pending tickets"),
+    resolved: z.int().nonnegative().describe("Resolved tickets"),
+    closed: z.int().nonnegative().describe("Closed tickets"),
   })
   .openapi("TicketCounts");
 
@@ -71,8 +71,8 @@ const PerformanceMetricsSchema = z
  */
 const AgentCountsSchema = z
   .object({
-    total: z.number().int().nonnegative().describe("Total number of agents"),
-    active: z.number().int().nonnegative().describe("Currently active agents"),
+    total: z.int().nonnegative().describe("Total number of agents"),
+    active: z.int().nonnegative().describe("Currently active agents"),
   })
   .openapi("AgentCounts");
 
@@ -93,9 +93,9 @@ const DashboardStatsSchema = z
 const TrendDataPointSchema = z
   .object({
     date: z.string().describe("Date for this data point"),
-    created: z.number().int().nonnegative().describe("Tickets created"),
-    resolved: z.number().int().nonnegative().describe("Tickets resolved"),
-    closed: z.number().int().nonnegative().describe("Tickets closed"),
+    created: z.int().nonnegative().describe("Tickets created"),
+    resolved: z.int().nonnegative().describe("Tickets resolved"),
+    closed: z.int().nonnegative().describe("Tickets closed"),
   })
   .openapi("TrendDataPoint");
 
@@ -115,7 +115,7 @@ const DashboardTrendsSchema = z
 const PriorityDistributionItemSchema = z
   .object({
     priority: z.enum(["low", "medium", "high", "urgent"]).describe("Priority level"),
-    count: z.number().int().nonnegative().describe("Number of tickets"),
+    count: z.int().nonnegative().describe("Number of tickets"),
     percentage: z.number().min(0).max(100).describe("Percentage of total"),
   })
   .openapi("PriorityDistributionItem");
@@ -132,11 +132,11 @@ const PriorityDistributionSchema = z
  */
 const AgentPerformanceSchema = z
   .object({
-    agentId: z.string().uuid().describe("Agent ID"),
+    agentId: z.uuid().describe("Agent ID"),
     agentName: z.string().describe("Agent name"),
-    agentEmail: z.string().email().describe("Agent email"),
-    ticketsAssigned: z.number().int().nonnegative().describe("Total tickets assigned"),
-    ticketsResolved: z.number().int().nonnegative().describe("Tickets resolved"),
+    agentEmail: z.email().describe("Agent email"),
+    ticketsAssigned: z.int().nonnegative().describe("Total tickets assigned"),
+    ticketsResolved: z.int().nonnegative().describe("Tickets resolved"),
     avgResponseTime: z.number().nullable().describe("Average response time in minutes"),
     avgResolutionTime: z.number().nullable().describe("Average resolution time in minutes"),
     slaComplianceRate: z.number().min(0).max(100).describe("SLA compliance rate"),
@@ -173,7 +173,7 @@ Retrieve key dashboard statistics for the organization.
   request: {
     query: DashboardStatsQuerySchema,
     headers: z.object({
-      "x-organization-id": z.string().uuid().describe("Organization ID"),
+      "x-organization-id": z.uuid().describe("Organization ID"),
     }),
   },
   responses: {
@@ -219,7 +219,7 @@ For each period, returns:
   request: {
     query: DashboardTrendsQuerySchema,
     headers: z.object({
-      "x-organization-id": z.string().uuid().describe("Organization ID"),
+      "x-organization-id": z.uuid().describe("Organization ID"),
     }),
   },
   responses: {
@@ -256,7 +256,7 @@ Returns count and percentage for each priority level (low, medium, high, urgent)
   security: [{ cookieAuth: [] }],
   request: {
     headers: z.object({
-      "x-organization-id": z.string().uuid().describe("Organization ID"),
+      "x-organization-id": z.uuid().describe("Organization ID"),
     }),
   },
   responses: {
@@ -304,7 +304,7 @@ Retrieve performance metrics for all agents in the organization.
   security: [{ cookieAuth: [] }],
   request: {
     headers: z.object({
-      "x-organization-id": z.string().uuid().describe("Organization ID"),
+      "x-organization-id": z.uuid().describe("Organization ID"),
     }),
   },
   responses: {

@@ -23,7 +23,7 @@ import {
 // ─────────────────────────────────────────────────────────────
 
 describe("UUID Validation Edge Cases", () => {
-  const uuidSchema = z.string().uuid();
+  const uuidSchema = z.uuid();
 
   it("should accept valid UUID v4", () => {
     const validUUIDs = [
@@ -85,8 +85,8 @@ describe("UUID Validation Edge Cases", () => {
 
 describe("Pagination Edge Cases", () => {
   const paginationSchema = z.object({
-    page: z.coerce.number().min(1).default(1),
-    limit: z.coerce.number().min(1).max(100).default(20),
+    page: z.coerce.number().min(1).prefault(1),
+    limit: z.coerce.number().min(1).max(100).prefault(20),
   });
 
   it("should accept valid pagination values", () => {
@@ -376,7 +376,7 @@ describe("String Input Validation Edge Cases", () => {
 // ─────────────────────────────────────────────────────────────
 
 describe("Email Validation Edge Cases", () => {
-  const emailSchema = z.string().email();
+  const emailSchema = z.email();
 
   it("should accept valid email formats", () => {
     const validEmails = [
@@ -452,7 +452,7 @@ describe("Enum Validation Edge Cases", () => {
 
 describe("Array Validation Edge Cases", () => {
   const tagsSchema = z.array(z.string()).max(10);
-  const attachmentsSchema = z.array(z.string().uuid()).max(10);
+  const attachmentsSchema = z.array(z.uuid()).max(10);
 
   it("should accept empty arrays", () => {
     expect(() => tagsSchema.parse([])).not.toThrow();

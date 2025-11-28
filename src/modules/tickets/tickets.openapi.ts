@@ -32,8 +32,8 @@ const UserRefSchema = z
   .object({
     id: UuidSchema.describe("User ID"),
     name: z.string().describe("User's display name"),
-    email: z.string().email().describe("User's email"),
-    avatarUrl: z.string().url().nullable().describe("Avatar URL"),
+    email: z.email().describe("User's email"),
+    avatarUrl: z.url().nullable().describe("Avatar URL"),
   })
   .openapi("UserRef");
 
@@ -64,7 +64,7 @@ const CategoryRefSchema = z
 const TicketSummarySchema = z
   .object({
     id: UuidSchema.describe("Ticket ID"),
-    number: z.number().int().positive().describe("Human-readable ticket number"),
+    number: z.int().positive().describe("Human-readable ticket number"),
     title: z.string().describe("Ticket title"),
     status: TicketStatusSchema,
     priority: TicketPrioritySchema,
@@ -73,7 +73,7 @@ const TicketSummarySchema = z
     assignee: UserRefSchema.nullable().describe("Assigned agent"),
     category: CategoryRefSchema.nullable().describe("Ticket category"),
     tags: z.array(TagRefSchema).describe("Associated tags"),
-    messageCount: z.number().int().nonnegative().describe("Number of messages"),
+    messageCount: z.int().nonnegative().describe("Number of messages"),
     createdAt: TimestampSchema.describe("Creation timestamp"),
     updatedAt: TimestampSchema.describe("Last update timestamp"),
     resolvedAt: TimestampSchema.nullable().describe("Resolution timestamp"),
@@ -99,8 +99,8 @@ const CreateTicketRequestSchema = z
   .object({
     title: z.string().min(5).max(255).describe("Ticket title (5-255 characters)"),
     description: z.string().min(10).max(10000).describe("Ticket description (10-10000 characters)"),
-    priority: TicketPrioritySchema.default("medium").describe("Priority level"),
-    channel: TicketChannelSchema.default("web").describe("Creation channel"),
+    priority: TicketPrioritySchema.prefault("medium").describe("Priority level"),
+    channel: TicketChannelSchema.prefault("web").describe("Creation channel"),
     tags: z.array(z.string()).max(10).optional().describe("Tag names to attach (max 10)"),
     categoryId: UuidSchema.optional().describe("Category ID"),
   })
@@ -140,13 +140,13 @@ const TicketQuerySchema = z
     customerId: UuidSchema.optional().describe("Filter by customer"),
     search: z.string().max(100).optional().describe("Search in title and description"),
     tags: z.string().optional().describe("Comma-separated tag names"),
-    page: z.coerce.number().min(1).default(1).describe("Page number"),
-    limit: z.coerce.number().min(1).max(100).default(20).describe("Items per page"),
+    page: z.coerce.number().min(1).prefault(1).describe("Page number"),
+    limit: z.coerce.number().min(1).max(100).prefault(20).describe("Items per page"),
     sortBy: z
       .enum(["createdAt", "updatedAt", "priority", "status"])
-      .default("createdAt")
+      .prefault("createdAt")
       .describe("Sort field"),
-    sortOrder: z.enum(["asc", "desc"]).default("desc").describe("Sort direction"),
+    sortOrder: z.enum(["asc", "desc"]).prefault("desc").describe("Sort direction"),
   })
   .openapi("TicketQuery");
 
@@ -155,12 +155,12 @@ const TicketQuerySchema = z
  */
 const TicketStatsSchema = z
   .object({
-    total: z.number().int().describe("Total tickets"),
-    open: z.number().int().describe("Open tickets"),
-    pending: z.number().int().describe("Pending tickets"),
-    resolved: z.number().int().describe("Resolved tickets"),
-    closed: z.number().int().describe("Closed tickets"),
-    unassigned: z.number().int().describe("Unassigned tickets"),
+    total: z.int().describe("Total tickets"),
+    open: z.int().describe("Open tickets"),
+    pending: z.int().describe("Pending tickets"),
+    resolved: z.int().describe("Resolved tickets"),
+    closed: z.int().describe("Closed tickets"),
+    unassigned: z.int().describe("Unassigned tickets"),
     avgResolutionTime: z.number().nullable().describe("Average resolution time in hours"),
     avgFirstResponseTime: z.number().nullable().describe("Average first response time in hours"),
   })
@@ -231,7 +231,7 @@ const BulkDeleteRequestSchema = z
     ticketIds: z.array(UuidSchema).min(1).max(100).describe("Ticket IDs to delete"),
     permanent: z
       .boolean()
-      .default(false)
+      .prefault(false)
       .describe("true for permanent delete, false for soft close"),
   })
   .openapi("BulkDeleteRequest");
@@ -247,7 +247,7 @@ const MergeTicketsRequestSchema = z
       .min(1)
       .max(10)
       .describe("Tickets to merge from (closed)"),
-    mergeComments: z.boolean().default(true).describe("Copy comments to primary ticket"),
+    mergeComments: z.boolean().prefault(true).describe("Copy comments to primary ticket"),
   })
   .openapi("MergeTicketsRequest");
 
@@ -256,8 +256,8 @@ const MergeTicketsRequestSchema = z
  */
 const BulkResultSchema = z
   .object({
-    success: z.number().int().describe("Number of successful operations"),
-    failed: z.number().int().describe("Number of failed operations"),
+    success: z.int().describe("Number of successful operations"),
+    failed: z.int().describe("Number of failed operations"),
     errors: z
       .array(
         z.object({
@@ -429,8 +429,8 @@ Retrieve the activity log for a specific ticket.
       id: UuidSchema.describe("Ticket ID"),
     }),
     query: z.object({
-      page: z.coerce.number().min(1).default(1),
-      limit: z.coerce.number().min(1).max(100).default(50),
+      page: z.coerce.number().min(1).prefault(1),
+      limit: z.coerce.number().min(1).max(100).prefault(50),
     }),
   },
   responses: {

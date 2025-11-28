@@ -4,7 +4,7 @@ import { z } from "zod";
 // Export Query Schema
 // ─────────────────────────────────────────────────────────────
 export const exportQuerySchema = z.object({
-  format: z.enum(["csv", "xlsx"]).default("csv"),
+  format: z.enum(["csv", "xlsx"]).prefault("csv"),
   fields: z
     .string()
     .optional()
@@ -13,10 +13,10 @@ export const exportQuerySchema = z.object({
   // Ticket filters
   status: z.enum(["open", "pending", "resolved", "closed"]).optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
-  assigneeId: z.string().uuid().optional(),
-  categoryId: z.string().uuid().optional(),
-  dateFrom: z.string().datetime().optional(),
-  dateTo: z.string().datetime().optional(),
+  assigneeId: z.uuid().optional(),
+  categoryId: z.uuid().optional(),
+  dateFrom: z.iso.datetime().optional(),
+  dateTo: z.iso.datetime().optional(),
   search: z.string().optional(),
 });
 

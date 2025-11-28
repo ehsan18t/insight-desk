@@ -21,14 +21,14 @@ export const updateOrganizationSchema = z.object({
             .string()
             .regex(/^#[0-9a-fA-F]{6}$/)
             .optional(),
-          logoUrl: z.string().url().optional(),
+          logoUrl: z.url().optional(),
         })
         .optional(),
       notifications: z
         .object({
           emailOnNewTicket: z.boolean().optional(),
           emailOnTicketUpdate: z.boolean().optional(),
-          slackWebhookUrl: z.string().url().optional(),
+          slackWebhookUrl: z.url().optional(),
         })
         .optional(),
       features: z
@@ -44,19 +44,19 @@ export const updateOrganizationSchema = z.object({
 // Organization query params schema
 export const organizationQuerySchema = z.object({
   search: z.string().max(100).optional(),
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(20),
+  page: z.coerce.number().min(1).prefault(1),
+  limit: z.coerce.number().min(1).max(100).prefault(20),
 });
 
 // Organization ID param schema
 export const organizationIdParamSchema = z.object({
-  organizationId: z.string().uuid(),
+  organizationId: z.uuid(),
 });
 
 // Invite member schema
 export const inviteMemberSchema = z.object({
-  email: z.string().email(),
-  role: z.enum(["customer", "agent", "admin"]).default("customer"),
+  email: z.email(),
+  role: z.enum(["customer", "agent", "admin"]).prefault("customer"),
 });
 
 // Accept invitation schema
@@ -67,8 +67,8 @@ export const acceptInvitationSchema = z.object({
 // List invitations schema
 export const listInvitationsSchema = z.object({
   status: z.enum(["pending", "accepted", "expired", "cancelled"]).optional(),
-  page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().positive().max(100).default(20),
+  page: z.coerce.number().int().positive().prefault(1),
+  limit: z.coerce.number().int().positive().max(100).prefault(20),
 });
 
 // Update member role schema
@@ -78,8 +78,8 @@ export const updateMemberRoleSchema = z.object({
 
 // Member ID param schema
 export const memberIdParamSchema = z.object({
-  organizationId: z.string().uuid(),
-  userId: z.string().uuid(),
+  organizationId: z.uuid(),
+  userId: z.uuid(),
 });
 
 // Types

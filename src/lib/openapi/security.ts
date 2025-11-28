@@ -36,9 +36,7 @@ registry.registerComponent("securitySchemes", "cookieAuth", {
  */
 export const OrganizationIdParam = registry.registerParameter(
   "OrganizationId",
-  z
-    .string()
-    .uuid()
+  z.uuid()
     .openapi({
       param: {
         name: "organizationId",
@@ -55,9 +53,7 @@ export const OrganizationIdParam = registry.registerParameter(
  */
 export const UserIdParam = registry.registerParameter(
   "UserId",
-  z
-    .string()
-    .uuid()
+  z.uuid()
     .openapi({
       param: {
         name: "userId",
@@ -74,9 +70,7 @@ export const UserIdParam = registry.registerParameter(
  */
 export const TicketIdParam = registry.registerParameter(
   "TicketId",
-  z
-    .string()
-    .uuid()
+  z.uuid()
     .openapi({
       param: {
         name: "ticketId",
@@ -93,9 +87,7 @@ export const TicketIdParam = registry.registerParameter(
  */
 export const MessageIdParam = registry.registerParameter(
   "MessageId",
-  z
-    .string()
-    .uuid()
+  z.uuid()
     .openapi({
       param: {
         name: "messageId",
@@ -115,7 +107,7 @@ export const PaginationParams = {
     .number()
     .int()
     .positive()
-    .default(1)
+    .prefault(1)
     .openapi({
       param: {
         name: "page",
@@ -130,7 +122,7 @@ export const PaginationParams = {
     .int()
     .positive()
     .max(100)
-    .default(20)
+    .prefault(20)
     .openapi({
       param: {
         name: "limit",

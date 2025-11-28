@@ -43,7 +43,7 @@ const PopularTagSchema = z
     id: UuidSchema.describe("Tag ID"),
     name: z.string().describe("Tag name"),
     color: z.string().nullable().describe("Tag color"),
-    usageCount: z.number().int().nonnegative().describe("Number of tickets using this tag"),
+    usageCount: z.int().nonnegative().describe("Number of tickets using this tag"),
   })
   .openapi("PopularTag");
 
@@ -52,9 +52,9 @@ const PopularTagSchema = z
  */
 const TagStatsSchema = z
   .object({
-    totalTags: z.number().int().nonnegative().describe("Total number of tags"),
-    usedTags: z.number().int().nonnegative().describe("Tags with at least one ticket"),
-    unusedTags: z.number().int().nonnegative().describe("Tags with no tickets"),
+    totalTags: z.int().nonnegative().describe("Total number of tags"),
+    usedTags: z.int().nonnegative().describe("Tags with at least one ticket"),
+    unusedTags: z.int().nonnegative().describe("Tags with no tickets"),
     topTags: z.array(PopularTagSchema).describe("Most used tags"),
   })
   .openapi("TagStats");
@@ -118,7 +118,7 @@ const ListTagsQuerySchema = z
       .number()
       .min(1)
       .max(100)
-      .default(50)
+      .prefault(50)
       .describe("Maximum number of results (1-100)"),
   })
   .openapi("ListTagsQuery");
@@ -132,7 +132,7 @@ const PopularTagsQuerySchema = z
       .number()
       .min(1)
       .max(20)
-      .default(10)
+      .prefault(10)
       .describe("Number of popular tags to return (1-20)"),
   })
   .openapi("PopularTagsQuery");

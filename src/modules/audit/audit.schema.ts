@@ -38,20 +38,20 @@ export type AuditAction = (typeof auditActions)[number];
 // ─────────────────────────────────────────────────────────────
 
 export const auditLogIdParam = z.object({
-  id: z.string().uuid("Invalid audit log ID"),
+  id: z.uuid("Invalid audit log ID"),
 });
 
 export const listAuditLogsQuery = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
+  page: z.coerce.number().int().min(1).prefault(1),
+  limit: z.coerce.number().int().min(1).max(100).prefault(50),
   action: z.enum(auditActions).optional(),
-  userId: z.string().uuid("Invalid user ID").optional(),
+  userId: z.uuid("Invalid user ID").optional(),
   resourceType: z.string().optional(),
   resourceId: z.string().optional(),
-  from: z.string().datetime("Invalid date format").optional(),
-  to: z.string().datetime("Invalid date format").optional(),
-  sortBy: z.enum(["createdAt", "action", "userId"]).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  from: z.iso.datetime("Invalid date format").optional(),
+  to: z.iso.datetime("Invalid date format").optional(),
+  sortBy: z.enum(["createdAt", "action", "userId"]).prefault("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).prefault("desc"),
 });
 
 export const createAuditLogInput = z.object({
@@ -64,11 +64,11 @@ export const createAuditLogInput = z.object({
 });
 
 export const exportAuditLogsQuery = z.object({
-  format: z.enum(["json", "csv"]).default("json"),
+  format: z.enum(["json", "csv"]).prefault("json"),
   action: z.enum(auditActions).optional(),
-  userId: z.string().uuid("Invalid user ID").optional(),
-  from: z.string().datetime("Invalid date format").optional(),
-  to: z.string().datetime("Invalid date format").optional(),
+  userId: z.uuid("Invalid user ID").optional(),
+  from: z.iso.datetime("Invalid date format").optional(),
+  to: z.iso.datetime("Invalid date format").optional(),
 });
 
 // ─────────────────────────────────────────────────────────────

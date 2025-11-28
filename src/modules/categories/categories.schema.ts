@@ -10,7 +10,7 @@ import { z } from "zod";
 // ─────────────────────────────────────────────────────────────
 
 export const categoryIdParam = z.object({
-  id: z.string().uuid("Invalid category ID"),
+  id: z.uuid("Invalid category ID"),
 });
 
 export const createCategoryBody = z.object({
@@ -20,7 +20,7 @@ export const createCategoryBody = z.object({
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color format (use #RRGGBB)")
     .optional(),
-  parentId: z.string().uuid("Invalid parent category ID").optional().nullable(),
+  parentId: z.uuid("Invalid parent category ID").optional().nullable(),
 });
 
 export const updateCategoryBody = z.object({
@@ -31,7 +31,7 @@ export const updateCategoryBody = z.object({
     .regex(/^#[0-9A-Fa-f]{6}$/, "Invalid color format (use #RRGGBB)")
     .optional()
     .nullable(),
-  parentId: z.string().uuid("Invalid parent category ID").optional().nullable(),
+  parentId: z.uuid("Invalid parent category ID").optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
@@ -40,7 +40,7 @@ export const listCategoriesQuery = z.object({
     .string()
     .transform((v) => v === "true")
     .optional(),
-  parentId: z.string().uuid("Invalid parent category ID").optional().nullable(),
+  parentId: z.uuid("Invalid parent category ID").optional().nullable(),
 });
 
 // ─────────────────────────────────────────────────────────────

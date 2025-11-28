@@ -34,17 +34,13 @@ const BillingIntervalSchema = z.enum(["monthly", "yearly", "lifetime"]).openapi(
  */
 const PlanLimitsSchema = z
   .object({
-    ticketsPerMonth: z.number().int().describe("Maximum tickets per month (-1 = unlimited)"),
-    messagesPerMonth: z.number().int().describe("Maximum messages per month (-1 = unlimited)"),
-    storagePerOrgMB: z
-      .number()
-      .int()
+    ticketsPerMonth: z.int().describe("Maximum tickets per month (-1 = unlimited)"),
+    messagesPerMonth: z.int().describe("Maximum messages per month (-1 = unlimited)"),
+    storagePerOrgMB: z.int()
       .describe("Maximum storage in MB per organization (-1 = unlimited)"),
-    apiRequestsPerMinute: z.number().int().describe("API rate limit per minute"),
-    agentsPerOrg: z.number().int().describe("Maximum agents per organization (-1 = unlimited)"),
-    customersPerOrg: z
-      .number()
-      .int()
+    apiRequestsPerMinute: z.int().describe("API rate limit per minute"),
+    agentsPerOrg: z.int().describe("Maximum agents per organization (-1 = unlimited)"),
+    customersPerOrg: z.int()
       .describe("Maximum customers per organization (-1 = unlimited)"),
     slaEnabled: z.boolean().describe("Whether SLA management is enabled"),
     customFieldsEnabled: z.boolean().describe("Whether custom fields are enabled"),
@@ -89,7 +85,7 @@ const PlanSchema = z
     name: z.string().describe("Plan display name"),
     slug: z.string().describe("URL-friendly plan identifier"),
     description: z.string().nullable().describe("Plan description"),
-    price: z.number().int().describe("Price in cents"),
+    price: z.int().describe("Price in cents"),
     currency: z.string().describe("Currency code (e.g., USD)"),
     billingInterval: BillingIntervalSchema,
     limits: PlanLimitsSchema,
@@ -98,8 +94,8 @@ const PlanSchema = z
     isDefault: z.boolean().describe("Whether this is the default plan"),
     isVisible: z.boolean().describe("Whether the plan is visible to users"),
     alertsEnabled: z.boolean().describe("Whether usage alerts are enabled"),
-    alertThreshold: z.number().int().describe("Usage percentage to trigger alerts"),
-    position: z.number().int().describe("Display order position"),
+    alertThreshold: z.int().describe("Usage percentage to trigger alerts"),
+    position: z.int().describe("Display order position"),
     stripeProductId: z.string().nullable().describe("Stripe product ID"),
     stripePriceId: z.string().nullable().describe("Stripe price ID"),
     metadata: z.record(z.string(), z.unknown()).describe("Additional metadata"),
@@ -117,12 +113,12 @@ const PublicPlanSchema = z
     name: z.string().describe("Plan display name"),
     slug: z.string().describe("URL-friendly plan identifier"),
     description: z.string().nullable().describe("Plan description"),
-    price: z.number().int().describe("Price in cents"),
+    price: z.int().describe("Price in cents"),
     currency: z.string().describe("Currency code (e.g., USD)"),
     billingInterval: BillingIntervalSchema,
     limits: PlanLimitsSchema,
     features: PlanFeaturesSchema,
-    position: z.number().int().describe("Display order position"),
+    position: z.int().describe("Display order position"),
   })
   .openapi("PublicPlan");
 
@@ -139,20 +135,20 @@ const CreatePlanRequestSchema = z
       .regex(/^[a-z0-9-]+$/)
       .describe("URL-friendly slug (lowercase alphanumeric with dashes)"),
     description: z.string().max(500).optional().describe("Plan description"),
-    price: z.number().int().min(0).default(0).describe("Price in cents"),
-    currency: z.string().length(3).default("USD").describe("Currency code"),
-    billingInterval: BillingIntervalSchema.default("monthly"),
+    price: z.int().min(0).prefault(0).describe("Price in cents"),
+    currency: z.string().length(3).prefault("USD").describe("Currency code"),
+    billingInterval: BillingIntervalSchema.prefault("monthly"),
     limits: PlanLimitsSchema,
     features: PlanFeaturesSchema,
-    isActive: z.boolean().default(true).describe("Whether the plan is active"),
-    isDefault: z.boolean().default(false).describe("Whether this is the default plan"),
-    isVisible: z.boolean().default(true).describe("Whether the plan is visible"),
-    alertsEnabled: z.boolean().default(true).describe("Whether usage alerts are enabled"),
-    alertThreshold: z.number().int().min(50).max(100).default(90).describe("Alert threshold"),
-    position: z.number().int().min(0).default(0).describe("Display order position"),
+    isActive: z.boolean().prefault(true).describe("Whether the plan is active"),
+    isDefault: z.boolean().prefault(false).describe("Whether this is the default plan"),
+    isVisible: z.boolean().prefault(true).describe("Whether the plan is visible"),
+    alertsEnabled: z.boolean().prefault(true).describe("Whether usage alerts are enabled"),
+    alertThreshold: z.int().min(50).max(100).prefault(90).describe("Alert threshold"),
+    position: z.int().min(0).prefault(0).describe("Display order position"),
     stripeProductId: z.string().optional().describe("Stripe product ID"),
     stripePriceId: z.string().optional().describe("Stripe price ID"),
-    metadata: z.record(z.string(), z.unknown()).default({}).describe("Additional metadata"),
+    metadata: z.record(z.string(), z.unknown()).prefault({}).describe("Additional metadata"),
   })
   .openapi("CreatePlanRequest");
 
@@ -170,7 +166,7 @@ const UpdatePlanRequestSchema = z
       .optional()
       .describe("URL-friendly slug"),
     description: z.string().max(500).optional().nullable().describe("Plan description"),
-    price: z.number().int().min(0).optional().describe("Price in cents"),
+    price: z.int().min(0).optional().describe("Price in cents"),
     currency: z.string().length(3).optional().describe("Currency code"),
     billingInterval: BillingIntervalSchema.optional(),
     limits: PlanLimitsSchema.partial().optional().describe("Plan limits to update"),
@@ -179,8 +175,8 @@ const UpdatePlanRequestSchema = z
     isDefault: z.boolean().optional().describe("Whether this is the default plan"),
     isVisible: z.boolean().optional().describe("Whether the plan is visible"),
     alertsEnabled: z.boolean().optional().describe("Whether usage alerts are enabled"),
-    alertThreshold: z.number().int().min(50).max(100).optional().describe("Alert threshold"),
-    position: z.number().int().min(0).optional().describe("Display order position"),
+    alertThreshold: z.int().min(50).max(100).optional().describe("Alert threshold"),
+    position: z.int().min(0).optional().describe("Display order position"),
     stripeProductId: z.string().optional().nullable().describe("Stripe product ID"),
     stripePriceId: z.string().optional().nullable().describe("Stripe price ID"),
     metadata: z.record(z.string(), z.unknown()).optional().describe("Additional metadata"),

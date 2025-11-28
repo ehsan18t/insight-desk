@@ -55,12 +55,12 @@ const PlanSummarySchema = z
  */
 const PlanLimitsSchema = z
   .object({
-    ticketsPerMonth: z.number().int().describe("Maximum tickets per month"),
-    messagesPerMonth: z.number().int().describe("Maximum messages per month"),
-    storagePerOrgMB: z.number().int().describe("Maximum storage in MB"),
-    apiRequestsPerMinute: z.number().int().describe("API rate limit per minute"),
-    agentsPerOrg: z.number().int().describe("Maximum agents per organization"),
-    customersPerOrg: z.number().int().describe("Maximum customers per organization"),
+    ticketsPerMonth: z.int().describe("Maximum tickets per month"),
+    messagesPerMonth: z.int().describe("Maximum messages per month"),
+    storagePerOrgMB: z.int().describe("Maximum storage in MB"),
+    apiRequestsPerMinute: z.int().describe("API rate limit per minute"),
+    agentsPerOrg: z.int().describe("Maximum agents per organization"),
+    customersPerOrg: z.int().describe("Maximum customers per organization"),
     slaEnabled: z.boolean().describe("Whether SLA management is enabled"),
     customFieldsEnabled: z.boolean().describe("Whether custom fields are enabled"),
     reportingEnabled: z.boolean().describe("Whether reporting is enabled"),
@@ -79,7 +79,7 @@ const SubscriptionPlanSchema = z
     slug: z.string().describe("URL-friendly plan identifier"),
     limits: PlanLimitsSchema,
     alertsEnabled: z.boolean().describe("Whether usage alerts are enabled"),
-    alertThreshold: z.number().int().describe("Usage percentage to trigger alerts"),
+    alertThreshold: z.int().describe("Usage percentage to trigger alerts"),
   })
   .openapi("SubscriptionPlan");
 
@@ -106,9 +106,9 @@ const SubscriptionSchema = z
  */
 const UsageMetricSchema = z
   .object({
-    used: z.number().int().describe("Amount used"),
-    limit: z.number().int().describe("Maximum allowed (-1 = unlimited)"),
-    remaining: z.number().int().describe("Remaining amount"),
+    used: z.int().describe("Amount used"),
+    limit: z.int().describe("Maximum allowed (-1 = unlimited)"),
+    remaining: z.int().describe("Remaining amount"),
     percentUsed: z.number().describe("Percentage of limit used"),
   })
   .openapi("UsageMetric");
@@ -119,7 +119,7 @@ const UsageMetricSchema = z
 const StorageUsageSchema = z
   .object({
     usedMB: z.number().describe("Storage used in MB"),
-    limitMB: z.number().int().describe("Storage limit in MB"),
+    limitMB: z.int().describe("Storage limit in MB"),
     remainingMB: z.number().describe("Remaining storage in MB"),
     percentUsed: z.number().describe("Percentage of storage used"),
   })
@@ -130,8 +130,8 @@ const StorageUsageSchema = z
  */
 const ApiUsageSchema = z
   .object({
-    count: z.number().int().describe("Current request count"),
-    rateLimit: z.number().int().describe("Rate limit per minute"),
+    count: z.int().describe("Current request count"),
+    rateLimit: z.int().describe("Rate limit per minute"),
   })
   .openapi("ApiUsage");
 
@@ -157,7 +157,7 @@ const UsageResponseSchema = z
     plan: PlanSummarySchema,
     usage: UsageDataSchema.nullable(),
     alertsEnabled: z.boolean().describe("Whether usage alerts are enabled"),
-    alertThreshold: z.number().int().describe("Usage percentage to trigger alerts"),
+    alertThreshold: z.int().describe("Usage percentage to trigger alerts"),
   })
   .openapi("UsageResponse");
 
@@ -170,10 +170,10 @@ const UsageHistoryEntrySchema = z
     organizationId: UuidSchema.describe("Organization ID"),
     periodStart: TimestampSchema.describe("Period start date"),
     periodEnd: TimestampSchema.describe("Period end date"),
-    ticketsCreated: z.number().int().describe("Tickets created in period"),
-    messagesCreated: z.number().int().describe("Messages created in period"),
+    ticketsCreated: z.int().describe("Tickets created in period"),
+    messagesCreated: z.int().describe("Messages created in period"),
     storageUsedMB: z.number().describe("Storage used in MB"),
-    apiRequestsCount: z.number().int().describe("API requests made"),
+    apiRequestsCount: z.int().describe("API requests made"),
     createdAt: TimestampSchema.describe("Record creation timestamp"),
     updatedAt: TimestampSchema.describe("Record update timestamp"),
   })
@@ -186,9 +186,9 @@ const LimitCheckResultSchema = z
   .object({
     allowed: z.boolean().describe("Whether the action is allowed"),
     usageType: UsageTypeSchema,
-    current: z.number().int().describe("Current usage"),
-    limit: z.number().int().describe("Maximum allowed"),
-    remaining: z.number().int().describe("Remaining amount"),
+    current: z.int().describe("Current usage"),
+    limit: z.int().describe("Maximum allowed"),
+    remaining: z.int().describe("Remaining amount"),
     percentUsed: z.number().describe("Percentage used"),
     shouldAlert: z.boolean().describe("Whether alert threshold is exceeded"),
     upgradeUrl: z.string().optional().describe("URL to upgrade plan"),
@@ -249,8 +249,8 @@ const ReactivateSubscriptionResponseSchema = z
  */
 const UsageQueryParamsSchema = z
   .object({
-    periodStart: z.string().datetime().optional().describe("Filter from date (ISO 8601)"),
-    periodEnd: z.string().datetime().optional().describe("Filter to date (ISO 8601)"),
+    periodStart: z.iso.datetime().optional().describe("Filter from date (ISO 8601)"),
+    periodEnd: z.iso.datetime().optional().describe("Filter to date (ISO 8601)"),
   })
   .openapi("UsageQueryParams");
 

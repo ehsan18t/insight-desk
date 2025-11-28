@@ -17,9 +17,9 @@ export const dashboardStatsQuery = z.object({
 
 export const dashboardTrendsQuery = z.object({
   // Period for trend data
-  period: z.enum(["day", "week", "month"]).default("week"),
+  period: z.enum(["day", "week", "month"]).prefault("week"),
   // Number of periods to look back
-  periods: z.coerce.number().int().min(1).max(52).default(7),
+  periods: z.coerce.number().int().min(1).max(52).prefault(7),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -31,8 +31,8 @@ const MessageAuthorSchema = z
   .object({
     id: UuidSchema.describe("Author's user ID"),
     name: z.string().describe("Author's display name"),
-    email: z.string().email().describe("Author's email"),
-    avatarUrl: z.string().url().nullable().describe("Author's avatar URL"),
+    email: z.email().describe("Author's email"),
+    avatarUrl: z.url().nullable().describe("Author's avatar URL"),
     role: z.enum(["customer", "agent", "admin", "owner"]).describe("Author's role"),
   })
   .openapi("MessageAuthor");
@@ -44,7 +44,7 @@ const AttachmentSchema = z
   .object({
     id: UuidSchema.describe("Attachment ID"),
     filename: z.string().describe("Original filename"),
-    url: z.string().url().describe("Download URL"),
+    url: z.url().describe("Download URL"),
     mimeType: z.string().describe("MIME type"),
     size: z.number().positive().describe("File size in bytes"),
   })
@@ -73,7 +73,7 @@ const MessageSchema = z
 const CreateMessageRequestSchema = z
   .object({
     content: z.string().min(1).max(50000).describe("Message content (1-50000 characters)"),
-    type: MessageTypeSchema.default("reply").describe(
+    type: MessageTypeSchema.prefault("reply").describe(
       "Message type: reply (visible to customer), internal_note (staff only)",
     ),
     attachments: z
@@ -81,7 +81,7 @@ const CreateMessageRequestSchema = z
         z.object({
           id: z.string().describe("Attachment ID from upload"),
           filename: z.string().describe("Original filename"),
-          url: z.string().url().describe("File URL"),
+          url: z.url().describe("File URL"),
           mimeType: z.string().describe("MIME type"),
           size: z.number().positive().describe("File size in bytes"),
         }),
@@ -107,8 +107,8 @@ const UpdateMessageRequestSchema = z
 const MessageQuerySchema = z
   .object({
     type: MessageTypeSchema.optional().describe("Filter by message type"),
-    page: z.coerce.number().min(1).default(1).describe("Page number"),
-    limit: z.coerce.number().min(1).max(100).default(50).describe("Items per page"),
+    page: z.coerce.number().min(1).prefault(1).describe("Page number"),
+    limit: z.coerce.number().min(1).max(100).prefault(50).describe("Items per page"),
   })
   .openapi("MessageQuery");
 
@@ -168,7 +168,7 @@ Retrieve all messages in a ticket thread.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().default("Ticket not found"),
+            error: z.string().prefault("Ticket not found"),
           }),
         },
       },

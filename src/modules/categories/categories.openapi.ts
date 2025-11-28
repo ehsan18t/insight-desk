@@ -67,7 +67,7 @@ const CategoryStatsSchema = z
   .object({
     categoryId: UuidSchema.describe("Category ID"),
     categoryName: z.string().describe("Category name"),
-    ticketCount: z.number().int().nonnegative().describe("Number of tickets in this category"),
+    ticketCount: z.int().nonnegative().describe("Number of tickets in this category"),
   })
   .openapi("CategoryStats");
 

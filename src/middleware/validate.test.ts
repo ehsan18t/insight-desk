@@ -16,17 +16,17 @@ import { validate, validateRequest } from "@/middleware/validate";
 
 const userSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email format"),
+  email: z.email("Invalid email format"),
   age: z.number().min(0, "Age must be positive").optional(),
 });
 
 const querySchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(10),
+  page: z.coerce.number().min(1).prefault(1),
+  limit: z.coerce.number().min(1).max(100).prefault(10),
 });
 
 const paramsSchema = z.object({
-  id: z.string().uuid("Invalid ID format"),
+  id: z.uuid("Invalid ID format"),
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -335,11 +335,9 @@ describe("validate edge cases", () => {
   });
 
   it("should reject unknown keys with strict schema", async () => {
-    const strictSchema = z
-      .object({
-        name: z.string(),
-      })
-      .strict();
+    const strictSchema = z.strictObject({
+            name: z.string(),
+          });
 
     const app = express();
     app.use(express.json());

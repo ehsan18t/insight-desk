@@ -37,8 +37,8 @@ const SlaPolicySchema = z
     id: UuidSchema.describe("SLA Policy ID"),
     name: z.string().describe("Policy name"),
     priority: SlaPrioritySchema.describe("Priority level this policy applies to"),
-    firstResponseTime: z.number().int().describe("Target first response time in minutes"),
-    resolutionTime: z.number().int().describe("Target resolution time in minutes"),
+    firstResponseTime: z.int().describe("Target first response time in minutes"),
+    resolutionTime: z.int().describe("Target resolution time in minutes"),
     businessHoursOnly: z.boolean().describe("Whether SLA times only count during business hours"),
     isDefault: z.boolean().describe("Whether this is a default policy"),
     organizationId: UuidSchema.describe("Organization ID"),
@@ -54,23 +54,19 @@ const CreateSlaPolicyRequestSchema = z
   .object({
     name: z.string().min(1).max(100).describe("Policy name (1-100 characters)"),
     priority: SlaPrioritySchema.describe("Priority level this policy applies to"),
-    firstResponseTime: z
-      .number()
-      .int()
+    firstResponseTime: z.int()
       .min(1)
       .max(10080)
       .describe("Target first response time in minutes (1 min to 7 days)"),
-    resolutionTime: z
-      .number()
-      .int()
+    resolutionTime: z.int()
       .min(1)
       .max(43200)
       .describe("Target resolution time in minutes (1 min to 30 days)"),
     businessHoursOnly: z
       .boolean()
-      .default(true)
+      .prefault(true)
       .describe("Whether SLA times only count during business hours"),
-    isDefault: z.boolean().default(false).describe("Whether this is a default policy"),
+    isDefault: z.boolean().prefault(false).describe("Whether this is a default policy"),
   })
   .openapi("CreateSlaPolicyRequest");
 
@@ -80,16 +76,12 @@ const CreateSlaPolicyRequestSchema = z
 const UpdateSlaPolicyRequestSchema = z
   .object({
     name: z.string().min(1).max(100).optional().describe("Policy name (1-100 characters)"),
-    firstResponseTime: z
-      .number()
-      .int()
+    firstResponseTime: z.int()
       .min(1)
       .max(10080)
       .optional()
       .describe("Target first response time in minutes (1 min to 7 days)"),
-    resolutionTime: z
-      .number()
-      .int()
+    resolutionTime: z.int()
       .min(1)
       .max(43200)
       .optional()

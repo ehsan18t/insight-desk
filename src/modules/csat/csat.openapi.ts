@@ -30,7 +30,7 @@ const CSATSurveySchema = z
     id: UuidSchema.describe("Survey ID"),
     ticketId: UuidSchema.describe("Associated ticket ID"),
     token: z.string().describe("Unique access token for survey"),
-    rating: z.number().int().min(1).max(5).nullable().describe("Customer rating (1-5)"),
+    rating: z.int().min(1).max(5).nullable().describe("Customer rating (1-5)"),
     feedback: z.string().nullable().describe("Optional customer feedback"),
     respondedAt: TimestampSchema.nullable().describe("Response timestamp"),
     expiresAt: TimestampSchema.describe("Survey expiration timestamp"),
@@ -47,7 +47,7 @@ const CSATSurveyPublicSchema = z
     id: UuidSchema.describe("Survey ID"),
     ticketTitle: z.string().describe("Ticket title"),
     ticketNumber: z.string().describe("Ticket number"),
-    rating: z.number().int().min(1).max(5).nullable().describe("Current rating if submitted"),
+    rating: z.int().min(1).max(5).nullable().describe("Current rating if submitted"),
     feedback: z.string().nullable().describe("Current feedback if submitted"),
     respondedAt: TimestampSchema.nullable().describe("Response timestamp"),
     expiresAt: TimestampSchema.describe("Survey expiration timestamp"),
@@ -60,7 +60,7 @@ const CSATSurveyPublicSchema = z
  */
 const SubmitSurveyRequestSchema = z
   .object({
-    rating: z.number().int().min(1).max(5).describe("Customer satisfaction rating (1-5)"),
+    rating: z.int().min(1).max(5).describe("Customer satisfaction rating (1-5)"),
     feedback: z.string().max(2000).optional().describe("Optional feedback (max 2000 characters)"),
   })
   .openapi("SubmitSurveyRequest");
@@ -70,12 +70,12 @@ const SubmitSurveyRequestSchema = z
  */
 const SurveyQuerySchema = z
   .object({
-    page: z.coerce.number().int().positive().default(1).describe("Page number"),
-    limit: z.coerce.number().int().positive().max(100).default(20).describe("Items per page"),
+    page: z.coerce.number().int().positive().prefault(1).describe("Page number"),
+    limit: z.coerce.number().int().positive().max(100).prefault(20).describe("Items per page"),
     agentId: UuidSchema.optional().describe("Filter by assigned agent"),
     rating: z.coerce.number().int().min(1).max(5).optional().describe("Filter by rating"),
-    dateFrom: z.string().datetime().optional().describe("Filter from date (ISO 8601)"),
-    dateTo: z.string().datetime().optional().describe("Filter to date (ISO 8601)"),
+    dateFrom: z.iso.datetime().optional().describe("Filter from date (ISO 8601)"),
+    dateTo: z.iso.datetime().optional().describe("Filter to date (ISO 8601)"),
     responded: z.string().optional().describe("Filter by response status ('true' or 'false')"),
   })
   .openapi("SurveyQuery");
@@ -86,8 +86,8 @@ const SurveyQuerySchema = z
 const StatsQuerySchema = z
   .object({
     agentId: UuidSchema.optional().describe("Filter by agent ID"),
-    dateFrom: z.string().datetime().optional().describe("Filter from date (ISO 8601)"),
-    dateTo: z.string().datetime().optional().describe("Filter to date (ISO 8601)"),
+    dateFrom: z.iso.datetime().optional().describe("Filter from date (ISO 8601)"),
+    dateTo: z.iso.datetime().optional().describe("Filter to date (ISO 8601)"),
   })
   .openapi("CSATStatsQuery");
 
@@ -96,17 +96,17 @@ const StatsQuerySchema = z
  */
 const CSATStatsSchema = z
   .object({
-    totalSurveys: z.number().int().nonnegative().describe("Total surveys sent"),
-    responsesReceived: z.number().int().nonnegative().describe("Number of responses"),
+    totalSurveys: z.int().nonnegative().describe("Total surveys sent"),
+    responsesReceived: z.int().nonnegative().describe("Number of responses"),
     responseRate: z.number().min(0).max(100).describe("Response rate percentage"),
     averageRating: z.number().nullable().describe("Average rating (1-5)"),
     ratingDistribution: z
       .object({
-        1: z.number().int().nonnegative(),
-        2: z.number().int().nonnegative(),
-        3: z.number().int().nonnegative(),
-        4: z.number().int().nonnegative(),
-        5: z.number().int().nonnegative(),
+        1: z.int().nonnegative(),
+        2: z.int().nonnegative(),
+        3: z.int().nonnegative(),
+        4: z.int().nonnegative(),
+        5: z.int().nonnegative(),
       })
       .describe("Count of each rating"),
     satisfactionScore: z.number().nullable().describe("CSAT score percentage (4-5 ratings)"),
@@ -120,9 +120,9 @@ const AgentStatsSchema = z
   .object({
     agentId: UuidSchema.describe("Agent ID"),
     agentName: z.string().describe("Agent name"),
-    agentEmail: z.string().email().describe("Agent email"),
-    totalSurveys: z.number().int().nonnegative().describe("Total surveys for agent"),
-    responsesReceived: z.number().int().nonnegative().describe("Responses received"),
+    agentEmail: z.email().describe("Agent email"),
+    totalSurveys: z.int().nonnegative().describe("Total surveys for agent"),
+    responsesReceived: z.int().nonnegative().describe("Responses received"),
     averageRating: z.number().nullable().describe("Average rating"),
     satisfactionScore: z.number().nullable().describe("CSAT score percentage"),
   })
@@ -133,8 +133,8 @@ const AgentStatsSchema = z
  */
 const BulkSendResultSchema = z
   .object({
-    sent: z.number().int().nonnegative().describe("Number of surveys sent"),
-    skipped: z.number().int().nonnegative().describe("Number skipped (already sent or errors)"),
+    sent: z.int().nonnegative().describe("Number of surveys sent"),
+    skipped: z.int().nonnegative().describe("Number skipped (already sent or errors)"),
     errors: z.array(z.string()).describe("Error messages for failed sends"),
   })
   .openapi("BulkSendResult");

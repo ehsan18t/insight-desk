@@ -10,16 +10,16 @@ import { z } from "zod";
 // ─────────────────────────────────────────────────────────────
 
 export const subscribeBody = z.object({
-  planId: z.string().uuid("Invalid plan ID"),
+  planId: z.uuid("Invalid plan ID"),
 });
 
 export const changePlanBody = z.object({
-  planId: z.string().uuid("Invalid plan ID"),
+  planId: z.uuid("Invalid plan ID"),
 });
 
 export const usageQueryParams = z.object({
-  periodStart: z.string().datetime("Invalid date format").optional(),
-  periodEnd: z.string().datetime("Invalid date format").optional(),
+  periodStart: z.iso.datetime("Invalid date format").optional(),
+  periodEnd: z.iso.datetime("Invalid date format").optional(),
 });
 
 // ─────────────────────────────────────────────────────────────

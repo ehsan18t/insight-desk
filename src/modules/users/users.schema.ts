@@ -3,7 +3,7 @@ import { z } from "zod";
 // Update profile schema
 export const updateProfileSchema = z.object({
   name: z.string().min(2).max(100).optional(),
-  avatarUrl: z.string().url().nullable().optional(),
+  avatarUrl: z.url().nullable().optional(),
 });
 
 // User query params schema
@@ -14,15 +14,15 @@ export const userQuerySchema = z.object({
     .string()
     .transform((v) => v === "true")
     .optional(),
-  page: z.coerce.number().min(1).default(1),
-  limit: z.coerce.number().min(1).max(100).default(20),
-  sortBy: z.enum(["name", "email", "createdAt", "lastLoginAt"]).default("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  page: z.coerce.number().min(1).prefault(1),
+  limit: z.coerce.number().min(1).max(100).prefault(20),
+  sortBy: z.enum(["name", "email", "createdAt", "lastLoginAt"]).prefault("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).prefault("desc"),
 });
 
 // User ID param schema
 export const userIdParamSchema = z.object({
-  userId: z.string().uuid(),
+  userId: z.uuid(),
 });
 
 // Update user role schema (admin only)

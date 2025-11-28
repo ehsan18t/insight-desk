@@ -68,10 +68,10 @@ const JobTriggerResponseSchema = z
  */
 const SlaStatsSchema = z
   .object({
-    totalTickets: z.number().int().describe("Total tickets with SLA"),
-    breachedCount: z.number().int().describe("Number of tickets that breached SLA"),
-    atRiskCount: z.number().int().describe("Number of tickets at risk of breaching"),
-    onTrackCount: z.number().int().describe("Number of tickets on track"),
+    totalTickets: z.int().describe("Total tickets with SLA"),
+    breachedCount: z.int().describe("Number of tickets that breached SLA"),
+    atRiskCount: z.int().describe("Number of tickets at risk of breaching"),
+    onTrackCount: z.int().describe("Number of tickets on track"),
     breachRate: z.number().describe("Percentage of tickets that breached SLA"),
     averageResponseTime: z.number().nullable().describe("Average first response time in minutes"),
     averageResolutionTime: z.number().nullable().describe("Average resolution time in minutes"),
@@ -96,11 +96,11 @@ const AutoCloseTicketSchema = z
  */
 const AutoClosePreviewSchema = z
   .object({
-    candidateCount: z.number().int().describe("Number of tickets eligible for auto-close"),
+    candidateCount: z.int().describe("Number of tickets eligible for auto-close"),
     tickets: z.array(AutoCloseTicketSchema).describe("List of auto-close candidate tickets"),
     settings: z
       .object({
-        daysInactive: z.number().int().describe("Days of inactivity before auto-close"),
+        daysInactive: z.int().describe("Days of inactivity before auto-close"),
         targetStatus: z.string().describe("Status to transition tickets to"),
       })
       .describe("Auto-close configuration"),

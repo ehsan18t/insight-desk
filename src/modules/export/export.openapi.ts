@@ -35,7 +35,7 @@ const ExportFormatSchema = z.enum(["csv", "xlsx"]).openapi({
  */
 const ExportQuerySchema = z
   .object({
-    format: ExportFormatSchema.default("csv").describe("Export file format"),
+    format: ExportFormatSchema.prefault("csv").describe("Export file format"),
     fields: z
       .string()
       .optional()
@@ -44,8 +44,8 @@ const ExportQuerySchema = z
     priority: TicketPrioritySchema.optional().describe("Filter by ticket priority"),
     assigneeId: UuidSchema.optional().describe("Filter by assigned agent ID"),
     categoryId: UuidSchema.optional().describe("Filter by category ID"),
-    dateFrom: z.string().datetime().optional().describe("Filter tickets created from this date"),
-    dateTo: z.string().datetime().optional().describe("Filter tickets created until this date"),
+    dateFrom: z.iso.datetime().optional().describe("Filter tickets created from this date"),
+    dateTo: z.iso.datetime().optional().describe("Filter tickets created until this date"),
     search: z.string().optional().describe("Search in ticket title and description"),
   })
   .openapi("ExportQuery");

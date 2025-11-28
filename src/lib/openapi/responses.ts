@@ -20,10 +20,10 @@ extendZodWithOpenApi(z);
  */
 export const PaginationSchema = z
   .object({
-    page: z.number().int().positive().describe("Current page number"),
-    limit: z.number().int().positive().describe("Items per page"),
-    total: z.number().int().nonnegative().describe("Total number of items"),
-    totalPages: z.number().int().nonnegative().describe("Total number of pages"),
+    page: z.int().positive().describe("Current page number"),
+    limit: z.int().positive().describe("Items per page"),
+    total: z.int().nonnegative().describe("Total number of items"),
+    totalPages: z.int().nonnegative().describe("Total number of pages"),
   })
   .openapi("Pagination");
 
@@ -62,7 +62,7 @@ export const ErrorResponseSchema = z
 export const ValidationErrorSchema = z
   .object({
     success: z.literal(false),
-    error: z.string().default("Validation failed"),
+    error: z.string().prefault("Validation failed"),
     code: z.literal("VALIDATION_ERROR"),
     details: z.array(
       z.object({
@@ -80,7 +80,7 @@ export const ValidationErrorSchema = z
 /**
  * UUID identifier schema
  */
-export const UuidSchema = z.string().uuid().openapi({
+export const UuidSchema = z.uuid().openapi({
   description: "Unique identifier (UUID v4)",
   example: "550e8400-e29b-41d4-a716-446655440000",
 });
@@ -88,7 +88,7 @@ export const UuidSchema = z.string().uuid().openapi({
 /**
  * Timestamp schema for created/updated dates
  */
-export const TimestampSchema = z.string().datetime().openapi({
+export const TimestampSchema = z.iso.datetime().openapi({
   description: "ISO 8601 timestamp",
   example: "2024-01-15T10:30:00.000Z",
 });
@@ -96,7 +96,7 @@ export const TimestampSchema = z.string().datetime().openapi({
 /**
  * Email schema
  */
-export const EmailSchema = z.string().email().openapi({
+export const EmailSchema = z.email().openapi({
   description: "Valid email address",
   example: "user@example.com",
 });

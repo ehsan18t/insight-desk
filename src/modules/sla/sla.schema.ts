@@ -10,7 +10,7 @@ import { z } from "zod";
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const slaPolicyIdParam = z.object({
-  id: z.string().uuid("Invalid SLA policy ID"),
+  id: z.uuid("Invalid SLA policy ID"),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -27,8 +27,8 @@ export const listSlaPoliciesQuery = z.object({
 
 export const updateSlaPolicyBody = z.object({
   name: z.string().min(1).max(100).optional(),
-  firstResponseTime: z.number().int().min(1).max(10080).optional(), // 1 min to 7 days
-  resolutionTime: z.number().int().min(1).max(43200).optional(), // 1 min to 30 days
+  firstResponseTime: z.int().min(1).max(10080).optional(), // 1 min to 7 days
+  resolutionTime: z.int().min(1).max(43200).optional(), // 1 min to 30 days
   businessHoursOnly: z.boolean().optional(),
   isDefault: z.boolean().optional(),
 });
@@ -36,10 +36,10 @@ export const updateSlaPolicyBody = z.object({
 export const createSlaPolicyBody = z.object({
   name: z.string().min(1).max(100),
   priority: z.enum(["low", "medium", "high", "urgent"]),
-  firstResponseTime: z.number().int().min(1).max(10080), // in minutes
-  resolutionTime: z.number().int().min(1).max(43200), // in minutes
-  businessHoursOnly: z.boolean().default(true),
-  isDefault: z.boolean().default(false),
+  firstResponseTime: z.int().min(1).max(10080), // in minutes
+  resolutionTime: z.int().min(1).max(43200), // in minutes
+  businessHoursOnly: z.boolean().prefault(true),
+  isDefault: z.boolean().prefault(false),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
