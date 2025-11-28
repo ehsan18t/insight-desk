@@ -5,7 +5,7 @@ import type {
   Response,
 } from "express-serve-static-core";
 import type { ParsedQs } from "qs";
-import { ZodError, type ZodIssue, type ZodSchema } from "zod";
+import { z } from "zod";
 
 // Validation error response type
 interface ValidationError {
@@ -15,7 +15,7 @@ interface ValidationError {
 
 // Validate request body, query, or params
 export function validate(
-  schema: ZodSchema,
+  schema: z.ZodType,
   source: "body" | "query" | "params" = "body"
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -24,8 +24,8 @@ export function validate(
       req[source] = data; // Replace with parsed (and transformed) data
       next();
     } catch (error) {
-      if (error instanceof ZodError) {
-        const errors: ValidationError[] = error.issues.map((e: ZodIssue) => ({
+      if (error instanceof z.ZodError) {
+        const errors: ValidationError[] = error.issues.map((e) => ({
           field: e.path.join("."),
           message: e.message,
         }));
@@ -44,9 +44,9 @@ export function validate(
 
 // Validate multiple sources at once
 export function validateRequest(schemas: {
-  body?: ZodSchema;
-  query?: ZodSchema;
-  params?: ZodSchema;
+  body?: z.ZodType;
+  query?: z.ZodType;
+  params?: z.ZodType;
 }) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -61,8 +61,8 @@ export function validateRequest(schemas: {
       }
       next();
     } catch (error) {
-      if (error instanceof ZodError) {
-        const errors: ValidationError[] = error.issues.map((e: ZodIssue) => ({
+      if (error instanceof z.ZodError) {
+        const errors: ValidationError[] = error.issues.map((e) => ({
           field: e.path.join("."),
           message: e.message,
         }));
