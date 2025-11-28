@@ -972,3 +972,78 @@ describe("ticketsService.getStats", () => {
     expect(result.total).toBe(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// ticketsService.delete Tests
+// ─────────────────────────────────────────────────────────────
+
+describe("ticketsService.delete", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("should delete ticket successfully when user is admin", async () => {
+    const mockTicket = createMockTicket();
+
+    // Mock finding the ticket
+    vi.mocked(db.query.tickets.findFirst).mockResolvedValue(mockTicket);
+
+    // Mock delete operations (messages, activities, ticket)
+    vi.mocked(db.delete).mockReturnValue({
+      where: vi.fn().mockResolvedValue({ rowCount: 1 }),
+    } as unknown as ReturnType<typeof db.delete>);
+
+    await expect(
+      ticketsService.delete("ticket-001", mockAgentId, "admin"),
+    ).resolves.toBeUndefined();
+
+    expect(db.query.tickets.findFirst).toHaveBeenCalled();
+    expect(db.delete).toHaveBeenCalledTimes(3); // messages, activities, ticket
+  });
+
+  it("should delete ticket successfully when user is owner", async () => {
+    const mockTicket = createMockTicket();
+
+    vi.mocked(db.query.tickets.findFirst).mockResolvedValue(mockTicket);
+    vi.mocked(db.delete).mockReturnValue({
+      where: vi.fn().mockResolvedValue({ rowCount: 1 }),
+    } as unknown as ReturnType<typeof db.delete>);
+
+    await expect(
+      ticketsService.delete("ticket-001", mockAgentId, "owner"),
+    ).resolves.toBeUndefined();
+
+    expect(db.delete).toHaveBeenCalledTimes(3);
+  });
+
+  it("should throw ForbiddenError when agent tries to delete", async () => {
+    await expect(ticketsService.delete("ticket-001", mockAgentId, "agent")).rejects.toThrow(
+      ForbiddenError,
+    );
+
+    expect(db.query.tickets.findFirst).not.toHaveBeenCalled();
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+
+  it("should throw ForbiddenError when customer tries to delete", async () => {
+    await expect(ticketsService.delete("ticket-001", mockCustomerId, "customer")).rejects.toThrow(
+      ForbiddenError,
+    );
+
+    expect(db.query.tickets.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("should throw NotFoundError when ticket does not exist", async () => {
+    vi.mocked(db.query.tickets.findFirst).mockResolvedValue(undefined);
+
+    await expect(ticketsService.delete("non-existent", mockAgentId, "admin")).rejects.toThrow(
+      NotFoundError,
+    );
+
+    expect(db.delete).not.toHaveBeenCalled();
+  });
+});
