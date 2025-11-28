@@ -22,7 +22,10 @@
     "format": "biome format --write src",
     "check": "biome check src",
     "check:fix": "biome check --write src",
-    "test": "bun test"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
@@ -52,7 +55,11 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
     "@types/nodemailer": "^6.4.21",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^4.0.14",
     "drizzle-kit": "^0.31.7",
-    "typescript": "^5.9.3"
+    "supertest": "^7.1.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
   }
 }

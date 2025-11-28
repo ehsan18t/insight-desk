@@ -1,5 +1,4 @@
-import type { NextFunction, ParamsDictionary, Request, Response } from "express-serve-static-core";
-import type { ParsedQs } from "qs";
+import type { NextFunction, Request, Response } from "express-serve-static-core";
 import { z } from "zod";
 
 // Validation error response type
@@ -8,12 +7,29 @@ interface ValidationError {
   message: string;
 }
 
+// Helper to clear and assign object properties
+function replaceObjectContent(target: Record<string, unknown>, source: Record<string, unknown>) {
+  for (const key of Object.keys(target)) {
+    delete target[key];
+  }
+  Object.assign(target, source);
+}
+
 // Validate request body, query, or params
 export function validate(schema: z.ZodType, source: "body" | "query" | "params" = "body") {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = schema.parse(req[source]);
-      req[source] = data; // Replace with parsed (and transformed) data
+      // Replace with parsed (and transformed) data
+      // Use Object.assign to avoid readonly property error for query/params
+      if (source === "body") {
+        req.body = data;
+      } else {
+        replaceObjectContent(
+          req[source] as Record<string, unknown>,
+          data as Record<string, unknown>,
+        );
+      }
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -46,10 +62,15 @@ export function validateRequest(schemas: {
         req.body = schemas.body.parse(req.body);
       }
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query) as ParsedQs;
+        const data = schemas.query.parse(req.query);
+        replaceObjectContent(req.query as Record<string, unknown>, data as Record<string, unknown>);
       }
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params) as ParamsDictionary;
+        const data = schemas.params.parse(req.params);
+        replaceObjectContent(
+          req.params as Record<string, unknown>,
+          data as Record<string, unknown>,
+        );
       }
       next();
     } catch (error) {
