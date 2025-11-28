@@ -16,6 +16,7 @@ import { categoriesRouter } from "./modules/categories";
 import { dashboardRouter } from "./modules/dashboard";
 import { jobsRouter } from "./modules/jobs";
 import { organizationsRouter } from "./modules/organizations";
+import { savedFiltersRouter } from "./modules/saved-filters";
 import { slaRouter } from "./modules/sla";
 import { tagsRouter } from "./modules/tags";
 import { ticketsRouter } from "./modules/tickets";
@@ -104,6 +105,7 @@ export function createApp(): Express {
   app.use("/api/categories", categoriesRouter);
   app.use("/api/tags", tagsRouter);
   app.use("/api/attachments", attachmentsRouter);
+  app.use("/api/saved-filters", savedFiltersRouter);
   app.use("/api/sla-policies", slaRouter);
   app.use("/api/canned-responses", cannedResponsesRouter);
   app.use("/api/dashboard", dashboardRouter);

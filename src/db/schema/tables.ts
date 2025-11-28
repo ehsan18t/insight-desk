@@ -480,3 +480,52 @@ export const organizationInvitations = pgTable(
     index("invitations_status_idx").on(table.status),
   ],
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SAVED FILTERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface SavedFilterCriteria {
+  status?: string[];
+  priority?: string[];
+  assigneeId?: string | null;
+  customerId?: string;
+  tags?: string[];
+  categoryId?: string;
+  search?: string;
+  dateRange?: {
+    field: "createdAt" | "updatedAt" | "resolvedAt" | "closedAt";
+    from?: string;
+    to?: string;
+  };
+}
+
+export const savedFilters = pgTable(
+  "saved_filters",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    criteria: jsonb("criteria").$type<SavedFilterCriteria>().notNull(),
+    isDefault: boolean("is_default").notNull().default(false),
+    isShared: boolean("is_shared").notNull().default(false), // Visible to team
+    sortBy: text("sort_by").notNull().default("createdAt"),
+    sortOrder: text("sort_order").notNull().default("desc"),
+    color: text("color"), // Optional color for UI
+    icon: text("icon"), // Optional icon for UI
+    position: integer("position").notNull().default(0), // Order in list
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("saved_filters_org_idx").on(table.organizationId),
+    index("saved_filters_user_idx").on(table.userId),
+    index("saved_filters_shared_idx").on(table.isShared),
+  ],
+);

@@ -9,6 +9,7 @@ import {
   categories,
   organizationInvitations,
   organizations,
+  savedFilters,
   sessions,
   slaPolicies,
   tags,
@@ -237,5 +238,20 @@ export const organizationInvitationsRelations = relations(organizationInvitation
     fields: [organizationInvitations.acceptedById],
     references: [users.id],
     relationName: "accepted_by",
+  }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SAVED FILTER RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const savedFiltersRelations = relations(savedFilters, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [savedFilters.organizationId],
+    references: [organizations.id],
+  }),
+  user: one(users, {
+    fields: [savedFilters.userId],
+    references: [users.id],
   }),
 }));

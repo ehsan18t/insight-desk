@@ -8,6 +8,7 @@ export type {
   ActivityMetadata,
   Attachment,
   OrganizationSettings,
+  SavedFilterCriteria,
 } from "./tables";
 // Tables and Enums
 export * from "./tables";
@@ -23,6 +24,7 @@ import type {
   messageTypeEnum,
   organizationInvitations,
   organizations,
+  savedFilters,
   sessions,
   slaPolicies,
   tags,
@@ -100,3 +102,7 @@ export type NewAttachmentRecord = typeof attachments.$inferInsert;
 export type OrganizationInvitation = typeof organizationInvitations.$inferSelect;
 export type NewOrganizationInvitation = typeof organizationInvitations.$inferInsert;
 export type InviteStatus = (typeof inviteStatusEnum.enumValues)[number];
+
+// Saved Filter types
+export type SavedFilter = typeof savedFilters.$inferSelect;
+export type NewSavedFilter = typeof savedFilters.$inferInsert;
