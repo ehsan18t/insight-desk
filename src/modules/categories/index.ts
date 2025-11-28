@@ -4,5 +4,5 @@
  */
 
 export { categoriesRouter } from "./categories.routes";
-export { categoriesService } from "./categories.service";
 export * from "./categories.schema";
+export { categoriesService } from "./categories.service";
