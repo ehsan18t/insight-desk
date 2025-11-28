@@ -3,8 +3,8 @@ import { nanoid } from "nanoid";
 import { db } from "@/db";
 import {
   type Organization,
-  organizationInvitations,
   type OrganizationSettings,
+  organizationInvitations,
   organizations,
   type UserRole,
   userOrganizations,

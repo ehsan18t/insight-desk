@@ -1,16 +1,12 @@
+import { eq } from "drizzle-orm";
 import { Router } from "express";
 import { db } from "@/db";
 import { tickets } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { authenticate } from "@/middleware/authenticate";
 import { organizationAccess } from "@/middleware/organization-access";
-import {
-  submitSurveySchema,
-  surveyQuerySchema,
-  statsQuerySchema,
-} from "./csat.schema";
-import { csatService } from "./csat.service";
 import { validateBody, validateQuery } from "@/middleware/validate";
+import { statsQuerySchema, submitSurveySchema, surveyQuerySchema } from "./csat.schema";
+import { csatService } from "./csat.service";
 
 const router = Router();
 
@@ -30,19 +26,15 @@ router.get("/respond/:token", async (req, res, next) => {
 });
 
 // Submit survey response (public)
-router.post(
-  "/respond/:token",
-  validateBody(submitSurveySchema),
-  async (req, res, next) => {
-    try {
-      const { token } = req.params;
-      const survey = await csatService.submitResponse(token, req.body);
-      res.json(survey);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+router.post("/respond/:token", validateBody(submitSurveySchema), async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const survey = await csatService.submitResponse(token, req.body);
+    res.json(survey);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ─────────────────────────────────────────────────────────────
 // Protected routes (require authentication)
@@ -54,67 +46,52 @@ router.use(authenticate);
 router.use("/:organizationId", organizationAccess);
 
 // List all surveys for organization
-router.get(
-  "/:organizationId",
-  validateQuery(surveyQuerySchema),
-  async (req, res, next) => {
-    try {
-      const { organizationId } = req.params;
-      const result = await csatService.list(organizationId, {
-        page: Number(req.query.page) || 1,
-        limit: Number(req.query.limit) || 20,
-        agentId: req.query.agentId as string | undefined,
-        rating: req.query.rating ? Number(req.query.rating) : undefined,
-        dateFrom: req.query.dateFrom as string | undefined,
-        dateTo: req.query.dateTo as string | undefined,
-        responded:
-          req.query.responded !== undefined
-            ? req.query.responded === "true"
-            : undefined,
-      });
-      res.json(result);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+router.get("/:organizationId", validateQuery(surveyQuerySchema), async (req, res, next) => {
+  try {
+    const { organizationId } = req.params;
+    const result = await csatService.list(organizationId, {
+      page: Number(req.query.page) || 1,
+      limit: Number(req.query.limit) || 20,
+      agentId: req.query.agentId as string | undefined,
+      rating: req.query.rating ? Number(req.query.rating) : undefined,
+      dateFrom: req.query.dateFrom as string | undefined,
+      dateTo: req.query.dateTo as string | undefined,
+      responded: req.query.responded !== undefined ? req.query.responded === "true" : undefined,
+    });
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Get CSAT statistics
-router.get(
-  "/:organizationId/stats",
-  validateQuery(statsQuerySchema),
-  async (req, res, next) => {
-    try {
-      const { organizationId } = req.params;
-      const stats = await csatService.getStats(organizationId, {
-        dateFrom: req.query.dateFrom as string | undefined,
-        dateTo: req.query.dateTo as string | undefined,
-        agentId: req.query.agentId as string | undefined,
-      });
-      res.json(stats);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+router.get("/:organizationId/stats", validateQuery(statsQuerySchema), async (req, res, next) => {
+  try {
+    const { organizationId } = req.params;
+    const stats = await csatService.getStats(organizationId, {
+      dateFrom: req.query.dateFrom as string | undefined,
+      dateTo: req.query.dateTo as string | undefined,
+      agentId: req.query.agentId as string | undefined,
+    });
+    res.json(stats);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Get agent performance stats
-router.get(
-  "/:organizationId/agents",
-  validateQuery(statsQuerySchema),
-  async (req, res, next) => {
-    try {
-      const { organizationId } = req.params;
-      const stats = await csatService.getAgentStats(organizationId, {
-        dateFrom: req.query.dateFrom as string | undefined,
-        dateTo: req.query.dateTo as string | undefined,
-      });
-      res.json(stats);
-    } catch (error) {
-      next(error);
-    }
-  },
-);
+router.get("/:organizationId/agents", validateQuery(statsQuerySchema), async (req, res, next) => {
+  try {
+    const { organizationId } = req.params;
+    const stats = await csatService.getAgentStats(organizationId, {
+      dateFrom: req.query.dateFrom as string | undefined,
+      dateTo: req.query.dateTo as string | undefined,
+    });
+    res.json(stats);
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Get single survey
 router.get("/:organizationId/:surveyId", async (req, res, next) => {
@@ -146,7 +123,7 @@ router.post("/:organizationId/send/:ticketId", async (req, res, next) => {
 router.post("/:organizationId/send-bulk", async (req, res, next) => {
   try {
     const { organizationId } = req.params;
-    
+
     // Find tickets without surveys
     const ticketsWithoutSurveys = await db.query.tickets.findMany({
       where: eq(tickets.organizationId, organizationId),

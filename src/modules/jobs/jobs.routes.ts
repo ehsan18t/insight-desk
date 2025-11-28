@@ -4,15 +4,10 @@
  */
 
 import { Router } from "express";
+import { getAutoClosePreview, getJobStatus, getSlaStats, triggerJob } from "@/jobs";
 import { createLogger } from "@/lib/logger";
 import { requireAuth } from "@/middleware/auth";
 import { requireOrg, requireOrgRole } from "@/middleware/organization";
-import {
-  getJobStatus,
-  triggerJob,
-  getSlaStats,
-  getAutoClosePreview,
-} from "@/jobs";
 
 const router = Router();
 const logger = createLogger("jobs:routes");
