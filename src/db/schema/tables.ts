@@ -529,3 +529,43 @@ export const savedFilters = pgTable(
     index("saved_filters_shared_idx").on(table.isShared),
   ],
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CSAT SURVEYS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const csatSurveys = pgTable(
+  "csat_surveys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => tickets.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id").references(() => users.id, { onDelete: "set null" }),
+    // Survey token for anonymous access
+    token: text("token").notNull().unique(),
+    // Rating 1-5 (1=Very Unsatisfied, 5=Very Satisfied)
+    rating: integer("rating"),
+    // Optional feedback text
+    feedback: text("feedback"),
+    // Timestamps
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("csat_org_idx").on(table.organizationId),
+    index("csat_ticket_idx").on(table.ticketId),
+    index("csat_customer_idx").on(table.customerId),
+    index("csat_agent_idx").on(table.agentId),
+    index("csat_token_idx").on(table.token),
+    index("csat_rating_idx").on(table.rating),
+  ],
+);

@@ -20,6 +20,7 @@ import type {
   attachments,
   cannedResponses,
   categories,
+  csatSurveys,
   inviteStatusEnum,
   messageTypeEnum,
   organizationInvitations,
@@ -106,3 +107,7 @@ export type InviteStatus = (typeof inviteStatusEnum.enumValues)[number];
 // Saved Filter types
 export type SavedFilter = typeof savedFilters.$inferSelect;
 export type NewSavedFilter = typeof savedFilters.$inferInsert;
+
+// CSAT Survey types
+export type CsatSurvey = typeof csatSurveys.$inferSelect;
+export type NewCsatSurvey = typeof csatSurveys.$inferInsert;

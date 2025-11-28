@@ -13,6 +13,7 @@ import { attachmentsRouter } from "./modules/attachments";
 import { authRouter } from "./modules/auth";
 import { cannedResponsesRouter } from "./modules/canned-responses";
 import { categoriesRouter } from "./modules/categories";
+import { csatRoutes } from "./modules/csat";
 import { dashboardRouter } from "./modules/dashboard";
 import { jobsRouter } from "./modules/jobs";
 import { organizationsRouter } from "./modules/organizations";
@@ -108,6 +109,7 @@ export function createApp(): Express {
   app.use("/api/saved-filters", savedFiltersRouter);
   app.use("/api/sla-policies", slaRouter);
   app.use("/api/canned-responses", cannedResponsesRouter);
+  app.use("/api/csat", csatRoutes);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/jobs", jobsRouter);
 

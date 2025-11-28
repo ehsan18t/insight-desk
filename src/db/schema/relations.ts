@@ -7,6 +7,7 @@ import {
   attachments,
   cannedResponses,
   categories,
+  csatSurveys,
   organizationInvitations,
   organizations,
   savedFilters,
@@ -253,5 +254,30 @@ export const savedFiltersRelations = relations(savedFilters, ({ one }) => ({
   user: one(users, {
     fields: [savedFilters.userId],
     references: [users.id],
+  }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CSAT SURVEY RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const csatSurveysRelations = relations(csatSurveys, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [csatSurveys.organizationId],
+    references: [organizations.id],
+  }),
+  ticket: one(tickets, {
+    fields: [csatSurveys.ticketId],
+    references: [tickets.id],
+  }),
+  customer: one(users, {
+    fields: [csatSurveys.customerId],
+    references: [users.id],
+    relationName: "csat_customer",
+  }),
+  agent: one(users, {
+    fields: [csatSurveys.agentId],
+    references: [users.id],
+    relationName: "csat_agent",
   }),
 }));
