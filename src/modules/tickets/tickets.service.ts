@@ -7,7 +7,9 @@ import {
   type Ticket,
   type TicketPriority,
   ticketActivities,
+  ticketMessages,
   tickets,
+  type UserRole,
   users,
 } from "@/db/schema/index";
 import { createLogger } from "@/lib/logger";
@@ -422,6 +424,31 @@ export const ticketsService = {
     logger.info({ ticketId }, "Ticket reopened");
 
     return updated;
+  },
+
+  // Delete ticket (admin/owner only)
+  async delete(ticketId: string, userId: string, userRole: UserRole) {
+    // Only admins and owners can delete tickets
+    if (!["admin", "owner"].includes(userRole)) {
+      throw new ForbiddenError("Only admins and owners can delete tickets");
+    }
+
+    const ticket = await db.query.tickets.findFirst({
+      where: eq(tickets.id, ticketId),
+    });
+
+    if (!ticket) {
+      throw new NotFoundError("Ticket not found");
+    }
+
+    // Delete related records first (messages, activities)
+    await db.delete(ticketMessages).where(eq(ticketMessages.ticketId, ticketId));
+    await db.delete(ticketActivities).where(eq(ticketActivities.ticketId, ticketId));
+
+    // Delete the ticket
+    await db.delete(tickets).where(eq(tickets.id, ticketId));
+
+    logger.info({ ticketId, deletedBy: userId }, "Ticket deleted");
   },
 
   // Get ticket statistics for organization

@@ -205,4 +205,22 @@ router.post(
   },
 );
 
+// ─────────────────────────────────────────────────────────────
+// DELETE /api/tickets/:id - Delete ticket (admin/owner only)
+// ─────────────────────────────────────────────────────────────
+router.delete(
+  "/:id",
+  requireRole("admin", "owner"),
+  validateRequest({ params: ticketIdParamSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await ticketsService.delete(req.params.id, req.user!.id, req.userRole!);
+
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 export const ticketsRouter = router;
