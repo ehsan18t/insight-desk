@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { config } from "@/config";
 import { db } from "@/db";
 import * as schema from "@/db/schema/index";
+import { sendTemplateEmail } from "@/lib/email";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -26,6 +27,27 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     maxPasswordLength: 128,
+    // Password reset email sending
+    sendResetPassword: async ({ user, url }) => {
+      await sendTemplateEmail("password-reset", user.email, {
+        name: user.name,
+        resetUrl: url,
+      });
+    },
+    resetPasswordTokenExpiresIn: 3600, // 1 hour
+  },
+
+  // Email verification configuration
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendTemplateEmail("email-verification", user.email, {
+        name: user.name,
+        verifyUrl: url,
+      });
+    },
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 86400, // 24 hours
   },
 
   // Session configuration
