@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type TicketMessage, ticketActivities, ticketMessages, tickets } from "@/db/schema/index";
 import { createLogger } from "@/lib/logger";
+import { emitToTicket, sendNotification } from "@/lib/socket";
 import { ForbiddenError, NotFoundError } from "@/middleware/error-handler";
 import type { CreateMessageInput, MessageQuery, UpdateMessageInput } from "./messages.schema";
 
@@ -66,6 +67,44 @@ export const messagesService = {
         messageType: input.type || "reply",
       },
     });
+
+    // Emit real-time event to ticket room
+    emitToTicket(ticketId, "ticket:message_added", {
+      ticketId,
+      messageId: message.id,
+      message,
+      senderId,
+      type: input.type || "reply",
+    });
+
+    // Send notification to ticket participants
+    // Notify customer if agent replied
+    if (senderRole && ["agent", "admin", "owner"].includes(senderRole) && input.type !== "internal_note") {
+      sendNotification({
+        type: "notification",
+        userId: ticket.customerId,
+        data: {
+          title: "New Reply",
+          message: `You have a new reply on ticket #${ticket.ticketNumber}`,
+          ticketId,
+          action: "view_ticket",
+        },
+      });
+    }
+
+    // Notify assignee if customer replied
+    if (senderRole === "customer" && ticket.assigneeId) {
+      sendNotification({
+        type: "notification",
+        userId: ticket.assigneeId,
+        data: {
+          title: "Customer Reply",
+          message: `Customer replied to ticket #${ticket.ticketNumber}: ${ticket.title}`,
+          ticketId,
+          action: "view_ticket",
+        },
+      });
+    }
 
     logger.info({ ticketId, messageId: message.id }, "Message created");
 

@@ -13,6 +13,7 @@ import {
   users,
 } from "@/db/schema/index";
 import { createLogger } from "@/lib/logger";
+import { broadcastTicketEvent, sendNotification } from "@/lib/socket";
 import { ForbiddenError, NotFoundError } from "@/middleware/error-handler";
 import type {
   BulkAssignInput,
@@ -88,6 +89,14 @@ export const ticketsService = {
       ticketId: ticket.id,
       userId: customerId,
       action: "created",
+    });
+
+    // Emit real-time event
+    broadcastTicketEvent({
+      type: "ticket:created",
+      ticketId: ticket.id,
+      organizationId,
+      data: { ticket, ticketNumber },
     });
 
     logger.info({ ticketId: ticket.id, ticketNumber }, "Ticket created");
@@ -312,6 +321,14 @@ export const ticketsService = {
       });
     }
 
+    // Emit real-time event
+    broadcastTicketEvent({
+      type: "ticket:updated",
+      ticketId,
+      organizationId: ticket.organizationId,
+      data: { ticket: updated, changes: activities },
+    });
+
     logger.info({ ticketId, updates: Object.keys(updates) }, "Ticket updated");
 
     return updated;
@@ -358,6 +375,28 @@ export const ticketsService = {
       metadata: assigneeId ? { assigneeId, assigneeName } : { previousAssignee: ticket.assigneeId },
     });
 
+    // Emit real-time event
+    broadcastTicketEvent({
+      type: "ticket:assigned",
+      ticketId,
+      organizationId: ticket.organizationId,
+      data: { ticket: updated, assigneeId, assigneeName },
+    });
+
+    // Send notification to assignee
+    if (assigneeId) {
+      sendNotification({
+        type: "notification",
+        userId: assigneeId,
+        data: {
+          title: "New Ticket Assignment",
+          message: `You have been assigned to ticket #${ticket.ticketNumber}: ${ticket.title}`,
+          ticketId,
+          action: "view_ticket",
+        },
+      });
+    }
+
     logger.info({ ticketId, assigneeId }, "Ticket assigned");
 
     return updated;
@@ -394,6 +433,14 @@ export const ticketsService = {
       metadata: reason ? { reason } : {},
     });
 
+    // Emit real-time event
+    broadcastTicketEvent({
+      type: "ticket:closed",
+      ticketId,
+      organizationId: ticket.organizationId,
+      data: { ticket: updated, reason },
+    });
+
     logger.info({ ticketId }, "Ticket closed");
 
     return updated;
@@ -427,6 +474,14 @@ export const ticketsService = {
       ticketId,
       userId,
       action: "reopened",
+    });
+
+    // Emit real-time event
+    broadcastTicketEvent({
+      type: "ticket:updated",
+      ticketId,
+      organizationId: ticket.organizationId,
+      data: { ticket: updated, action: "reopened" },
     });
 
     logger.info({ ticketId }, "Ticket reopened");
