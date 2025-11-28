@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { exportService } from "./export.service";
 import type { ExportQuery } from "./export.schema";
+import { exportService } from "./export.service";
 
 // Mock database
 vi.mock("@/db", () => ({

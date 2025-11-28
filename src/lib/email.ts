@@ -44,7 +44,10 @@ export type EmailTemplate =
   | "ticket-resolved"
   | "welcome"
   | "password-reset"
-  | "email-verification";
+  | "email-verification"
+  | "organization-invitation"
+  | "sla-breach"
+  | "sla-warning";
 
 interface EmailData {
   to: string;
@@ -151,6 +154,44 @@ function renderTemplate(
         <h2>Verify Your Email Address</h2>
         <p>Click the link below to verify your email:</p>
         <p><a href="${data.verifyUrl}">Verify Email</a></p>
+      `,
+    },
+    "organization-invitation": {
+      subject: `You've been invited to join ${data.organizationName} on InsightDesk`,
+      html: `
+        <h2>Organization Invitation</h2>
+        <p>You've been invited to join <strong>${data.organizationName}</strong> as a <strong>${data.role}</strong>.</p>
+        <p>Invited by: ${data.inviterName}</p>
+        <p>Click the link below to accept the invitation:</p>
+        <p><a href="${config.FRONTEND_URL}/invitations/accept?token=${data.token}">Accept Invitation</a></p>
+        <p><small>This invitation expires on ${data.expiresAt}.</small></p>
+      `,
+    },
+    "sla-breach": {
+      subject: `🚨 SLA Breached: Ticket #${data.ticketNumber}`,
+      html: `
+        <h2 style="color: #dc2626;">SLA Breach Alert</h2>
+        <p>The following ticket has breached its SLA deadline:</p>
+        <p><strong>Ticket #${data.ticketNumber}:</strong> ${data.title}</p>
+        <p><strong>Organization:</strong> ${data.organizationName}</p>
+        <p><strong>SLA Deadline:</strong> ${data.slaDeadline}</p>
+        <p><strong>Assigned to:</strong> ${data.assigneeName || "Unassigned"}</p>
+        <p><a href="${config.FRONTEND_URL}/tickets/${data.ticketId}">View Ticket</a></p>
+        <p style="color: #dc2626;">Please take immediate action.</p>
+      `,
+    },
+    "sla-warning": {
+      subject: `⚠️ SLA Warning: Ticket #${data.ticketNumber}`,
+      html: `
+        <h2 style="color: #f59e0b;">SLA Warning</h2>
+        <p>The following ticket is about to breach its SLA deadline:</p>
+        <p><strong>Ticket #${data.ticketNumber}:</strong> ${data.title}</p>
+        <p><strong>Organization:</strong> ${data.organizationName}</p>
+        <p><strong>SLA Deadline:</strong> ${data.slaDeadline}</p>
+        <p><strong>Time remaining:</strong> ${data.timeRemaining}</p>
+        <p><strong>Assigned to:</strong> ${data.assigneeName || "Unassigned"}</p>
+        <p><a href="${config.FRONTEND_URL}/tickets/${data.ticketId}">View Ticket</a></p>
+        <p>Please address this ticket soon to avoid SLA breach.</p>
       `,
     },
   };

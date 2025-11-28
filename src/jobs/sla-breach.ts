@@ -5,7 +5,8 @@
 
 import { and, eq, isNotNull, or } from "drizzle-orm";
 import { db } from "@/db";
-import { ticketActivities, tickets } from "@/db/schema";
+import { organizations, ticketActivities, tickets, users } from "@/db/schema";
+import { sendTemplateEmail } from "@/lib/email";
 import { createLogger } from "@/lib/logger";
 
 const logger = createLogger("jobs:sla-breach");
@@ -35,6 +36,8 @@ export async function checkSlaBreaches(): Promise<SlaBreachResult> {
     const ticketsToCheck = await db
       .select({
         id: tickets.id,
+        ticketNumber: tickets.ticketNumber,
+        title: tickets.title,
         orgId: tickets.organizationId,
         priority: tickets.priority,
         status: tickets.status,
@@ -76,7 +79,8 @@ export async function checkSlaBreaches(): Promise<SlaBreachResult> {
 
           logger.warn({ ticketId: ticket.id, deadline: ticket.slaDeadline }, "SLA breached");
 
-          // TODO: Send notification to assignee or organization admins
+          // Send notification to assignee or organization admins
+          await sendSlaNotification(ticket, "sla-breach");
         }
 
         // Check for upcoming SLA breaches (warnings - within 30 minutes)
@@ -91,7 +95,9 @@ export async function checkSlaBreaches(): Promise<SlaBreachResult> {
 
           logger.info({ ticketId: ticket.id, deadline: ticket.slaDeadline }, "SLA about to breach");
 
-          // TODO: Send warning notification
+          // Send warning notification
+          const timeRemaining = Math.round((ticket.slaDeadline.getTime() - now.getTime()) / 60000);
+          await sendSlaNotification(ticket, "sla-warning", `${timeRemaining} minutes`);
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -162,4 +168,60 @@ export async function getSlaStats(organizationId: string): Promise<{
   }
 
   return { atRisk, breached, onTrack };
+}
+
+/**
+ * Helper function to send SLA notifications
+ */
+async function sendSlaNotification(
+  ticket: {
+    id: string;
+    ticketNumber: number;
+    title: string;
+    orgId: string;
+    assigneeId: string | null;
+    slaDeadline: Date | null;
+  },
+  template: "sla-breach" | "sla-warning",
+  timeRemaining?: string,
+): Promise<void> {
+  try {
+    // Fetch organization and assignee details
+    const [organization, assignee] = await Promise.all([
+      db.query.organizations.findFirst({
+        where: eq(organizations.id, ticket.orgId),
+      }),
+      ticket.assigneeId
+        ? db.query.users.findFirst({
+            where: eq(users.id, ticket.assigneeId),
+          })
+        : null,
+    ]);
+
+    // Determine recipients (assignee if exists, otherwise we could fetch org admins)
+    const recipients: string[] = [];
+    if (assignee?.email) {
+      recipients.push(assignee.email);
+    }
+
+    // Send email to each recipient
+    for (const email of recipients) {
+      await sendTemplateEmail(template, email, {
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        title: ticket.title,
+        organizationName: organization?.name ?? "Organization",
+        slaDeadline: ticket.slaDeadline?.toLocaleString() ?? "N/A",
+        assigneeName: assignee?.name ?? undefined,
+        timeRemaining: timeRemaining ?? undefined,
+      });
+    }
+
+    logger.debug(
+      { ticketId: ticket.id, template, recipients: recipients.length },
+      "SLA notification sent",
+    );
+  } catch (error) {
+    logger.error({ ticketId: ticket.id, template, error }, "Failed to send SLA notification");
+  }
 }

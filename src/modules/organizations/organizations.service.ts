@@ -10,6 +10,7 @@ import {
   userOrganizations,
   users,
 } from "@/db/schema";
+import { sendTemplateEmail } from "@/lib/email";
 import type {
   CreateOrganizationInput,
   InviteMemberInput,
@@ -380,8 +381,24 @@ export const organizationsService = {
       })
       .returning();
 
-    // TODO: Send invitation email with token
-    // This would integrate with an email service like SendGrid, Resend, etc.
+    // Fetch organization and inviter details for the email
+    const [organization, inviter] = await Promise.all([
+      db.query.organizations.findFirst({
+        where: eq(organizations.id, organizationId),
+      }),
+      db.query.users.findFirst({
+        where: eq(users.id, inviterId),
+      }),
+    ]);
+
+    // Send invitation email
+    await sendTemplateEmail("organization-invitation", input.email.toLowerCase(), {
+      organizationName: organization?.name ?? "Organization",
+      role: input.role,
+      inviterName: inviter?.name ?? "A team member",
+      token,
+      expiresAt: expiresAt.toLocaleDateString(),
+    });
 
     return {
       invitationId: invitation.id,
@@ -619,7 +636,26 @@ export const organizationsService = {
       return { success: false };
     }
 
-    // TODO: Resend invitation email
+    // Fetch organization and inviter details for the email
+    const [organization, inviter] = await Promise.all([
+      db.query.organizations.findFirst({
+        where: eq(organizations.id, organizationId),
+      }),
+      updated.invitedById
+        ? db.query.users.findFirst({
+            where: eq(users.id, updated.invitedById),
+          })
+        : null,
+    ]);
+
+    // Resend invitation email
+    await sendTemplateEmail("organization-invitation", updated.email, {
+      organizationName: organization?.name ?? "Organization",
+      role: updated.role,
+      inviterName: inviter?.name ?? "A team member",
+      token: updated.token,
+      expiresAt: expiresAt.toLocaleDateString(),
+    });
 
     return { success: true, expiresAt };
   },
