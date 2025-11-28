@@ -6,16 +6,14 @@
 import { Router } from "express";
 import { getAutoClosePreview, getJobStatus, getSlaStats, triggerJob } from "@/jobs";
 import { createLogger } from "@/lib/logger";
-import { requireAuth } from "@/middleware/auth";
-import { requireOrg, requireOrgRole } from "@/middleware/organization";
+import { authenticate, requireRole } from "@/modules/auth/auth.middleware";
 
 const router = Router();
 const logger = createLogger("jobs:routes");
 
 // All routes require authentication and admin role
-router.use(requireAuth);
-router.use(requireOrg);
-router.use(requireOrgRole(["admin", "owner"]));
+router.use(authenticate);
+router.use(requireRole("admin", "owner"));
 
 // ─────────────────────────────────────────────────────────────
 // GET /api/jobs/status - Get status of all scheduled jobs
@@ -71,7 +69,7 @@ router.post("/:name/trigger", async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 router.get("/sla/stats", async (req, res) => {
   try {
-    const stats = await getSlaStats(req.organization!.id);
+    const stats = await getSlaStats(req.organizationId!);
 
     return res.json({
       success: true,
@@ -91,7 +89,7 @@ router.get("/sla/stats", async (req, res) => {
 // ─────────────────────────────────────────────────────────────
 router.get("/auto-close/preview", async (req, res) => {
   try {
-    const preview = await getAutoClosePreview(req.organization!.id);
+    const preview = await getAutoClosePreview(req.organizationId!);
 
     return res.json({
       success: true,

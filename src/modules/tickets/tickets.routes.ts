@@ -267,7 +267,7 @@ router.post(
   validateRequest({ body: bulkUpdateSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await ticketsService.bulkUpdate(req.body, req.user!.id, req.organizationId!);
+      const result = await ticketsService.bulkUpdate(req.organizationId!, req.body, req.user!.id);
 
       res.json({
         success: true,
@@ -288,7 +288,7 @@ router.post(
   validateRequest({ body: bulkAssignSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await ticketsService.bulkAssign(req.body, req.user!.id, req.organizationId!);
+      const result = await ticketsService.bulkAssign(req.organizationId!, req.body, req.user!.id);
 
       res.json({
         success: true,
@@ -309,12 +309,7 @@ router.post(
   validateRequest({ body: bulkDeleteSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await ticketsService.bulkDelete(
-        req.body.ticketIds,
-        req.user!.id,
-        req.userRole!,
-        req.organizationId!,
-      );
+      const result = await ticketsService.bulkDelete(req.organizationId!, req.body, req.user!.id);
 
       res.json({
         success: true,
@@ -335,7 +330,7 @@ router.post(
   validateRequest({ body: mergeTicketsSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await ticketsService.merge(req.body, req.user!.id, req.organizationId!);
+      const result = await ticketsService.mergeTickets(req.organizationId!, req.body, req.user!.id);
 
       res.json({
         success: true,

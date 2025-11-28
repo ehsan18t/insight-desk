@@ -8,9 +8,8 @@ import multer from "multer";
 import { config } from "@/config";
 import { createLogger } from "@/lib/logger";
 import { storage } from "@/lib/storage";
-import { requireAuth } from "@/middleware/auth";
-import { requireOrg, requireOrgRole } from "@/middleware/organization";
 import { validateRequest } from "@/middleware/validate";
+import { authenticate, requireRole } from "@/modules/auth/auth.middleware";
 import {
   attachmentIdSchema,
   listAttachmentsSchema,
@@ -29,9 +28,8 @@ const upload = multer({
   },
 });
 
-// All routes require authentication and organization context
-router.use(requireAuth);
-router.use(requireOrg);
+// All routes require authentication
+router.use(authenticate);
 
 // ─────────────────────────────────────────────────────────────
 // POST /api/attachments/upload - Upload a file
@@ -69,7 +67,7 @@ router.post(
 
       const attachment = await attachmentsService.uploadAttachment({
         buffer: file.buffer,
-        orgId: req.organization!.id,
+        orgId: req.organizationId!,
         uploadedById: req.user!.id,
         filename: file.originalname,
         mimeType: file.mimetype,
@@ -104,7 +102,7 @@ router.get("/", validateRequest({ query: listAttachmentsSchema }), async (req, r
     const { ticketId, page, limit } = req.query;
 
     const result = await attachmentsService.listAttachments({
-      orgId: req.organization!.id,
+      orgId: req.organizationId!,
       ticketId: ticketId as string | undefined,
       page: Number(page) || 1,
       limit: Number(limit) || 20,
@@ -131,7 +129,7 @@ router.get("/:id", validateRequest({ params: attachmentIdSchema }), async (req, 
   try {
     const attachment = await attachmentsService.getAttachmentById(
       req.params.id,
-      req.organization!.id,
+      req.organizationId!,
     );
 
     if (!attachment) {
@@ -159,7 +157,7 @@ router.get("/:id", validateRequest({ params: attachmentIdSchema }), async (req, 
 // ─────────────────────────────────────────────────────────────
 router.get("/:id/download", validateRequest({ params: attachmentIdSchema }), async (req, res) => {
   try {
-    const result = await attachmentsService.downloadAttachment(req.params.id, req.organization!.id);
+    const result = await attachmentsService.downloadAttachment(req.params.id, req.organizationId!);
 
     if (!result) {
       return res.status(404).json({
@@ -191,14 +189,11 @@ router.get("/:id/download", validateRequest({ params: attachmentIdSchema }), asy
 // ─────────────────────────────────────────────────────────────
 router.delete(
   "/:id",
-  requireOrgRole(["admin", "agent"]),
+  requireRole("admin", "agent"),
   validateRequest({ params: attachmentIdSchema }),
   async (req, res) => {
     try {
-      const deleted = await attachmentsService.deleteAttachment(
-        req.params.id,
-        req.organization!.id,
-      );
+      const deleted = await attachmentsService.deleteAttachment(req.params.id, req.organizationId!);
 
       if (!deleted) {
         return res.status(404).json({
@@ -230,7 +225,7 @@ router.get("/ticket/:ticketId", async (req, res) => {
   try {
     const attachments = await attachmentsService.getTicketAttachments(
       req.params.ticketId,
-      req.organization!.id,
+      req.organizationId!,
     );
 
     return res.json({

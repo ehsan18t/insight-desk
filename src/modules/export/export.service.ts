@@ -199,12 +199,13 @@ export const exportService = {
     }
 
     if (query.search) {
-      conditions.push(
-        or(
-          ilike(tickets.title, `%${query.search}%`),
-          ilike(tickets.description, `%${query.search}%`),
-        ),
+      const searchCondition = or(
+        ilike(tickets.title, `%${query.search}%`),
+        ilike(tickets.description, `%${query.search}%`),
       );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
     }
 
     const result = await db.query.tickets.findMany({
@@ -219,13 +220,6 @@ export const exportService = {
         },
         category: {
           columns: { name: true },
-        },
-        tags: {
-          with: {
-            tag: {
-              columns: { name: true },
-            },
-          },
         },
       },
       // Limit to prevent memory issues

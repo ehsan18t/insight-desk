@@ -2,9 +2,8 @@ import { eq } from "drizzle-orm";
 import { Router } from "express";
 import { db } from "@/db";
 import { tickets } from "@/db/schema";
-import { authenticate } from "@/middleware/authenticate";
-import { organizationAccess } from "@/middleware/organization-access";
-import { validateBody, validateQuery } from "@/middleware/validate";
+import { validate } from "@/middleware/validate";
+import { authenticate } from "@/modules/auth/auth.middleware";
 import { statsQuerySchema, submitSurveySchema, surveyQuerySchema } from "./csat.schema";
 import { csatService } from "./csat.service";
 
@@ -26,7 +25,7 @@ router.get("/respond/:token", async (req, res, next) => {
 });
 
 // Submit survey response (public)
-router.post("/respond/:token", validateBody(submitSurveySchema), async (req, res, next) => {
+router.post("/respond/:token", validate(submitSurveySchema, "body"), async (req, res, next) => {
   try {
     const { token } = req.params;
     const survey = await csatService.submitResponse(token, req.body);
@@ -42,11 +41,8 @@ router.post("/respond/:token", validateBody(submitSurveySchema), async (req, res
 
 router.use(authenticate);
 
-// Organization-scoped routes
-router.use("/:organizationId", organizationAccess);
-
 // List all surveys for organization
-router.get("/:organizationId", validateQuery(surveyQuerySchema), async (req, res, next) => {
+router.get("/:organizationId", validate(surveyQuerySchema, "query"), async (req, res, next) => {
   try {
     const { organizationId } = req.params;
     const result = await csatService.list(organizationId, {
@@ -65,33 +61,41 @@ router.get("/:organizationId", validateQuery(surveyQuerySchema), async (req, res
 });
 
 // Get CSAT statistics
-router.get("/:organizationId/stats", validateQuery(statsQuerySchema), async (req, res, next) => {
-  try {
-    const { organizationId } = req.params;
-    const stats = await csatService.getStats(organizationId, {
-      dateFrom: req.query.dateFrom as string | undefined,
-      dateTo: req.query.dateTo as string | undefined,
-      agentId: req.query.agentId as string | undefined,
-    });
-    res.json(stats);
-  } catch (error) {
-    next(error);
-  }
-});
+router.get(
+  "/:organizationId/stats",
+  validate(statsQuerySchema, "query"),
+  async (req, res, next) => {
+    try {
+      const { organizationId } = req.params;
+      const stats = await csatService.getStats(organizationId, {
+        dateFrom: req.query.dateFrom as string | undefined,
+        dateTo: req.query.dateTo as string | undefined,
+        agentId: req.query.agentId as string | undefined,
+      });
+      res.json(stats);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // Get agent performance stats
-router.get("/:organizationId/agents", validateQuery(statsQuerySchema), async (req, res, next) => {
-  try {
-    const { organizationId } = req.params;
-    const stats = await csatService.getAgentStats(organizationId, {
-      dateFrom: req.query.dateFrom as string | undefined,
-      dateTo: req.query.dateTo as string | undefined,
-    });
-    res.json(stats);
-  } catch (error) {
-    next(error);
-  }
-});
+router.get(
+  "/:organizationId/agents",
+  validate(statsQuerySchema, "query"),
+  async (req, res, next) => {
+    try {
+      const { organizationId } = req.params;
+      const stats = await csatService.getAgentStats(organizationId, {
+        dateFrom: req.query.dateFrom as string | undefined,
+        dateTo: req.query.dateTo as string | undefined,
+      });
+      res.json(stats);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 // Get single survey
 router.get("/:organizationId/:surveyId", async (req, res, next) => {

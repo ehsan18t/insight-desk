@@ -29,7 +29,9 @@ export async function checkSlaBreaches(): Promise<SlaBreachResult> {
   };
 
   try {
-    // Get all tickets that are open/pending and have SLA deadlines
+    const now = new Date();
+
+    // Get all tickets that are open/pending, have SLA deadlines, and haven't already been marked as breached
     const ticketsToCheck = await db
       .select({
         id: tickets.id,
@@ -38,106 +40,58 @@ export async function checkSlaBreaches(): Promise<SlaBreachResult> {
         status: tickets.status,
         assigneeId: tickets.assigneeId,
         firstResponseAt: tickets.firstResponseAt,
-        resolvedAt: tickets.resolvedAt,
-        slaFirstResponseDeadline: tickets.slaFirstResponseDeadline,
-        slaResolutionDeadline: tickets.slaResolutionDeadline,
+        slaDeadline: tickets.slaDeadline,
+        slaBreached: tickets.slaBreached,
       })
       .from(tickets)
       .where(
         and(
           or(eq(tickets.status, "open"), eq(tickets.status, "pending")),
-          or(isNotNull(tickets.slaFirstResponseDeadline), isNotNull(tickets.slaResolutionDeadline)),
+          isNotNull(tickets.slaDeadline),
+          eq(tickets.slaBreached, false),
         ),
       );
-
-    const now = new Date();
 
     for (const ticket of ticketsToCheck) {
       result.checked++;
 
       try {
-        // Check first response SLA breach
-        if (
-          ticket.slaFirstResponseDeadline &&
-          !ticket.firstResponseAt &&
-          new Date(ticket.slaFirstResponseDeadline) < now
-        ) {
+        // Check if SLA deadline has passed
+        if (ticket.slaDeadline && new Date(ticket.slaDeadline) < now) {
           result.breached++;
+
+          // Mark ticket as breached
+          await db.update(tickets).set({ slaBreached: true }).where(eq(tickets.id, ticket.id));
 
           // Log activity for breach
           await db.insert(ticketActivities).values({
             ticketId: ticket.id,
-            userId: null, // System action
+            userId: undefined, // System action
             action: "sla_breached",
             metadata: {
-              reason: "First response SLA breached",
-              deadline: ticket.slaFirstResponseDeadline.toISOString(),
+              reason: "SLA deadline breached",
+              slaDeadline: ticket.slaDeadline.toISOString(),
             },
           });
 
-          logger.warn(
-            { ticketId: ticket.id, deadline: ticket.slaFirstResponseDeadline },
-            "First response SLA breached",
-          );
+          logger.warn({ ticketId: ticket.id, deadline: ticket.slaDeadline }, "SLA breached");
 
           // TODO: Send notification to assignee or organization admins
-        }
-
-        // Check resolution SLA breach
-        if (
-          ticket.slaResolutionDeadline &&
-          !ticket.resolvedAt &&
-          new Date(ticket.slaResolutionDeadline) < now
-        ) {
-          result.breached++;
-
-          await db.insert(ticketActivities).values({
-            ticketId: ticket.id,
-            userId: null,
-            action: "sla_breached",
-            metadata: {
-              reason: "Resolution SLA breached",
-              deadline: ticket.slaResolutionDeadline.toISOString(),
-            },
-          });
-
-          logger.warn(
-            { ticketId: ticket.id, deadline: ticket.slaResolutionDeadline },
-            "Resolution SLA breached",
-          );
         }
 
         // Check for upcoming SLA breaches (warnings - within 30 minutes)
         const warningThreshold = new Date(now.getTime() + 30 * 60 * 1000);
 
         if (
-          ticket.slaFirstResponseDeadline &&
-          !ticket.firstResponseAt &&
-          new Date(ticket.slaFirstResponseDeadline) > now &&
-          new Date(ticket.slaFirstResponseDeadline) < warningThreshold
+          ticket.slaDeadline &&
+          new Date(ticket.slaDeadline) > now &&
+          new Date(ticket.slaDeadline) < warningThreshold
         ) {
           result.warnings++;
 
-          logger.info(
-            { ticketId: ticket.id, deadline: ticket.slaFirstResponseDeadline },
-            "First response SLA about to breach",
-          );
+          logger.info({ ticketId: ticket.id, deadline: ticket.slaDeadline }, "SLA about to breach");
 
           // TODO: Send warning notification
-        }
-
-        if (
-          ticket.slaResolutionDeadline &&
-          !ticket.resolvedAt &&
-          new Date(ticket.slaResolutionDeadline) > now &&
-          new Date(ticket.slaResolutionDeadline) < warningThreshold
-        ) {
-          result.warnings++;
-
-          logger.info(
-            { ticketId: ticket.id, deadline: ticket.slaResolutionDeadline },
-            "Resolution SLA about to breach",
-          );
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -170,17 +124,15 @@ export async function getSlaStats(organizationId: string): Promise<{
   const ticketsWithSla = await db
     .select({
       id: tickets.id,
-      firstResponseAt: tickets.firstResponseAt,
-      resolvedAt: tickets.resolvedAt,
-      slaFirstResponseDeadline: tickets.slaFirstResponseDeadline,
-      slaResolutionDeadline: tickets.slaResolutionDeadline,
+      slaDeadline: tickets.slaDeadline,
+      slaBreached: tickets.slaBreached,
     })
     .from(tickets)
     .where(
       and(
         eq(tickets.organizationId, organizationId),
         or(eq(tickets.status, "open"), eq(tickets.status, "pending")),
-        or(isNotNull(tickets.slaFirstResponseDeadline), isNotNull(tickets.slaResolutionDeadline)),
+        isNotNull(tickets.slaDeadline),
       ),
     );
 
@@ -189,32 +141,20 @@ export async function getSlaStats(organizationId: string): Promise<{
   let onTrack = 0;
 
   for (const ticket of ticketsWithSla) {
-    const firstResponseBreached =
-      ticket.slaFirstResponseDeadline &&
-      !ticket.firstResponseAt &&
-      new Date(ticket.slaFirstResponseDeadline) < now;
-
-    const resolutionBreached =
-      ticket.slaResolutionDeadline &&
-      !ticket.resolvedAt &&
-      new Date(ticket.slaResolutionDeadline) < now;
-
-    if (firstResponseBreached || resolutionBreached) {
+    // Already breached
+    if (ticket.slaBreached) {
       breached++;
       continue;
     }
 
-    const firstResponseAtRisk =
-      ticket.slaFirstResponseDeadline &&
-      !ticket.firstResponseAt &&
-      new Date(ticket.slaFirstResponseDeadline) < warningThreshold;
+    // Check if deadline has passed
+    if (ticket.slaDeadline && new Date(ticket.slaDeadline) < now) {
+      breached++;
+      continue;
+    }
 
-    const resolutionAtRisk =
-      ticket.slaResolutionDeadline &&
-      !ticket.resolvedAt &&
-      new Date(ticket.slaResolutionDeadline) < warningThreshold;
-
-    if (firstResponseAtRisk || resolutionAtRisk) {
+    // Check if at risk (within warning threshold)
+    if (ticket.slaDeadline && new Date(ticket.slaDeadline) < warningThreshold) {
       atRisk++;
     } else {
       onTrack++;

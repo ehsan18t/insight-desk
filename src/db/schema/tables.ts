@@ -215,12 +215,17 @@ export interface ActivityMetadata {
   toPriority?: string;
   assigneeId?: string;
   assigneeName?: string;
-  previousAssignee?: string | null;
+  previousAssignee?: string;
   addedTags?: string[];
   removedTags?: string[];
   slaDeadline?: string;
   reason?: string;
   messageType?: string;
+  // Merge-related fields
+  mergedInto?: string;
+  mergedFrom?: string;
+  primaryTicketNumber?: number;
+  secondaryTicketNumber?: number;
 }
 
 export const ticketActivities = pgTable(
@@ -467,7 +472,7 @@ export const organizationInvitations = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     email: text("email").notNull(),
-    role: userRoleEnum("role").notNull().default("member"),
+    role: userRoleEnum("role").notNull().default("agent"),
     token: text("token").notNull().unique(),
     status: inviteStatusEnum("status").notNull().default("pending"),
     invitedById: uuid("invited_by_id")

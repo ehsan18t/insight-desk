@@ -372,7 +372,9 @@ export const ticketsService = {
       ticketId,
       userId: assignedBy,
       action: assigneeId ? "assigned" : "unassigned",
-      metadata: assigneeId ? { assigneeId, assigneeName } : { previousAssignee: ticket.assigneeId },
+      metadata: assigneeId
+        ? { assigneeId, assigneeName }
+        : { previousAssignee: ticket.assigneeId ?? undefined },
     });
 
     // Emit real-time event
@@ -690,7 +692,7 @@ export const ticketsService = {
         await db.insert(ticketActivities).values({
           ticketId: ticket.id,
           userId,
-          action: "bulk_updated",
+          action: "status_changed", // Used for bulk updates
           metadata,
         });
 
@@ -830,8 +832,8 @@ export const ticketsService = {
           userId,
           action: assigneeId ? "assigned" : "unassigned",
           metadata: {
-            previousAssignee: ticket.assigneeId,
-            assigneeId,
+            previousAssignee: ticket.assigneeId ?? undefined,
+            assigneeId: assigneeId ?? undefined,
           },
         });
 
@@ -931,23 +933,25 @@ export const ticketsService = {
           })
           .where(eq(tickets.id, secondary.id));
 
-        // Log activity on secondary ticket
+        // Log activity on secondary ticket (closed due to merge)
         await db.insert(ticketActivities).values({
           ticketId: secondary.id,
           userId,
-          action: "merged",
+          action: "closed",
           metadata: {
+            reason: "Merged into another ticket",
             mergedInto: primaryTicketId,
             primaryTicketNumber: primaryTicket.ticketNumber,
           },
         });
 
-        // Log activity on primary ticket
+        // Log activity on primary ticket (message_added during merge)
         await db.insert(ticketActivities).values({
           ticketId: primaryTicketId,
           userId,
-          action: "merged",
+          action: "message_added",
           metadata: {
+            reason: "Merged from another ticket",
             mergedFrom: secondary.id,
             secondaryTicketNumber: secondary.ticketNumber,
           },

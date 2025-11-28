@@ -73,7 +73,8 @@ export const savedFilterQuerySchema = z.object({
   includeShared: z
     .string()
     .transform((v) => v === "true")
-    .default("true"),
+    .pipe(z.boolean())
+    .default(true),
 });
 
 export type SavedFilterQuery = z.infer<typeof savedFilterQuerySchema>;
