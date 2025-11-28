@@ -1,18 +1,17 @@
+# Dependencies
+node_modules/
+bun.lockb
+
+# Build output
+dist/
+
 # Environment
 .env
 .env.local
 .env.*.local
 
-# Dependencies
-node_modules/
-
-# Build outputs
-dist/
-.next/
-out/
-
 # IDE
-.vscode/settings.json
+.vscode/
 .idea/
 
 # OS
@@ -20,11 +19,11 @@ out/
 Thumbs.db
 
 # Logs
-*.log
 logs/
+*.log
+
+# Drizzle
+drizzle/meta/
 
 # Testing
 coverage/
-
-# Docker volumes (if not using named volumes)
-.docker/
