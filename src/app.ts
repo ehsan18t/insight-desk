@@ -9,6 +9,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { rateLimit } from "./middleware/rate-limit";
 
 // Import routes
+import { attachmentsRouter } from "./modules/attachments";
 import { authRouter } from "./modules/auth";
 import { cannedResponsesRouter } from "./modules/canned-responses";
 import { categoriesRouter } from "./modules/categories";
@@ -101,6 +102,7 @@ export function createApp(): Express {
   app.use("/api/organizations", organizationsRouter);
   app.use("/api/categories", categoriesRouter);
   app.use("/api/tags", tagsRouter);
+  app.use("/api/attachments", attachmentsRouter);
   app.use("/api/sla-policies", slaRouter);
   app.use("/api/canned-responses", cannedResponsesRouter);
   app.use("/api/dashboard", dashboardRouter);

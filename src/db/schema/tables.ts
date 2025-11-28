@@ -415,3 +415,35 @@ export const verifications = pgTable(
   },
   (table) => [index("verifications_identifier_idx").on(table.identifier)],
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTACHMENTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const attachments = pgTable(
+  "attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ticketId: uuid("ticket_id").references(() => tickets.id, { onDelete: "set null" }),
+    messageId: uuid("message_id").references(() => ticketMessages.id, { onDelete: "set null" }),
+    uploadedById: uuid("uploaded_by_id")
+      .notNull()
+      .references(() => users.id),
+    filename: text("filename").notNull(),
+    originalName: text("original_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    size: integer("size").notNull(),
+    path: text("path").notNull(), // Storage path
+    folder: text("folder").notNull().default("general"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("attachments_org_idx").on(table.orgId),
+    index("attachments_ticket_idx").on(table.ticketId),
+    index("attachments_message_idx").on(table.messageId),
+    index("attachments_uploaded_by_idx").on(table.uploadedById),
+  ],
+);

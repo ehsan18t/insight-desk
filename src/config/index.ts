@@ -46,6 +46,21 @@ const envSchema = z.object({
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().default(100),
+
+  // File Storage
+  STORAGE_PROVIDER: z.enum(["local", "s3", "r2"]).default("local"),
+  STORAGE_LOCAL_PATH: z.string().default("./uploads"),
+  
+  // S3/R2 Config (optional, required if STORAGE_PROVIDER is s3 or r2)
+  STORAGE_S3_BUCKET: z.string().optional(),
+  STORAGE_S3_REGION: z.string().default("us-east-1"),
+  STORAGE_S3_ACCESS_KEY: z.string().optional(),
+  STORAGE_S3_SECRET_KEY: z.string().optional(),
+  STORAGE_S3_ENDPOINT: z.string().optional(), // For R2 or S3-compatible
+  
+  // File upload limits
+  MAX_FILE_SIZE: z.coerce.number().default(10 * 1024 * 1024), // 10MB
+  ALLOWED_FILE_TYPES: z.string().default("image/*,application/pdf,.doc,.docx,.txt,.csv,.xlsx"),
 });
 
 // Parse and validate environment

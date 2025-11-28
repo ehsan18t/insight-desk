@@ -4,6 +4,7 @@
 import { relations } from "drizzle-orm";
 import {
   accounts,
+  attachments,
   cannedResponses,
   categories,
   organizations,
@@ -189,6 +190,29 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 export const accountsRelations = relations(accounts, ({ one }) => ({
   user: one(users, {
     fields: [accounts.userId],
+    references: [users.id],
+  }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ATTACHMENT RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [attachments.orgId],
+    references: [organizations.id],
+  }),
+  ticket: one(tickets, {
+    fields: [attachments.ticketId],
+    references: [tickets.id],
+  }),
+  message: one(ticketMessages, {
+    fields: [attachments.messageId],
+    references: [ticketMessages.id],
+  }),
+  uploadedBy: one(users, {
+    fields: [attachments.uploadedById],
     references: [users.id],
   }),
 }));

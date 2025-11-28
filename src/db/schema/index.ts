@@ -16,6 +16,7 @@ export * from "./tables";
 import type {
   accounts,
   activityActionEnum,
+  attachments,
   cannedResponses,
   categories,
   messageTypeEnum,
@@ -88,3 +89,7 @@ export type Account = typeof accounts.$inferSelect;
 export type NewAccount = typeof accounts.$inferInsert;
 export type Verification = typeof verifications.$inferSelect;
 export type NewVerification = typeof verifications.$inferInsert;
+
+// Attachment types
+export type AttachmentRecord = typeof attachments.$inferSelect;
+export type NewAttachmentRecord = typeof attachments.$inferInsert;
