@@ -6,3 +6,6 @@
 export { dashboardRouter } from "./dashboard.routes";
 export * from "./dashboard.schema";
 export { dashboardService } from "./dashboard.service";
+
+// OpenAPI registration
+import "./dashboard.openapi";
