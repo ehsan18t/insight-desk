@@ -1,32 +1,18 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  ilike,
-  inArray,
-  isNull,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
   DEFAULT_SLA_TIMES,
+  type NewTicket,
   slaPolicies,
+  type Ticket,
+  type TicketPriority,
   ticketActivities,
   tickets,
   users,
-  type NewTicket,
-  type Ticket,
-  type TicketPriority,
 } from "../../db/schema/index";
 import { createLogger } from "../../lib/logger";
 import { ForbiddenError, NotFoundError } from "../../middleware/error-handler";
-import type {
-  CreateTicketInput,
-  TicketQuery,
-  UpdateTicketInput,
-} from "./tickets.schema";
+import type { CreateTicketInput, TicketQuery, UpdateTicketInput } from "./tickets.schema";
 
 const logger = createLogger("tickets");
 
@@ -43,14 +29,11 @@ async function getNextTicketNumber(organizationId: string): Promise<number> {
 // Calculate SLA deadline based on priority
 async function calculateSLADeadline(
   organizationId: string,
-  priority: TicketPriority
+  priority: TicketPriority,
 ): Promise<Date | null> {
   // Try to find org-specific SLA policy
   const policy = await db.query.slaPolicies.findFirst({
-    where: and(
-      eq(slaPolicies.organizationId, organizationId),
-      eq(slaPolicies.priority, priority)
-    ),
+    where: and(eq(slaPolicies.organizationId, organizationId), eq(slaPolicies.priority, priority)),
   });
 
   const responseTimeMinutes =
@@ -69,13 +52,10 @@ export const ticketsService = {
   async create(
     input: CreateTicketInput,
     organizationId: string,
-    customerId: string
+    customerId: string,
   ): Promise<Ticket> {
     const ticketNumber = await getNextTicketNumber(organizationId);
-    const slaDeadline = await calculateSLADeadline(
-      organizationId,
-      input.priority || "medium"
-    );
+    const slaDeadline = await calculateSLADeadline(organizationId, input.priority || "medium");
 
     const [ticket] = await db
       .insert(tickets)
@@ -110,7 +90,7 @@ export const ticketsService = {
     ticketId: string,
     userId: string,
     userRole?: string,
-    organizationId?: string
+    organizationId?: string,
   ): Promise<
     Ticket & {
       customer: typeof users.$inferSelect;
@@ -145,12 +125,7 @@ export const ticketsService = {
   },
 
   // List tickets with filters and pagination
-  async list(
-    query: TicketQuery,
-    userId: string,
-    userRole?: string,
-    organizationId?: string
-  ) {
+  async list(query: TicketQuery, userId: string, userRole?: string, organizationId?: string) {
     const conditions = [];
 
     // Base filter: organization context
@@ -189,8 +164,8 @@ export const ticketsService = {
       conditions.push(
         or(
           ilike(tickets.title, `%${query.search}%`),
-          ilike(tickets.description, `%${query.search}%`)
-        )!
+          ilike(tickets.description, `%${query.search}%`),
+        )!,
       );
     }
 
@@ -207,8 +182,7 @@ export const ticketsService = {
       status: tickets.status,
     }[query.sortBy];
 
-    const orderBy =
-      query.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
+    const orderBy = query.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
 
     // Pagination
     const offset = (query.page - 1) * query.limit;
@@ -253,7 +227,7 @@ export const ticketsService = {
     ticketId: string,
     input: UpdateTicketInput,
     userId: string,
-    _userRole?: string
+    _userRole?: string,
   ): Promise<Ticket> {
     const ticket = await db.query.tickets.findFirst({
       where: eq(tickets.id, ticketId),
@@ -269,8 +243,7 @@ export const ticketsService = {
     };
 
     // Track changes for activity log
-    const activities: { action: string; metadata: Record<string, unknown> }[] =
-      [];
+    const activities: { action: string; metadata: Record<string, unknown> }[] = [];
 
     if (input.title !== undefined) {
       updates.title = input.title;
@@ -335,11 +308,7 @@ export const ticketsService = {
   },
 
   // Assign ticket to agent
-  async assign(
-    ticketId: string,
-    assigneeId: string | null,
-    assignedBy: string
-  ): Promise<Ticket> {
+  async assign(ticketId: string, assigneeId: string | null, assignedBy: string): Promise<Ticket> {
     const ticket = await db.query.tickets.findFirst({
       where: eq(tickets.id, ticketId),
     });
@@ -376,9 +345,7 @@ export const ticketsService = {
       ticketId,
       userId: assignedBy,
       action: assigneeId ? "assigned" : "unassigned",
-      metadata: assigneeId
-        ? { assigneeId, assigneeName }
-        : { previousAssignee: ticket.assigneeId },
+      metadata: assigneeId ? { assigneeId, assigneeName } : { previousAssignee: ticket.assigneeId },
     });
 
     logger.info({ ticketId, assigneeId }, "Ticket assigned");
@@ -387,11 +354,7 @@ export const ticketsService = {
   },
 
   // Close ticket
-  async close(
-    ticketId: string,
-    userId: string,
-    reason?: string
-  ): Promise<Ticket> {
+  async close(ticketId: string, userId: string, reason?: string): Promise<Ticket> {
     const ticket = await db.query.tickets.findFirst({
       where: eq(tickets.id, ticketId),
     });
@@ -481,16 +444,14 @@ export const ticketsService = {
       .where(
         and(
           eq(tickets.organizationId, organizationId),
-          inArray(tickets.status, ["open", "pending"])
-        )
+          inArray(tickets.status, ["open", "pending"]),
+        ),
       )
       .groupBy(tickets.priority);
 
     return {
       byStatus: Object.fromEntries(stats.map((s) => [s.status, s.count])),
-      byPriority: Object.fromEntries(
-        byPriority.map((p) => [p.priority, p.count])
-      ),
+      byPriority: Object.fromEntries(byPriority.map((p) => [p.priority, p.count])),
       total: stats.reduce((sum, s) => sum + s.count, 0),
     };
   },

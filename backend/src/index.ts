@@ -1,4 +1,4 @@
-import { createServer } from "http";
+import { createServer } from "node:http";
 import { createApp } from "./app";
 import { config } from "./config";
 import { checkDatabaseConnection, closeDatabaseConnection } from "./db";
@@ -89,7 +89,7 @@ async function start() {
     httpServer.listen(config.PORT, config.HOST, () => {
       logger.info(
         { host: config.HOST, port: config.PORT },
-        `🚀 InsightDesk API running at http://${config.HOST}:${config.PORT}`
+        `🚀 InsightDesk API running at http://${config.HOST}:${config.PORT}`,
       );
     });
   } catch (error) {

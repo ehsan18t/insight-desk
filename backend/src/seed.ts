@@ -2,13 +2,7 @@ import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { checkDatabaseConnection, closeDatabaseConnection, db } from "./db";
 import type { OrganizationSettings } from "./db/schema";
-import {
-  organizations,
-  ticketMessages,
-  tickets,
-  userOrganizations,
-  users,
-} from "./db/schema";
+import { organizations, ticketMessages, tickets, userOrganizations, users } from "./db/schema";
 import { logger } from "./lib/logger";
 import { auth } from "./modules/auth";
 
@@ -72,10 +66,7 @@ async function seed() {
       })
       .returning();
 
-    logger.info(
-      { acmeOrgId: acmeOrg.id, techOrgId: techOrg.id },
-      "Organizations created"
-    );
+    logger.info({ acmeOrgId: acmeOrg.id, techOrgId: techOrg.id }, "Organizations created");
 
     // Create users using Better Auth
     logger.info("Creating users...");
@@ -90,11 +81,7 @@ async function seed() {
       },
     });
 
-    const [adminUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, adminEmail))
-      .limit(1);
+    const [adminUser] = await db.select().from(users).where(eq(users.email, adminEmail)).limit(1);
 
     // Agent user
     const agentEmail = "agent@acme.com";
@@ -106,11 +93,7 @@ async function seed() {
       },
     });
 
-    const [agentUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, agentEmail))
-      .limit(1);
+    const [agentUser] = await db.select().from(users).where(eq(users.email, agentEmail)).limit(1);
 
     // Customer user
     const customerEmail = "customer@example.com";
@@ -151,7 +134,7 @@ async function seed() {
         customerId: customerUser.id,
         techAdminId: techAdminUser.id,
       },
-      "Users created"
+      "Users created",
     );
 
     // Create user-organization relationships

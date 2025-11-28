@@ -16,9 +16,7 @@ export const userQuerySchema = z.object({
     .optional(),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
-  sortBy: z
-    .enum(["name", "email", "createdAt", "lastLoginAt"])
-    .default("createdAt"),
+  sortBy: z.enum(["name", "email", "createdAt", "lastLoginAt"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 

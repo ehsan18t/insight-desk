@@ -1,21 +1,19 @@
 // Database Schema Index
 // Re-export all tables, relations, enums, and types
 
-// Tables and Enums
-export * from "./tables";
-
 // Relations
 export * from "./relations";
-
 // Re-export types from tables
 export type {
   ActivityMetadata,
   Attachment,
   OrganizationSettings,
 } from "./tables";
+// Tables and Enums
+export * from "./tables";
 
 // Inferred Types (using $inferSelect and $inferInsert)
-import {
+import type {
   accounts,
   activityActionEnum,
   cannedResponses,
@@ -27,8 +25,8 @@ import {
   ticketChannelEnum,
   ticketMessages,
   ticketPriorityEnum,
-  tickets,
   ticketStatusEnum,
+  tickets,
   userOrganizations,
   userRoleEnum,
   users,

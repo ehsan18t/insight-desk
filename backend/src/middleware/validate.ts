@@ -1,9 +1,4 @@
-import type {
-  NextFunction,
-  ParamsDictionary,
-  Request,
-  Response,
-} from "express-serve-static-core";
+import type { NextFunction, ParamsDictionary, Request, Response } from "express-serve-static-core";
 import type { ParsedQs } from "qs";
 import { z } from "zod";
 
@@ -14,10 +9,7 @@ interface ValidationError {
 }
 
 // Validate request body, query, or params
-export function validate(
-  schema: z.ZodType,
-  source: "body" | "query" | "params" = "body"
-) {
+export function validate(schema: z.ZodType, source: "body" | "query" | "params" = "body") {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = schema.parse(req[source]);

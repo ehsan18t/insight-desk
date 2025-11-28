@@ -1,9 +1,4 @@
-import {
-  Router,
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import { type NextFunction, type Request, type Response, Router } from "express";
 import { ForbiddenError } from "../../middleware/error-handler";
 import { validateRequest } from "../../middleware/validate";
 import { authenticate } from "../auth/auth.middleware";
@@ -32,15 +27,12 @@ organizationsRouter.get(
   validateRequest({ query: organizationQuerySchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await organizationsService.listForUser(
-        req.user!.id,
-        req.query as any
-      );
+      const result = await organizationsService.listForUser(req.user!.id, req.query as any);
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -61,7 +53,7 @@ organizationsRouter.post(
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -74,10 +66,7 @@ organizationsRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Check if user is a member
-      const role = await organizationsService.getUserRole(
-        req.user!.id,
-        req.params.organizationId
-      );
+      const role = await organizationsService.getUserRole(req.user!.id, req.params.organizationId);
 
       if (!role) {
         res.status(403).json({
@@ -90,9 +79,7 @@ organizationsRouter.get(
       const org = await organizationsService.getById(req.params.organizationId);
 
       if (!org) {
-        res
-          .status(404)
-          .json({ success: false, error: "Organization not found" });
+        res.status(404).json({ success: false, error: "Organization not found" });
         return;
       }
 
@@ -100,7 +87,7 @@ organizationsRouter.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -119,30 +106,24 @@ organizationsRouter.patch(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ["admin", "owner"]
+        ["admin", "owner"],
       );
 
       if (!hasPermission) {
         throw new ForbiddenError("Admin or owner role required");
       }
 
-      const org = await organizationsService.update(
-        req.params.organizationId,
-        req.body
-      );
+      const org = await organizationsService.update(req.params.organizationId, req.body);
 
       res.json({ success: true, data: org });
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === "Organization not found"
-      ) {
+      if (error instanceof Error && error.message === "Organization not found") {
         res.status(404).json({ success: false, error: error.message });
         return;
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -158,10 +139,7 @@ organizationsRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Check if user is a member
-      const role = await organizationsService.getUserRole(
-        req.user!.id,
-        req.params.organizationId
-      );
+      const role = await organizationsService.getUserRole(req.user!.id, req.params.organizationId);
 
       if (!role) {
         res.status(403).json({
@@ -173,14 +151,14 @@ organizationsRouter.get(
 
       const result = await organizationsService.listMembers(
         req.params.organizationId,
-        req.query as any
+        req.query as any,
       );
 
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -199,7 +177,7 @@ organizationsRouter.post(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ["admin", "owner"]
+        ["admin", "owner"],
       );
 
       if (!hasPermission) {
@@ -209,21 +187,18 @@ organizationsRouter.post(
       const result = await organizationsService.inviteMember(
         req.params.organizationId,
         req.body,
-        req.user!.id
+        req.user!.id,
       );
 
       res.status(201).json({ success: true, ...result });
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("already a member")
-      ) {
+      if (error instanceof Error && error.message.includes("already a member")) {
         res.status(409).json({ success: false, error: error.message });
         return;
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -242,7 +217,7 @@ organizationsRouter.patch(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ["admin", "owner"]
+        ["admin", "owner"],
       );
 
       if (!hasPermission) {
@@ -253,16 +228,13 @@ organizationsRouter.patch(
         req.params.organizationId,
         req.params.userId,
         req.body,
-        req.user!.id
+        req.user!.id,
       );
 
       res.json({ success: true, data: member });
     } catch (error) {
       if (error instanceof Error) {
-        if (
-          error.message.includes("Cannot change") ||
-          error.message.includes("Cannot remove")
-        ) {
+        if (error.message.includes("Cannot change") || error.message.includes("Cannot remove")) {
           res.status(403).json({ success: false, error: error.message });
           return;
         }
@@ -273,7 +245,7 @@ organizationsRouter.patch(
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -289,7 +261,7 @@ organizationsRouter.delete(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ["admin", "owner"]
+        ["admin", "owner"],
       );
 
       if (!hasPermission) {
@@ -299,7 +271,7 @@ organizationsRouter.delete(
       await organizationsService.removeMember(
         req.params.organizationId,
         req.params.userId,
-        req.user!.id
+        req.user!.id,
       );
 
       res.json({ success: true, message: "Member removed from organization" });
@@ -316,7 +288,7 @@ organizationsRouter.delete(
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -332,32 +304,27 @@ organizationsRouter.post(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ["owner"]
+        ["owner"],
       );
 
       if (!hasPermission) {
         throw new ForbiddenError("Owner role required");
       }
 
-      const org = await organizationsService.deactivate(
-        req.params.organizationId
-      );
+      const org = await organizationsService.deactivate(req.params.organizationId);
       res.json({
         success: true,
         data: org,
         message: "Organization deactivated",
       });
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === "Organization not found"
-      ) {
+      if (error instanceof Error && error.message === "Organization not found") {
         res.status(404).json({ success: false, error: error.message });
         return;
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -373,30 +340,25 @@ organizationsRouter.post(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ["owner"]
+        ["owner"],
       );
 
       if (!hasPermission) {
         throw new ForbiddenError("Owner role required");
       }
 
-      const org = await organizationsService.reactivate(
-        req.params.organizationId
-      );
+      const org = await organizationsService.reactivate(req.params.organizationId);
       res.json({
         success: true,
         data: org,
         message: "Organization reactivated",
       });
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === "Organization not found"
-      ) {
+      if (error instanceof Error && error.message === "Organization not found") {
         res.status(404).json({ success: false, error: error.message });
         return;
       }
       next(error);
     }
-  }
+  },
 );

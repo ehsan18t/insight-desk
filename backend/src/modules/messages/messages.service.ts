@@ -1,18 +1,14 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
+  type TicketMessage,
   ticketActivities,
   ticketMessages,
   tickets,
-  type TicketMessage,
 } from "../../db/schema/index";
 import { createLogger } from "../../lib/logger";
 import { ForbiddenError, NotFoundError } from "../../middleware/error-handler";
-import type {
-  CreateMessageInput,
-  MessageQuery,
-  UpdateMessageInput,
-} from "./messages.schema";
+import type { CreateMessageInput, MessageQuery, UpdateMessageInput } from "./messages.schema";
 
 const logger = createLogger("messages");
 
@@ -25,7 +21,7 @@ export const messagesService = {
     ticketId: string,
     input: CreateMessageInput,
     senderId: string,
-    senderRole?: string
+    senderRole?: string,
   ): Promise<TicketMessage> {
     // Verify ticket exists
     const ticket = await db.query.tickets.findFirst({
@@ -54,10 +50,7 @@ export const messagesService = {
       .returning();
 
     // Update ticket's updated_at timestamp
-    await db
-      .update(tickets)
-      .set({ updatedAt: new Date() })
-      .where(eq(tickets.id, ticketId));
+    await db.update(tickets).set({ updatedAt: new Date() }).where(eq(tickets.id, ticketId));
 
     // If this is the first agent response, record first response time
     if (senderRole && ["agent", "admin", "owner"].includes(senderRole)) {
@@ -85,12 +78,7 @@ export const messagesService = {
   },
 
   // Get messages for a ticket
-  async list(
-    ticketId: string,
-    query: MessageQuery,
-    userId: string,
-    userRole?: string
-  ) {
+  async list(ticketId: string, query: MessageQuery, userId: string, userRole?: string) {
     // Verify ticket exists and user has access
     const ticket = await db.query.tickets.findFirst({
       where: eq(tickets.id, ticketId),
@@ -158,17 +146,14 @@ export const messagesService = {
     ticketId: string,
     messageId: string,
     userId: string,
-    userRole?: string
+    userRole?: string,
   ): Promise<
     TicketMessage & {
       sender: { id: string; name: string; avatarUrl: string | null } | null;
     }
   > {
     const message = await db.query.ticketMessages.findFirst({
-      where: and(
-        eq(ticketMessages.id, messageId),
-        eq(ticketMessages.ticketId, ticketId)
-      ),
+      where: and(eq(ticketMessages.id, messageId), eq(ticketMessages.ticketId, ticketId)),
       with: {
         sender: {
           columns: { id: true, name: true, avatarUrl: true },
@@ -207,13 +192,10 @@ export const messagesService = {
     ticketId: string,
     messageId: string,
     input: UpdateMessageInput,
-    userId: string
+    userId: string,
   ): Promise<TicketMessage> {
     const message = await db.query.ticketMessages.findFirst({
-      where: and(
-        eq(ticketMessages.id, messageId),
-        eq(ticketMessages.ticketId, ticketId)
-      ),
+      where: and(eq(ticketMessages.id, messageId), eq(ticketMessages.ticketId, ticketId)),
     });
 
     if (!message) {
@@ -251,13 +233,10 @@ export const messagesService = {
     ticketId: string,
     messageId: string,
     userId: string,
-    userRole?: string
+    userRole?: string,
   ): Promise<void> {
     const message = await db.query.ticketMessages.findFirst({
-      where: and(
-        eq(ticketMessages.id, messageId),
-        eq(ticketMessages.ticketId, ticketId)
-      ),
+      where: and(eq(ticketMessages.id, messageId), eq(ticketMessages.ticketId, ticketId)),
     });
 
     if (!message) {

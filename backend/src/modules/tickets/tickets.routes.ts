@@ -1,9 +1,4 @@
-import {
-  Router,
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import { type NextFunction, type Request, type Response, Router } from "express";
 import { ForbiddenError } from "../../middleware/error-handler";
 import { validateRequest } from "../../middleware/validate";
 import { authenticate, requireRole } from "../auth/auth.middleware";
@@ -11,10 +6,10 @@ import { messagesRouter } from "../messages";
 import {
   assignTicketSchema,
   createTicketSchema,
+  type TicketQuery,
   ticketIdParamSchema,
   ticketQuerySchema,
   updateTicketSchema,
-  type TicketQuery,
 } from "./tickets.schema";
 import { ticketsService } from "./tickets.service";
 
@@ -38,7 +33,7 @@ router.get(
         req.query as unknown as TicketQuery,
         req.user!.id,
         req.userRole,
-        req.organizationId
+        req.organizationId,
       );
 
       res.json({
@@ -48,7 +43,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -72,7 +67,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -87,7 +82,7 @@ router.get(
         req.params.id,
         req.user!.id,
         req.userRole,
-        req.organizationId
+        req.organizationId,
       );
 
       res.json({
@@ -97,7 +92,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -112,11 +107,7 @@ router.post(
         throw new ForbiddenError("Organization context required");
       }
 
-      const ticket = await ticketsService.create(
-        req.body,
-        req.organizationId,
-        req.user!.id
-      );
+      const ticket = await ticketsService.create(req.body, req.organizationId, req.user!.id);
 
       res.status(201).json({
         success: true,
@@ -125,7 +116,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -140,7 +131,7 @@ router.patch(
         req.params.id,
         req.body,
         req.user!.id,
-        req.userRole
+        req.userRole,
       );
 
       res.json({
@@ -150,7 +141,7 @@ router.patch(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -162,11 +153,7 @@ router.post(
   requireRole("agent", "admin", "owner"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const ticket = await ticketsService.assign(
-        req.params.id,
-        req.body.assigneeId,
-        req.user!.id
-      );
+      const ticket = await ticketsService.assign(req.params.id, req.body.assigneeId, req.user!.id);
 
       res.json({
         success: true,
@@ -175,7 +162,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -186,11 +173,7 @@ router.post(
   validateRequest({ params: ticketIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const ticket = await ticketsService.close(
-        req.params.id,
-        req.user!.id,
-        req.body.reason
-      );
+      const ticket = await ticketsService.close(req.params.id, req.user!.id, req.body.reason);
 
       res.json({
         success: true,
@@ -199,7 +182,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -219,7 +202,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 export const ticketsRouter = router;

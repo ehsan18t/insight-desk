@@ -1,7 +1,7 @@
+import type { Server as HttpServer } from "node:http";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { and, eq } from "drizzle-orm";
-import type { Server as HttpServer } from "http";
-import { Server as SocketServer, type Socket } from "socket.io";
+import { type Socket, Server as SocketServer } from "socket.io";
 import { config } from "../config";
 import { db } from "../db";
 import { userOrganizations } from "../db/schema";
@@ -49,9 +49,7 @@ let io: SocketServer | null = null;
 /**
  * Initialize Socket.IO server with Redis adapter for horizontal scaling
  */
-export async function initializeSocketIO(
-  httpServer: HttpServer
-): Promise<SocketServer> {
+export async function initializeSocketIO(httpServer: HttpServer): Promise<SocketServer> {
   // Create Redis clients for pub/sub using ioredis
   const pubClient = valkey.duplicate();
   const subClient = valkey.duplicate();
@@ -100,7 +98,7 @@ export async function initializeSocketIO(
         const membership = await db.query.userOrganizations.findFirst({
           where: and(
             eq(userOrganizations.userId, session.user.id),
-            eq(userOrganizations.organizationId, orgId)
+            eq(userOrganizations.organizationId, orgId),
           ),
         });
 
@@ -128,9 +126,7 @@ export async function initializeSocketIO(
     // Join organization room for real-time updates
     if (socket.organizationId) {
       socket.join(`org:${socket.organizationId}`);
-      logger.info(
-        `User ${socket.user?.id} joined organization room: ${socket.organizationId}`
-      );
+      logger.info(`User ${socket.user?.id} joined organization room: ${socket.organizationId}`);
     }
 
     // Handle joining a specific ticket room
@@ -152,16 +148,13 @@ export async function initializeSocketIO(
     });
 
     // Handle typing indicator
-    socket.on(
-      "ticket:typing",
-      (data: { ticketId: string; isTyping: boolean }) => {
-        socket.to(`ticket:${data.ticketId}`).emit("ticket:typing", {
-          userId: socket.user?.id,
-          userName: socket.user?.name,
-          isTyping: data.isTyping,
-        });
-      }
-    );
+    socket.on("ticket:typing", (data: { ticketId: string; isTyping: boolean }) => {
+      socket.to(`ticket:${data.ticketId}`).emit("ticket:typing", {
+        userId: socket.user?.id,
+        userName: socket.user?.name,
+        isTyping: data.isTyping,
+      });
+    });
 
     // Handle switching organizations
     socket.on("organization:switch", async (organizationId: string) => {
@@ -171,7 +164,7 @@ export async function initializeSocketIO(
       const membership = await db.query.userOrganizations.findFirst({
         where: and(
           eq(userOrganizations.userId, socket.user.id),
-          eq(userOrganizations.organizationId, organizationId)
+          eq(userOrganizations.organizationId, organizationId),
         ),
       });
 
@@ -189,9 +182,7 @@ export async function initializeSocketIO(
       socket.join(`org:${organizationId}`);
       socket.organizationId = organizationId;
 
-      logger.info(
-        `User ${socket.user.id} switched to organization: ${organizationId}`
-      );
+      logger.info(`User ${socket.user.id} switched to organization: ${organizationId}`);
     });
 
     // Disconnect handler
@@ -217,11 +208,7 @@ export function getIO(): SocketServer {
 /**
  * Emit event to all users in an organization
  */
-export function emitToOrganization(
-  organizationId: string,
-  event: string,
-  data: unknown
-): void {
+export function emitToOrganization(organizationId: string, event: string, data: unknown): void {
   if (!io) return;
   io.to(`org:${organizationId}`).emit(event, data);
 }
@@ -229,11 +216,7 @@ export function emitToOrganization(
 /**
  * Emit event to users watching a specific ticket
  */
-export function emitToTicket(
-  ticketId: string,
-  event: string,
-  data: unknown
-): void {
+export function emitToTicket(ticketId: string, event: string, data: unknown): void {
   if (!io) return;
   io.to(`ticket:${ticketId}`).emit(event, data);
 }

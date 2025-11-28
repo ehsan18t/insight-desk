@@ -74,7 +74,7 @@ router.get("/me", authenticate, async (req, res) => {
           slug: m.organization.slug,
           role: m.role,
           joinedAt: m.joinedAt,
-        })
+        }),
       ),
     },
   });
@@ -125,10 +125,7 @@ router.post("/register-with-org", authRateLimit, async (req, res, next) => {
         role: "owner",
       });
 
-      logger.info(
-        { userId, orgId: org.id },
-        "User registered with new organization"
-      );
+      logger.info({ userId, orgId: org.id }, "User registered with new organization");
     }
 
     res.status(201).json({

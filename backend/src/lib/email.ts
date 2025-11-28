@@ -70,10 +70,7 @@ export async function sendEmail(data: EmailData): Promise<boolean> {
       html: data.html,
     });
 
-    logger.info(
-      { to: data.to, subject: data.subject, messageId: result.messageId },
-      "Email sent"
-    );
+    logger.info({ to: data.to, subject: data.subject, messageId: result.messageId }, "Email sent");
     return true;
   } catch (error) {
     logger.error({ error }, "Email send error");
@@ -85,7 +82,7 @@ export async function sendEmail(data: EmailData): Promise<boolean> {
 export async function sendTemplateEmail(
   template: EmailTemplate,
   to: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): Promise<boolean> {
   const email = renderTemplate(template, data);
   return sendEmail({ to, ...email });
@@ -94,7 +91,7 @@ export async function sendTemplateEmail(
 // Simple template renderer
 function renderTemplate(
   template: EmailTemplate,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
 ): { subject: string; html: string } {
   const templates: Record<EmailTemplate, { subject: string; html: string }> = {
     "ticket-created": {

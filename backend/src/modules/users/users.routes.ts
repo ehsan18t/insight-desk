@@ -1,9 +1,4 @@
-import {
-  Router,
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import { type NextFunction, type Request, type Response, Router } from "express";
 import { ForbiddenError } from "../../middleware/error-handler";
 import { validateRequest } from "../../middleware/validate";
 import { authenticate, requireRole } from "../auth/auth.middleware";
@@ -33,15 +28,12 @@ usersRouter.get(
       if (!req.organizationId) {
         throw new ForbiddenError("Organization context required");
       }
-      const result = await usersService.listByOrganization(
-        req.organizationId,
-        req.query as any
-      );
+      const result = await usersService.listByOrganization(req.organizationId, req.query as any);
       res.json({ success: true, ...result });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -61,28 +53,25 @@ usersRouter.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
  * GET /api/users/me
  * Get current user profile
  */
-usersRouter.get(
-  "/me",
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const user = await usersService.getProfile(req.user!.id);
-      if (!user) {
-        res.status(404).json({ success: false, error: "User not found" });
-        return;
-      }
-      res.json({ success: true, data: user });
-    } catch (error) {
-      next(error);
+usersRouter.get("/me", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await usersService.getProfile(req.user!.id);
+    if (!user) {
+      res.status(404).json({ success: false, error: "User not found" });
+      return;
     }
+    res.json({ success: true, data: user });
+  } catch (error) {
+    next(error);
   }
-);
+});
 
 /**
  * PATCH /api/users/me
@@ -98,7 +87,7 @@ usersRouter.patch(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -114,24 +103,19 @@ usersRouter.get(
       if (!req.organizationId) {
         throw new ForbiddenError("Organization context required");
       }
-      const user = await usersService.getByIdInOrganization(
-        req.params.userId,
-        req.organizationId
-      );
+      const user = await usersService.getByIdInOrganization(req.params.userId, req.organizationId);
       if (!user) {
-        res
-          .status(404)
-          .json({
-            success: false,
-            error: "User not found in this organization",
-          });
+        res.status(404).json({
+          success: false,
+          error: "User not found in this organization",
+        });
         return;
       }
       res.json({ success: true, data: user });
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -151,29 +135,23 @@ usersRouter.patch(
         req.params.userId,
         req.organizationId,
         req.body,
-        req.user!.id
+        req.user!.id,
       );
       res.json({ success: true, data: user });
     } catch (error) {
       if (error instanceof Error) {
-        if (
-          error.message.includes("Cannot change") ||
-          error.message.includes("Cannot remove")
-        ) {
+        if (error.message.includes("Cannot change") || error.message.includes("Cannot remove")) {
           res.status(403).json({ success: false, error: error.message });
           return;
         }
-        if (
-          error.message.includes("not a member") ||
-          error.message.includes("not found")
-        ) {
+        if (error.message.includes("not a member") || error.message.includes("not found")) {
           res.status(404).json({ success: false, error: error.message });
           return;
         }
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -186,10 +164,7 @@ usersRouter.post(
   validateRequest({ params: userIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = await usersService.deactivate(
-        req.params.userId,
-        req.user!.id
-      );
+      const user = await usersService.deactivate(req.params.userId, req.user!.id);
       res.json({
         success: true,
         data: user,
@@ -208,7 +183,7 @@ usersRouter.post(
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -234,7 +209,7 @@ usersRouter.post(
       }
       next(error);
     }
-  }
+  },
 );
 
 /**
@@ -253,7 +228,7 @@ usersRouter.delete(
       await usersService.removeFromOrganization(
         req.params.userId,
         req.organizationId,
-        req.user!.id
+        req.user!.id,
       );
       res.json({ success: true, message: "User removed from organization" });
     } catch (error) {
@@ -269,5 +244,5 @@ usersRouter.delete(
       }
       next(error);
     }
-  }
+  },
 );

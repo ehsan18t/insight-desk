@@ -24,9 +24,7 @@ function getClientId(req: Request): string {
   // Get IP from various headers (for proxies)
   const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) {
-    const ip = Array.isArray(forwarded)
-      ? forwarded[0]
-      : forwarded.split(",")[0];
+    const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(",")[0];
     return `ip:${ip.trim()}`;
   }
 
@@ -34,15 +32,10 @@ function getClientId(req: Request): string {
 }
 
 // Rate limiter middleware
-export function rateLimit(options?: {
-  windowMs?: number;
-  maxRequests?: number;
-  message?: string;
-}) {
+export function rateLimit(options?: { windowMs?: number; maxRequests?: number; message?: string }) {
   const windowMs = options?.windowMs ?? config.RATE_LIMIT_WINDOW_MS;
   const maxRequests = options?.maxRequests ?? config.RATE_LIMIT_MAX_REQUESTS;
-  const message =
-    options?.message ?? "Too many requests, please try again later";
+  const message = options?.message ?? "Too many requests, please try again later";
 
   return (req: Request, res: Response, next: NextFunction) => {
     const clientId = getClientId(req);
@@ -61,10 +54,7 @@ export function rateLimit(options?: {
     // Set rate limit headers
     res.set({
       "X-RateLimit-Limit": maxRequests.toString(),
-      "X-RateLimit-Remaining": Math.max(
-        0,
-        maxRequests - record.count
-      ).toString(),
+      "X-RateLimit-Remaining": Math.max(0, maxRequests - record.count).toString(),
       "X-RateLimit-Reset": Math.ceil(record.resetTime / 1000).toString(),
     });
 

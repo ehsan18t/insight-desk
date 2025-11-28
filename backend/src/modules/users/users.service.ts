@@ -1,12 +1,8 @@
-import { and, asc, count, desc, eq, ilike, or, SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
 import { db } from "../../db";
 import type { User } from "../../db/schema";
-import { userOrganizations, users, type UserRole } from "../../db/schema";
-import type {
-  UpdateProfileInput,
-  UpdateUserRoleInput,
-  UserQuery,
-} from "./users.schema";
+import { type UserRole, userOrganizations, users } from "../../db/schema";
+import type { UpdateProfileInput, UpdateUserRoleInput, UserQuery } from "./users.schema";
 
 // Build user list query conditions for users within an organization
 function buildUserQuery(query: UserQuery): {
@@ -18,10 +14,7 @@ function buildUserQuery(query: UserQuery): {
 
   if (query.search) {
     conditions.push(
-      or(
-        ilike(users.name, `%${query.search}%`),
-        ilike(users.email, `%${query.search}%`)
-      )!
+      or(ilike(users.name, `%${query.search}%`), ilike(users.email, `%${query.search}%`))!,
     );
   }
 
@@ -50,7 +43,6 @@ function getOrderBy(sortBy: string, sortOrder: "asc" | "desc") {
       return orderFn(users.email);
     case "lastLoginAt":
       return orderFn(users.lastLoginAt);
-    case "createdAt":
     default:
       return orderFn(users.createdAt);
   }
@@ -77,7 +69,7 @@ export const usersService = {
    */
   async listByOrganization(
     organizationId: string,
-    query: Partial<UserQuery> = {}
+    query: Partial<UserQuery> = {},
   ): Promise<{
     data: UserWithRole[];
     pagination: {
@@ -87,19 +79,12 @@ export const usersService = {
       totalPages: number;
     };
   }> {
-    const {
-      page = 1,
-      limit = 20,
-      sortBy = "createdAt",
-      sortOrder = "desc",
-    } = query;
+    const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = query;
     const offset = (page - 1) * limit;
     const { userConditions, roleFilter } = buildUserQuery(query as UserQuery);
 
     // Build membership conditions
-    const membershipConditions: SQL[] = [
-      eq(userOrganizations.organizationId, organizationId),
-    ];
+    const membershipConditions: SQL[] = [eq(userOrganizations.organizationId, organizationId)];
 
     if (roleFilter) {
       membershipConditions.push(eq(userOrganizations.role, roleFilter));
@@ -133,10 +118,7 @@ export const usersService = {
     const total = countResult[0]?.total ?? 0;
 
     // Get users with pagination
-    const data = await baseQuery
-      .orderBy(getOrderBy(sortBy, sortOrder))
-      .limit(limit)
-      .offset(offset);
+    const data = await baseQuery.orderBy(getOrderBy(sortBy, sortOrder)).limit(limit).offset(offset);
 
     return {
       data,
@@ -154,7 +136,7 @@ export const usersService = {
    */
   async getByIdInOrganization(
     userId: string,
-    organizationId: string
+    organizationId: string,
   ): Promise<UserWithRole | null> {
     const [result] = await db
       .select({
@@ -171,12 +153,7 @@ export const usersService = {
       })
       .from(users)
       .innerJoin(userOrganizations, eq(users.id, userOrganizations.userId))
-      .where(
-        and(
-          eq(users.id, userId),
-          eq(userOrganizations.organizationId, organizationId)
-        )
-      )
+      .where(and(eq(users.id, userId), eq(userOrganizations.organizationId, organizationId)))
       .limit(1);
 
     return result || null;
@@ -186,11 +163,7 @@ export const usersService = {
    * Get full user profile (for own profile)
    */
   async getProfile(userId: string): Promise<User | null> {
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
     return user || null;
   },
@@ -198,10 +171,7 @@ export const usersService = {
   /**
    * Update user profile
    */
-  async updateProfile(
-    userId: string,
-    input: UpdateProfileInput
-  ): Promise<User> {
+  async updateProfile(userId: string, input: UpdateProfileInput): Promise<User> {
     const [user] = await db
       .update(users)
       .set({
@@ -225,7 +195,7 @@ export const usersService = {
     userId: string,
     organizationId: string,
     input: UpdateUserRoleInput,
-    requesterId: string
+    requesterId: string,
   ): Promise<UserWithRole> {
     // Can't change own role
     if (userId === requesterId) {
@@ -236,7 +206,7 @@ export const usersService = {
     const membership = await db.query.userOrganizations.findFirst({
       where: and(
         eq(userOrganizations.userId, userId),
-        eq(userOrganizations.organizationId, organizationId)
+        eq(userOrganizations.organizationId, organizationId),
       ),
     });
 
@@ -256,8 +226,8 @@ export const usersService = {
       .where(
         and(
           eq(userOrganizations.userId, userId),
-          eq(userOrganizations.organizationId, organizationId)
-        )
+          eq(userOrganizations.organizationId, organizationId),
+        ),
       );
 
     // Return updated user
@@ -278,11 +248,7 @@ export const usersService = {
       throw new Error("Cannot deactivate your own account");
     }
 
-    const [targetUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
+    const [targetUser] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
     if (!targetUser) {
       throw new Error("User not found");
@@ -324,18 +290,13 @@ export const usersService = {
    * Update last login timestamp
    */
   async updateLastLogin(userId: string): Promise<void> {
-    await db
-      .update(users)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(users.id, userId));
+    await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, userId));
   },
 
   /**
    * Get agents for ticket assignment within an organization
    */
-  async getAvailableAgents(
-    organizationId: string
-  ): Promise<
+  async getAvailableAgents(organizationId: string): Promise<
     {
       id: string;
       name: string;
@@ -361,9 +322,9 @@ export const usersService = {
           or(
             eq(userOrganizations.role, "agent"),
             eq(userOrganizations.role, "admin"),
-            eq(userOrganizations.role, "owner")
-          )
-        )
+            eq(userOrganizations.role, "owner"),
+          ),
+        ),
       )
       .orderBy(asc(users.name));
   },
@@ -374,7 +335,7 @@ export const usersService = {
   async removeFromOrganization(
     userId: string,
     organizationId: string,
-    requesterId: string
+    requesterId: string,
   ): Promise<void> {
     // Can't remove self
     if (userId === requesterId) {
@@ -385,7 +346,7 @@ export const usersService = {
     const membership = await db.query.userOrganizations.findFirst({
       where: and(
         eq(userOrganizations.userId, userId),
-        eq(userOrganizations.organizationId, organizationId)
+        eq(userOrganizations.organizationId, organizationId),
       ),
     });
 
@@ -404,8 +365,8 @@ export const usersService = {
       .where(
         and(
           eq(userOrganizations.userId, userId),
-          eq(userOrganizations.organizationId, organizationId)
-        )
+          eq(userOrganizations.organizationId, organizationId),
+        ),
       );
   },
 };

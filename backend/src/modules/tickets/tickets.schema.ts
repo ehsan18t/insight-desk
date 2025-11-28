@@ -1,18 +1,8 @@
 import { z } from "zod";
 
 // Ticket status and priority enums
-export const ticketStatusValues = [
-  "open",
-  "pending",
-  "resolved",
-  "closed",
-] as const;
-export const ticketPriorityValues = [
-  "low",
-  "medium",
-  "high",
-  "urgent",
-] as const;
+export const ticketStatusValues = ["open", "pending", "resolved", "closed"] as const;
+export const ticketPriorityValues = ["low", "medium", "high", "urgent"] as const;
 export const ticketChannelValues = ["web", "email", "chat", "api"] as const;
 
 // Create ticket schema
@@ -67,9 +57,7 @@ export const ticketQuerySchema = z.object({
     .optional(),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
-  sortBy: z
-    .enum(["createdAt", "updatedAt", "priority", "status"])
-    .default("createdAt"),
+  sortBy: z.enum(["createdAt", "updatedAt", "priority", "status"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 

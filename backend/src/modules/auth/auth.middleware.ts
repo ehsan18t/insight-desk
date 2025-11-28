@@ -1,11 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import type { NextFunction, Request, Response } from "express";
 import { db } from "../../db";
-import { userOrganizations, type UserRole } from "../../db/schema/index";
-import {
-  ForbiddenError,
-  UnauthorizedError,
-} from "../../middleware/error-handler";
+import { type UserRole, userOrganizations } from "../../db/schema/index";
+import { ForbiddenError, UnauthorizedError } from "../../middleware/error-handler";
 import { auth } from "./auth.config";
 
 // Extend Express Request type
@@ -31,11 +28,7 @@ declare global {
 }
 
 // Authenticate request using Better Auth session
-export async function authenticate(
-  req: Request,
-  _res: Response,
-  next: NextFunction
-) {
+export async function authenticate(req: Request, _res: Response, next: NextFunction) {
   try {
     // Get session from Better Auth
     const session = await auth.api.getSession({
@@ -87,7 +80,7 @@ export function requireRole(...allowedRoles: UserRole[]) {
     const membership = await db.query.userOrganizations.findFirst({
       where: and(
         eq(userOrganizations.userId, req.user.id),
-        eq(userOrganizations.organizationId, orgId)
+        eq(userOrganizations.organizationId, orgId),
       ),
     });
 
@@ -97,11 +90,7 @@ export function requireRole(...allowedRoles: UserRole[]) {
 
     // Check if user's role is allowed
     if (!allowedRoles.includes(membership.role)) {
-      return next(
-        new ForbiddenError(
-          `Access denied. Required role: ${allowedRoles.join(" or ")}`
-        )
-      );
+      return next(new ForbiddenError(`Access denied. Required role: ${allowedRoles.join(" or ")}`));
     }
 
     // Attach org info to request
@@ -114,19 +103,12 @@ export function requireRole(...allowedRoles: UserRole[]) {
 
 // Convenience middleware combinations
 export const requireAuth = authenticate;
-export const requireAgent = [
-  authenticate,
-  requireRole("agent", "admin", "owner"),
-];
+export const requireAgent = [authenticate, requireRole("agent", "admin", "owner")];
 export const requireAdmin = [authenticate, requireRole("admin", "owner")];
 export const requireOwner = [authenticate, requireRole("owner")];
 
 // Optional auth - doesn't fail if not authenticated
-export async function optionalAuth(
-  req: Request,
-  _res: Response,
-  next: NextFunction
-) {
+export async function optionalAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const session = await auth.api.getSession({
       headers: req.headers as unknown as Headers,

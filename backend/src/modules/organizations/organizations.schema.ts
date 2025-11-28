@@ -7,10 +7,7 @@ export const createOrganizationSchema = z.object({
     .string()
     .min(2)
     .max(50)
-    .regex(
-      /^[a-z0-9-]+$/,
-      "Slug must be lowercase alphanumeric with hyphens only"
-    ),
+    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase alphanumeric with hyphens only"),
 });
 
 // Update organization schema

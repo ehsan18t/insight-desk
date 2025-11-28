@@ -9,12 +9,7 @@ export class AppError extends Error {
   public readonly isOperational: boolean;
   public readonly code?: string;
 
-  constructor(
-    message: string,
-    statusCode = 500,
-    code?: string,
-    isOperational = true
-  ) {
+  constructor(message: string, statusCode = 500, code?: string, isOperational = true) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
@@ -68,19 +63,13 @@ export function errorHandler(
   req: Request,
   res: Response,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _next: NextFunction
+  _next: NextFunction,
 ) {
   // Log error
   if (err instanceof AppError && err.isOperational) {
-    logger.warn(
-      { err, path: req.path, method: req.method },
-      "Operational error"
-    );
+    logger.warn({ err, path: req.path, method: req.method }, "Operational error");
   } else {
-    logger.error(
-      { err, path: req.path, method: req.method },
-      "Unexpected error"
-    );
+    logger.error({ err, path: req.path, method: req.method }, "Unexpected error");
   }
 
   // Determine status code

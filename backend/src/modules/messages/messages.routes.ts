@@ -1,18 +1,13 @@
-import {
-  Router,
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import { type NextFunction, type Request, type Response, Router } from "express";
 import { validateRequest } from "../../middleware/validate";
 import { authenticate } from "../auth/auth.middleware";
 import {
   createMessageSchema,
+  type MessageQuery,
   messageIdParamSchema,
   messageQuerySchema,
   ticketIdParamSchema,
   updateMessageSchema,
-  type MessageQuery,
 } from "./messages.schema";
 import { messagesService } from "./messages.service";
 
@@ -33,7 +28,7 @@ router.get(
         req.params.id,
         req.query as unknown as MessageQuery,
         req.user!.id,
-        req.userRole
+        req.userRole,
       );
 
       res.json({
@@ -43,7 +38,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -58,7 +53,7 @@ router.get(
         req.params.id,
         req.params.messageId,
         req.user!.id,
-        req.userRole
+        req.userRole,
       );
 
       res.json({
@@ -68,7 +63,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -83,7 +78,7 @@ router.post(
         req.params.id,
         req.body,
         req.user!.id,
-        req.userRole
+        req.userRole,
       );
 
       res.status(201).json({
@@ -93,7 +88,7 @@ router.post(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -108,7 +103,7 @@ router.patch(
         req.params.id,
         req.params.messageId,
         req.body,
-        req.user!.id
+        req.user!.id,
       );
 
       res.json({
@@ -118,7 +113,7 @@ router.patch(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────
@@ -129,12 +124,7 @@ router.delete(
   validateRequest({ params: messageIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await messagesService.delete(
-        req.params.id,
-        req.params.messageId,
-        req.user!.id,
-        req.userRole
-      );
+      await messagesService.delete(req.params.id, req.params.messageId, req.user!.id, req.userRole);
 
       res.json({
         success: true,
@@ -143,7 +133,7 @@ router.delete(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 export const messagesRouter = router;

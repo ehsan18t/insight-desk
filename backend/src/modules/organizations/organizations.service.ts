@@ -1,12 +1,12 @@
-import { and, asc, count, desc, eq, ilike, SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, type SQL } from "drizzle-orm";
 import { db } from "../../db";
 import {
-  organizations,
-  userOrganizations,
-  users,
   type Organization,
   type OrganizationSettings,
+  organizations,
   type UserRole,
+  userOrganizations,
+  users,
 } from "../../db/schema";
 import type {
   CreateOrganizationInput,
@@ -38,10 +38,7 @@ export const organizationsService = {
   /**
    * Create a new organization
    */
-  async create(
-    input: CreateOrganizationInput,
-    ownerId: string
-  ): Promise<Organization> {
+  async create(input: CreateOrganizationInput, ownerId: string): Promise<Organization> {
     // Check if slug is already taken
     const existing = await db.query.organizations.findFirst({
       where: eq(organizations.slug, input.slug),
@@ -127,7 +124,7 @@ export const organizationsService = {
    */
   async listForUser(
     userId: string,
-    query: Partial<OrganizationQuery> = {}
+    query: Partial<OrganizationQuery> = {},
   ): Promise<{
     data: (Organization & { role: UserRole; memberCount: number })[];
     pagination: {
@@ -150,10 +147,7 @@ export const organizationsService = {
     const [{ total }] = await db
       .select({ total: count() })
       .from(organizations)
-      .innerJoin(
-        userOrganizations,
-        eq(organizations.id, userOrganizations.organizationId)
-      )
+      .innerJoin(userOrganizations, eq(organizations.id, userOrganizations.organizationId))
       .where(and(...conditions));
 
     // Get organizations with user's role
@@ -170,10 +164,7 @@ export const organizationsService = {
         role: userOrganizations.role,
       })
       .from(organizations)
-      .innerJoin(
-        userOrganizations,
-        eq(organizations.id, userOrganizations.organizationId)
-      )
+      .innerJoin(userOrganizations, eq(organizations.id, userOrganizations.organizationId))
       .where(and(...conditions))
       .orderBy(desc(organizations.createdAt))
       .limit(limit)
@@ -188,7 +179,7 @@ export const organizationsService = {
           .where(eq(userOrganizations.organizationId, org.id));
 
         return { ...org, memberCount };
-      })
+      }),
     );
 
     return {
@@ -205,12 +196,9 @@ export const organizationsService = {
   /**
    * Update organization
    */
-  async update(
-    organizationId: string,
-    input: UpdateOrganizationInput
-  ): Promise<Organization> {
+  async update(organizationId: string, input: UpdateOrganizationInput): Promise<Organization> {
     // Merge settings if provided
-    let updateData: Partial<Organization> = {};
+    const updateData: Partial<Organization> = {};
 
     if (input.name) {
       updateData.name = input.name;
@@ -257,7 +245,7 @@ export const organizationsService = {
    */
   async listMembers(
     organizationId: string,
-    query: Partial<OrganizationQuery> = {}
+    query: Partial<OrganizationQuery> = {},
   ): Promise<{
     data: OrganizationMember[];
     pagination: {
@@ -270,9 +258,7 @@ export const organizationsService = {
     const { page = 1, limit = 20, search } = query;
     const offset = (page - 1) * limit;
 
-    const conditions: SQL[] = [
-      eq(userOrganizations.organizationId, organizationId),
-    ];
+    const conditions: SQL[] = [eq(userOrganizations.organizationId, organizationId)];
 
     if (search) {
       conditions.push(ilike(users.name, `%${search}%`));
@@ -322,7 +308,7 @@ export const organizationsService = {
   async inviteMember(
     organizationId: string,
     input: InviteMemberInput,
-    _inviterId: string
+    _inviterId: string,
   ): Promise<{ userId?: string; invited: boolean; message: string }> {
     // Check if user exists
     const existingUser = await db.query.users.findFirst({
@@ -334,7 +320,7 @@ export const organizationsService = {
       const existingMembership = await db.query.userOrganizations.findFirst({
         where: and(
           eq(userOrganizations.userId, existingUser.id),
-          eq(userOrganizations.organizationId, organizationId)
+          eq(userOrganizations.organizationId, organizationId),
         ),
       });
 
@@ -372,7 +358,7 @@ export const organizationsService = {
     organizationId: string,
     userId: string,
     input: UpdateMemberRoleInput,
-    requesterId: string
+    requesterId: string,
   ): Promise<OrganizationMember> {
     // Can't change own role
     if (userId === requesterId) {
@@ -383,7 +369,7 @@ export const organizationsService = {
     const membership = await db.query.userOrganizations.findFirst({
       where: and(
         eq(userOrganizations.userId, userId),
-        eq(userOrganizations.organizationId, organizationId)
+        eq(userOrganizations.organizationId, organizationId),
       ),
     });
 
@@ -403,8 +389,8 @@ export const organizationsService = {
       .where(
         and(
           eq(userOrganizations.userId, userId),
-          eq(userOrganizations.organizationId, organizationId)
-        )
+          eq(userOrganizations.organizationId, organizationId),
+        ),
       );
 
     // Return updated member info
@@ -424,8 +410,8 @@ export const organizationsService = {
       .where(
         and(
           eq(userOrganizations.userId, userId),
-          eq(userOrganizations.organizationId, organizationId)
-        )
+          eq(userOrganizations.organizationId, organizationId),
+        ),
       )
       .limit(1);
 
@@ -435,11 +421,7 @@ export const organizationsService = {
   /**
    * Remove member from organization
    */
-  async removeMember(
-    organizationId: string,
-    userId: string,
-    requesterId: string
-  ): Promise<void> {
+  async removeMember(organizationId: string, userId: string, requesterId: string): Promise<void> {
     // Can't remove self
     if (userId === requesterId) {
       throw new Error("Cannot remove yourself from the organization");
@@ -449,7 +431,7 @@ export const organizationsService = {
     const membership = await db.query.userOrganizations.findFirst({
       where: and(
         eq(userOrganizations.userId, userId),
-        eq(userOrganizations.organizationId, organizationId)
+        eq(userOrganizations.organizationId, organizationId),
       ),
     });
 
@@ -468,8 +450,8 @@ export const organizationsService = {
       .where(
         and(
           eq(userOrganizations.userId, userId),
-          eq(userOrganizations.organizationId, organizationId)
-        )
+          eq(userOrganizations.organizationId, organizationId),
+        ),
       );
   },
 
@@ -479,12 +461,12 @@ export const organizationsService = {
   async checkUserRole(
     userId: string,
     organizationId: string,
-    allowedRoles: UserRole[]
+    allowedRoles: UserRole[],
   ): Promise<boolean> {
     const membership = await db.query.userOrganizations.findFirst({
       where: and(
         eq(userOrganizations.userId, userId),
-        eq(userOrganizations.organizationId, organizationId)
+        eq(userOrganizations.organizationId, organizationId),
       ),
     });
 
@@ -494,14 +476,11 @@ export const organizationsService = {
   /**
    * Get user's role in an organization
    */
-  async getUserRole(
-    userId: string,
-    organizationId: string
-  ): Promise<UserRole | null> {
+  async getUserRole(userId: string, organizationId: string): Promise<UserRole | null> {
     const membership = await db.query.userOrganizations.findFirst({
       where: and(
         eq(userOrganizations.userId, userId),
-        eq(userOrganizations.organizationId, organizationId)
+        eq(userOrganizations.organizationId, organizationId),
       ),
     });
 

@@ -19,39 +19,15 @@ import {
 // ENUMS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const userRoleEnum = pgEnum("user_role", [
-  "customer",
-  "agent",
-  "admin",
-  "owner",
-]);
+export const userRoleEnum = pgEnum("user_role", ["customer", "agent", "admin", "owner"]);
 
-export const ticketStatusEnum = pgEnum("ticket_status", [
-  "open",
-  "pending",
-  "resolved",
-  "closed",
-]);
+export const ticketStatusEnum = pgEnum("ticket_status", ["open", "pending", "resolved", "closed"]);
 
-export const ticketPriorityEnum = pgEnum("ticket_priority", [
-  "low",
-  "medium",
-  "high",
-  "urgent",
-]);
+export const ticketPriorityEnum = pgEnum("ticket_priority", ["low", "medium", "high", "urgent"]);
 
-export const ticketChannelEnum = pgEnum("ticket_channel", [
-  "web",
-  "email",
-  "chat",
-  "api",
-]);
+export const ticketChannelEnum = pgEnum("ticket_channel", ["web", "email", "chat", "api"]);
 
-export const messageTypeEnum = pgEnum("message_type", [
-  "reply",
-  "internal_note",
-  "system",
-]);
+export const messageTypeEnum = pgEnum("message_type", ["reply", "internal_note", "system"]);
 
 export const activityActionEnum = pgEnum("activity_action", [
   "created",
@@ -82,17 +58,13 @@ export const users = pgTable(
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
     isActive: boolean("is_active").notNull().default(true),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("users_email_idx").on(table.email),
     index("users_created_at_idx").on(table.createdAt),
-  ]
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -124,14 +96,10 @@ export const organizations = pgTable(
     settings: jsonb("settings").$type<OrganizationSettings>().default({}),
     plan: text("plan").notNull().default("free"),
     isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("org_slug_idx").on(table.slug)]
+  (table) => [uniqueIndex("org_slug_idx").on(table.slug)],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -149,15 +117,13 @@ export const userOrganizations = pgTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     role: userRoleEnum("role").notNull().default("customer"),
-    joinedAt: timestamp("joined_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex("user_org_unique").on(table.userId, table.organizationId),
     index("user_orgs_user_idx").on(table.userId),
     index("user_orgs_org_idx").on(table.organizationId),
-  ]
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -174,9 +140,7 @@ export const tickets = pgTable(
     status: ticketStatusEnum("status").notNull().default("open"),
     priority: ticketPriorityEnum("priority").notNull().default("medium"),
     channel: ticketChannelEnum("channel").notNull().default("web"),
-    tags: text("tags")
-      .array()
-      .default(sql`ARRAY[]::text[]`),
+    tags: text("tags").array().default(sql`ARRAY[]::text[]`),
     categoryId: uuid("category_id"),
     organizationId: uuid("organization_id")
       .notNull()
@@ -188,12 +152,8 @@ export const tickets = pgTable(
     slaDeadline: timestamp("sla_deadline", { withTimezone: true }),
     firstResponseAt: timestamp("first_response_at", { withTimezone: true }),
     slaBreached: boolean("sla_breached").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
   },
@@ -202,15 +162,12 @@ export const tickets = pgTable(
     index("tickets_customer_idx").on(table.customerId),
     index("tickets_assignee_idx").on(table.assigneeId),
     index("tickets_sla_deadline_idx").on(table.slaDeadline),
-    index("tickets_org_number_idx").on(
-      table.organizationId,
-      table.ticketNumber
-    ),
+    index("tickets_org_number_idx").on(table.organizationId, table.ticketNumber),
     index("tickets_search_idx").using(
       "gin",
-      sql`to_tsvector('english', ${table.title} || ' ' || ${table.description})`
+      sql`to_tsvector('english', ${table.title} || ' ' || ${table.description})`,
     ),
-  ]
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -239,14 +196,12 @@ export const ticketMessages = pgTable(
     emailMessageId: text("email_message_id"),
     isEdited: boolean("is_edited").notNull().default(false),
     editedAt: timestamp("edited_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("messages_ticket_created_idx").on(table.ticketId, table.createdAt),
     index("messages_email_id_idx").on(table.emailMessageId),
-  ]
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -278,13 +233,9 @@ export const ticketActivities = pgTable(
     userId: uuid("user_id").references(() => users.id),
     action: activityActionEnum("action").notNull(),
     metadata: jsonb("metadata").$type<ActivityMetadata>().default({}),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("activities_ticket_idx").on(table.ticketId, table.createdAt),
-  ]
+  (table) => [index("activities_ticket_idx").on(table.ticketId, table.createdAt)],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -304,16 +255,10 @@ export const slaPolicies = pgTable(
     resolutionTime: integer("resolution_time").notNull(),
     businessHoursOnly: boolean("business_hours_only").notNull().default(true),
     isDefault: boolean("is_default").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    index("sla_org_priority_idx").on(table.organizationId, table.priority),
-  ]
+  (table) => [index("sla_org_priority_idx").on(table.organizationId, table.priority)],
 );
 
 export const DEFAULT_SLA_TIMES = {
@@ -339,17 +284,13 @@ export const cannedResponses = pgTable(
     shortcut: text("shortcut"),
     category: text("category"),
     createdById: uuid("created_by_id").references(() => users.id),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("canned_org_idx").on(table.organizationId),
     index("canned_shortcut_idx").on(table.organizationId, table.shortcut),
-  ]
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -367,18 +308,14 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("sessions_user_idx").on(table.userId),
     index("sessions_token_idx").on(table.token),
     index("sessions_expires_idx").on(table.expiresAt),
-  ]
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -405,17 +342,13 @@ export const accounts = pgTable(
     scope: text("scope"),
     idToken: text("id_token"),
     password: text("password"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("accounts_user_idx").on(table.userId),
     index("accounts_provider_idx").on(table.providerId, table.accountId),
-  ]
+  ],
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -429,12 +362,8 @@ export const verifications = pgTable(
     identifier: text("identifier").notNull(),
     value: text("value").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("verifications_identifier_idx").on(table.identifier)]
+  (table) => [index("verifications_identifier_idx").on(table.identifier)],
 );

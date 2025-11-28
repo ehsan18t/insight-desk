@@ -34,11 +34,7 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
   }
 }
 
-export async function cacheSet<T>(
-  key: string,
-  value: T,
-  ttlSeconds = DEFAULT_TTL
-): Promise<void> {
+export async function cacheSet<T>(key: string, value: T, ttlSeconds = DEFAULT_TTL): Promise<void> {
   await valkey.set(key, JSON.stringify(value), "EX", ttlSeconds);
 }
 

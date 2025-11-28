@@ -3,9 +3,7 @@ import { z } from "zod";
 // Environment schema validation
 const envSchema = z.object({
   // Server
-  NODE_ENV: z
-    .enum(["development", "production", "test"])
-    .default("development"),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().default(3001),
   HOST: z.string().default("localhost"),
   API_URL: z.string().url().optional(),

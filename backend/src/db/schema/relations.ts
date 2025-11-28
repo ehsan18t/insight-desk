@@ -44,19 +44,16 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
 // USER ORGANIZATIONS RELATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const userOrganizationsRelations = relations(
-  userOrganizations,
-  ({ one }) => ({
-    user: one(users, {
-      fields: [userOrganizations.userId],
-      references: [users.id],
-    }),
-    organization: one(organizations, {
-      fields: [userOrganizations.organizationId],
-      references: [organizations.id],
-    }),
-  })
-);
+export const userOrganizationsRelations = relations(userOrganizations, ({ one }) => ({
+  user: one(users, {
+    fields: [userOrganizations.userId],
+    references: [users.id],
+  }),
+  organization: one(organizations, {
+    fields: [userOrganizations.organizationId],
+    references: [organizations.id],
+  }),
+}));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TICKET RELATIONS
@@ -100,19 +97,16 @@ export const ticketMessagesRelations = relations(ticketMessages, ({ one }) => ({
 // ACTIVITY RELATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const ticketActivitiesRelations = relations(
-  ticketActivities,
-  ({ one }) => ({
-    ticket: one(tickets, {
-      fields: [ticketActivities.ticketId],
-      references: [tickets.id],
-    }),
-    user: one(users, {
-      fields: [ticketActivities.userId],
-      references: [users.id],
-    }),
-  })
-);
+export const ticketActivitiesRelations = relations(ticketActivities, ({ one }) => ({
+  ticket: one(tickets, {
+    fields: [ticketActivities.ticketId],
+    references: [tickets.id],
+  }),
+  user: one(users, {
+    fields: [ticketActivities.userId],
+    references: [users.id],
+  }),
+}));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLA POLICY RELATIONS
@@ -129,19 +123,16 @@ export const slaPoliciesRelations = relations(slaPolicies, ({ one }) => ({
 // CANNED RESPONSE RELATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const cannedResponsesRelations = relations(
-  cannedResponses,
-  ({ one }) => ({
-    organization: one(organizations, {
-      fields: [cannedResponses.organizationId],
-      references: [organizations.id],
-    }),
-    createdBy: one(users, {
-      fields: [cannedResponses.createdById],
-      references: [users.id],
-    }),
-  })
-);
+export const cannedResponsesRelations = relations(cannedResponses, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [cannedResponses.organizationId],
+    references: [organizations.id],
+  }),
+  createdBy: one(users, {
+    fields: [cannedResponses.createdById],
+    references: [users.id],
+  }),
+}));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION RELATIONS
