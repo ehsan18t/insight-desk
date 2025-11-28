@@ -340,19 +340,21 @@ describe("organizationsService", () => {
       vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(undefined);
       vi.mocked(db.insert).mockReturnValue({
         values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{
-            id: "inv-123",
-            orgId: "org-123",
-            email: "new@test.com",
-            role: "agent",
-            token: "test-token",
-            status: "pending",
-            invitedById: "inviter-123",
-            expiresAt: new Date(),
-            createdAt: new Date(),
-          }]),
+          returning: vi.fn().mockResolvedValue([
+            {
+              id: "inv-123",
+              orgId: "org-123",
+              email: "new@test.com",
+              role: "agent",
+              token: "test-token",
+              status: "pending",
+              invitedById: "inviter-123",
+              expiresAt: new Date(),
+              createdAt: new Date(),
+            },
+          ]),
         }),
-      } as any);
+      } as unknown as ReturnType<typeof db.insert>);
 
       const result = await organizationsService.inviteMember(
         "org-123",
