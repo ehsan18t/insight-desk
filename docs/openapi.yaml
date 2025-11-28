@@ -1,0 +1,6276 @@
+openapi: 3.0.3
+info:
+  title: InsightDesk API
+  description: |
+    Multi-tenant Customer Support Ticketing System API.
+
+    ## Authentication
+    This API uses session-based authentication via cookies (better-auth).
+    All protected endpoints require a valid session cookie.
+
+    ## Role Hierarchy
+    - `customer` - Basic access, can create/view own tickets
+    - `agent` - Can manage tickets, view all tickets in organization
+    - `admin` - Full organization management access
+    - `owner` - Complete control including billing and subscription
+
+    ## Organization Context
+    Most endpoints require an organization context. The organization is determined by the `x-organization-id` header or the user's active organization.
+
+    ## Response Format
+    All responses follow a consistent format:
+    ```json
+    {
+      "success": true,
+      "data": { ... },
+      "pagination": { ... }  // Optional, for list endpoints
+    }
+    ```
+
+    ## Error Format
+    ```json
+    {
+      "success": false,
+      "error": "Error message",
+      "details": [ ... ]  // Optional validation errors
+    }
+    ```
+  version: 1.0.0
+  contact:
+    name: InsightDesk Support
+    url: https://github.com/ehsan18t/insight-desk
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Development server
+  - url: https://api.insightdesk.io
+    description: Production server
+
+tags:
+  - name: Health
+    description: System health check
+  - name: Auth
+    description: Authentication and session management
+  - name: Users
+    description: User management within organizations
+  - name: Organizations
+    description: Organization and member management
+  - name: Tickets
+    description: Ticket management
+  - name: Messages
+    description: Ticket messages/replies
+  - name: Categories
+    description: Ticket categories
+  - name: Tags
+    description: Ticket tags
+  - name: Attachments
+    description: File attachments
+  - name: Saved Filters
+    description: Custom ticket filters
+  - name: SLA Policies
+    description: Service Level Agreement policies
+  - name: Canned Responses
+    description: Pre-written response templates
+  - name: CSAT
+    description: Customer Satisfaction surveys
+  - name: Export
+    description: Data export
+  - name: Dashboard
+    description: Dashboard statistics
+  - name: Jobs
+    description: Background job management
+  - name: Plans
+    description: Subscription plan management
+  - name: Subscriptions
+    description: Organization subscription and usage
+  - name: Audit
+    description: Audit log management
+
+security:
+  - cookieAuth: []
+
+paths:
+  # ─────────────────────────────────────────────────────────────
+  # Health Check
+  # ─────────────────────────────────────────────────────────────
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the API server is running
+      security: []
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: "0.1.0"
+
+  # ─────────────────────────────────────────────────────────────
+  # Auth Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/auth/sign-up:
+    post:
+      tags:
+        - Auth
+      summary: Register a new user
+      description: Create a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  minLength: 8
+                  example: "securePassword123"
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  example: "John Doe"
+      responses:
+        '200':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/auth/sign-in:
+    post:
+      tags:
+        - Auth
+      summary: Sign in
+      description: Authenticate with email and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Successfully signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/sign-out:
+    post:
+      tags:
+        - Auth
+      summary: Sign out
+      description: End the current session
+      responses:
+        '200':
+          description: Successfully signed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+
+  /api/auth/session:
+    get:
+      tags:
+        - Auth
+      summary: Get current session
+      description: Get information about the current session
+      responses:
+        '200':
+          description: Session information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get current user
+      description: Get the current user with organization memberships
+      responses:
+        '200':
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/auth/register-with-org:
+    post:
+      tags:
+        - Auth
+      summary: Register with organization
+      description: Register a new user and create an organization
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+                - organizationName
+                - organizationSlug
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                organizationName:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                organizationSlug:
+                  type: string
+                  minLength: 2
+                  maxLength: 50
+                  pattern: '^[a-z0-9-]+$'
+      responses:
+        '200':
+          description: User and organization created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  # ─────────────────────────────────────────────────────────────
+  # Users Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/users:
+    get:
+      tags:
+        - Users
+      summary: List users
+      description: List all users in the organization. Requires agent role or higher.
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+          description: Search by name or email
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserRole'
+          description: Filter by role
+        - name: isActive
+          in: query
+          schema:
+            type: string
+            enum: ['true', 'false']
+          description: Filter by active status
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, email, createdAt, lastLoginAt]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/User'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/users/agents:
+    get:
+      tags:
+        - Users
+      summary: Get available agents
+      description: Get agents available for ticket assignment. Requires agent role or higher.
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Agent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user profile
+      description: Get the authenticated user's profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags:
+        - Users
+      summary: Update current user profile
+      description: Update the authenticated user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                avatarUrl:
+                  type: string
+                  format: uri
+                  nullable: true
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserProfile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user by ID
+      description: Get a user by their ID. Requires agent role or higher.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Users
+      summary: Remove user from organization
+      description: Remove a user from the organization. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/{userId}/role:
+    patch:
+      tags:
+        - Users
+      summary: Update user role
+      description: Update a user's role in the organization. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [customer, agent, admin]
+                  description: Cannot assign 'owner' role
+      responses:
+        '200':
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/{userId}/deactivate:
+    post:
+      tags:
+        - Users
+      summary: Deactivate user
+      description: Deactivate a user account. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/{userId}/reactivate:
+    post:
+      tags:
+        - Users
+      summary: Reactivate user
+      description: Reactivate a deactivated user account. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User reactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # Tickets Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/tickets:
+    get:
+      tags:
+        - Tickets
+      summary: List tickets
+      description: List all tickets in the organization with filtering and pagination
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TicketStatus'
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/TicketPriority'
+        - name: assigneeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: customerId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: tags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tag names
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, priority, status]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: List of tickets
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Ticket'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Tickets
+      summary: Create ticket
+      description: Create a new support ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTicketRequest'
+      responses:
+        '201':
+          description: Ticket created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/tickets/stats:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket statistics
+      description: Get ticket statistics for the organization. Requires agent role or higher.
+      responses:
+        '200':
+          description: Ticket statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TicketStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/tickets/bulk/update:
+    post:
+      tags:
+        - Tickets
+      summary: Bulk update tickets
+      description: Update multiple tickets at once. Requires agent role or higher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkUpdateTicketsRequest'
+      responses:
+        '200':
+          description: Tickets updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          updated:
+                            type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/tickets/bulk/assign:
+    post:
+      tags:
+        - Tickets
+      summary: Bulk assign tickets
+      description: Assign multiple tickets to an agent. Requires agent role or higher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ticketIds
+                - assigneeId
+              properties:
+                ticketIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 100
+                assigneeId:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '200':
+          description: Tickets assigned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/tickets/bulk/delete:
+    post:
+      tags:
+        - Tickets
+      summary: Bulk delete tickets
+      description: Delete multiple tickets. Requires admin role or higher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ticketIds
+              properties:
+                ticketIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 100
+      responses:
+        '200':
+          description: Tickets deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/tickets/merge:
+    post:
+      tags:
+        - Tickets
+      summary: Merge tickets
+      description: Merge multiple tickets into one. Requires agent role or higher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MergeTicketsRequest'
+      responses:
+        '200':
+          description: Tickets merged
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/tickets/{ticketId}:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket
+      description: Get ticket details by ID
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '200':
+          description: Ticket details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Tickets
+      summary: Update ticket
+      description: Update ticket details
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTicketRequest'
+      responses:
+        '200':
+          description: Ticket updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Tickets
+      summary: Delete ticket
+      description: Delete a ticket. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '200':
+          description: Ticket deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tickets/{ticketId}/activities:
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket activities
+      description: Get activity history for a ticket
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Ticket activities
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TicketActivity'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tickets/{ticketId}/assign:
+    post:
+      tags:
+        - Tickets
+      summary: Assign ticket
+      description: Assign ticket to an agent. Requires agent role or higher.
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - assigneeId
+              properties:
+                assigneeId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Ticket assigned
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tickets/{ticketId}/close:
+    post:
+      tags:
+        - Tickets
+      summary: Close ticket
+      description: Close a ticket
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '200':
+          description: Ticket closed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tickets/{ticketId}/reopen:
+    post:
+      tags:
+        - Tickets
+      summary: Reopen ticket
+      description: Reopen a closed ticket
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '200':
+          description: Ticket reopened
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Ticket'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # Messages Routes (nested under tickets)
+  # ─────────────────────────────────────────────────────────────
+  /api/tickets/{ticketId}/messages:
+    get:
+      tags:
+        - Messages
+      summary: List messages
+      description: List all messages for a ticket
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/MessageType'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Message'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - Messages
+      summary: Create message
+      description: Add a new message to a ticket
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '201':
+          description: Message created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tickets/{ticketId}/messages/{messageId}:
+    get:
+      tags:
+        - Messages
+      summary: Get message
+      description: Get a specific message by ID
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/MessageId'
+      responses:
+        '200':
+          description: Message details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Messages
+      summary: Update message
+      description: Update a message content
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/MessageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMessageRequest'
+      responses:
+        '200':
+          description: Message updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Message'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Messages
+      summary: Delete message
+      description: Delete a message
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+        - $ref: '#/components/parameters/MessageId'
+      responses:
+        '200':
+          description: Message deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # Organizations Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/organizations:
+    get:
+      tags:
+        - Organizations
+      summary: List organizations
+      description: List all organizations the current user belongs to
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: List of organizations
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Organization'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Organizations
+      summary: Create organization
+      description: Create a new organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+      responses:
+        '201':
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/organizations/{organizationId}:
+    get:
+      tags:
+        - Organizations
+      summary: Get organization
+      description: Get organization details
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: Organization details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Organization'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Organizations
+      summary: Update organization
+      description: Update organization settings. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrganizationRequest'
+      responses:
+        '200':
+          description: Organization updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/organizations/{organizationId}/members:
+    get:
+      tags:
+        - Organizations
+      summary: List organization members
+      description: List all members in the organization
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/OrganizationMember'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - Organizations
+      summary: Invite member
+      description: Invite a user to the organization. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                role:
+                  type: string
+                  enum: [customer, agent, admin]
+                  default: customer
+      responses:
+        '200':
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/organizations/{organizationId}/members/{memberId}:
+    patch:
+      tags:
+        - Organizations
+      summary: Update member role
+      description: Update a member's role. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+              properties:
+                role:
+                  type: string
+                  enum: [customer, agent, admin]
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Organizations
+      summary: Remove member
+      description: Remove a member from the organization. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/organizations/{organizationId}/invitations:
+    get:
+      tags:
+        - Organizations
+      summary: List invitations
+      description: List pending invitations. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: List of invitations
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Invitation'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/organizations/{organizationId}/invitations/{invitationId}:
+    delete:
+      tags:
+        - Organizations
+      summary: Cancel invitation
+      description: Cancel a pending invitation. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Invitation canceled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/organizations/{organizationId}/invitations/{invitationId}/resend:
+    post:
+      tags:
+        - Organizations
+      summary: Resend invitation
+      description: Resend a pending invitation. Requires admin role or higher.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: invitationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Invitation resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/organizations/invitations/{token}:
+    get:
+      tags:
+        - Organizations
+      summary: Get invitation by token
+      description: Get invitation details by token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invitation details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Invitation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/organizations/invitations/accept:
+    post:
+      tags:
+        - Organizations
+      summary: Accept invitation
+      description: Accept an invitation to join an organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/organizations/{organizationId}/deactivate:
+    post:
+      tags:
+        - Organizations
+      summary: Deactivate organization
+      description: Deactivate the organization. Requires owner role.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: Organization deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/organizations/{organizationId}/reactivate:
+    post:
+      tags:
+        - Organizations
+      summary: Reactivate organization
+      description: Reactivate a deactivated organization. Requires owner role.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: Organization reactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # Categories Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/categories:
+    get:
+      tags:
+        - Categories
+      summary: List categories
+      description: List all categories in the organization
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: string
+            enum: ['true', 'false']
+        - name: parentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+            nullable: true
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Category'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Categories
+      summary: Create category
+      description: Create a new category. Requires admin role or higher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/categories/tree:
+    get:
+      tags:
+        - Categories
+      summary: Get category tree
+      description: Get hierarchical category tree structure
+      responses:
+        '200':
+          description: Category tree
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CategoryTree'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/categories/stats:
+    get:
+      tags:
+        - Categories
+      summary: Get category statistics
+      description: Get ticket counts per category. Requires agent role or higher.
+      responses:
+        '200':
+          description: Category statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            categoryId:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+                            ticketCount:
+                              type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/categories/{categoryId}:
+    get:
+      tags:
+        - Categories
+      summary: Get category
+      description: Get category details by ID
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Category'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Categories
+      summary: Update category
+      description: Update category details. Requires admin role or higher.
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Category'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Categories
+      summary: Delete category
+      description: Delete a category. Requires admin role or higher.
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Category deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # Tags Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/tags:
+    get:
+      tags:
+        - Tags
+      summary: List tags
+      description: List all tags in the organization
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Tag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Tags
+      summary: Create tag
+      description: Create a new tag. Requires agent role or higher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+      responses:
+        '201':
+          description: Tag created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Tag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/tags/popular:
+    get:
+      tags:
+        - Tags
+      summary: Get popular tags
+      description: Get most used tags
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        '200':
+          description: Popular tags
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TagWithCount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/tags/autocomplete:
+    get:
+      tags:
+        - Tags
+      summary: Autocomplete tags
+      description: Get tags for autocomplete suggestions
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 50
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Tag suggestions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Tag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/tags/stats:
+    get:
+      tags:
+        - Tags
+      summary: Get tag statistics
+      description: Get tag usage statistics. Requires agent role or higher.
+      responses:
+        '200':
+          description: Tag statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TagWithCount'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/tags/{tagName}:
+    get:
+      tags:
+        - Tags
+      summary: Get tag by name
+      description: Get tag details by name
+      parameters:
+        - name: tagName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tag details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Tag'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Tags
+      summary: Update tag
+      description: Update tag details. Requires admin role or higher.
+      parameters:
+        - name: tagName
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTagRequest'
+      responses:
+        '200':
+          description: Tag updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Tag'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Tags
+      summary: Delete tag
+      description: Delete a tag. Requires admin role or higher.
+      parameters:
+        - name: tagName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tag deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # Attachments Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/attachments:
+    get:
+      tags:
+        - Attachments
+      summary: List attachments
+      description: List attachments with optional filtering
+      parameters:
+        - name: ticketId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: List of attachments
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Attachment'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/attachments/upload:
+    post:
+      tags:
+        - Attachments
+      summary: Upload file
+      description: Upload a file attachment
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                ticketId:
+                  type: string
+                  format: uuid
+                folder:
+                  type: string
+                  enum: [tickets, comments, avatars, general]
+                  default: general
+      responses:
+        '201':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Attachment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/attachments/{attachmentId}:
+    get:
+      tags:
+        - Attachments
+      summary: Get attachment metadata
+      description: Get attachment details by ID
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Attachment details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Attachment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Attachments
+      summary: Delete attachment
+      description: Delete an attachment. Requires admin or agent role.
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Attachment deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/attachments/{attachmentId}/download:
+    get:
+      tags:
+        - Attachments
+      summary: Download attachment
+      description: Download an attachment file
+      parameters:
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/attachments/ticket/{ticketId}:
+    get:
+      tags:
+        - Attachments
+      summary: Get ticket attachments
+      description: Get all attachments for a specific ticket
+      parameters:
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '200':
+          description: Ticket attachments
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Attachment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # Saved Filters Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/saved-filters:
+    get:
+      tags:
+        - Saved Filters
+      summary: List saved filters
+      description: List all saved filters for the current user
+      parameters:
+        - name: includeShared
+          in: query
+          schema:
+            type: string
+            enum: ['true', 'false']
+            default: 'true'
+      responses:
+        '200':
+          description: List of saved filters
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SavedFilter'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags:
+        - Saved Filters
+      summary: Create saved filter
+      description: Create a new saved filter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSavedFilterRequest'
+      responses:
+        '201':
+          description: Filter created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SavedFilter'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/saved-filters/default:
+    get:
+      tags:
+        - Saved Filters
+      summary: Get default filter
+      description: Get the user's default filter
+      responses:
+        '200':
+          description: Default filter
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SavedFilter'
+                        nullable: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/saved-filters/reorder:
+    post:
+      tags:
+        - Saved Filters
+      summary: Reorder filters
+      description: Reorder saved filters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filterIds
+              properties:
+                filterIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '200':
+          description: Filters reordered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/saved-filters/{filterId}:
+    get:
+      tags:
+        - Saved Filters
+      summary: Get saved filter
+      description: Get saved filter by ID
+      parameters:
+        - name: filterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Filter details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SavedFilter'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Saved Filters
+      summary: Update saved filter
+      description: Update a saved filter
+      parameters:
+        - name: filterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSavedFilterRequest'
+      responses:
+        '200':
+          description: Filter updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SavedFilter'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Saved Filters
+      summary: Delete saved filter
+      description: Delete a saved filter
+      parameters:
+        - name: filterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Filter deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/saved-filters/{filterId}/duplicate:
+    post:
+      tags:
+        - Saved Filters
+      summary: Duplicate saved filter
+      description: Create a copy of an existing filter
+      parameters:
+        - name: filterId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Filter duplicated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SavedFilter'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # SLA Policies Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/sla-policies:
+    get:
+      tags:
+        - SLA Policies
+      summary: List SLA policies
+      description: List all SLA policies. Requires agent role or higher.
+      parameters:
+        - name: priority
+          in: query
+          schema:
+            $ref: '#/components/schemas/TicketPriority'
+      responses:
+        '200':
+          description: List of SLA policies
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SlaPolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - SLA Policies
+      summary: Create SLA policy
+      description: Create a new SLA policy. Requires admin role or higher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSlaPolicyRequest'
+      responses:
+        '201':
+          description: Policy created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SlaPolicy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/sla-policies/initialize:
+    post:
+      tags:
+        - SLA Policies
+      summary: Initialize default policies
+      description: Create default SLA policies. Requires admin role or higher.
+      responses:
+        '201':
+          description: Default policies created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SlaPolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/sla-policies/{policyId}:
+    get:
+      tags:
+        - SLA Policies
+      summary: Get SLA policy
+      description: Get SLA policy by ID. Requires agent role or higher.
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Policy details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SlaPolicy'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - SLA Policies
+      summary: Update SLA policy
+      description: Update an SLA policy. Requires admin role or higher.
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSlaPolicyRequest'
+      responses:
+        '200':
+          description: Policy updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SlaPolicy'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - SLA Policies
+      summary: Delete SLA policy
+      description: Delete an SLA policy. Requires admin role or higher.
+      parameters:
+        - name: policyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Policy deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ─────────────────────────────────────────────────────────────
+  # Canned Responses Routes
+  # ─────────────────────────────────────────────────────────────
+  /api/canned-responses:
+    get:
+      tags:
+        - Canned Responses
+      summary: List canned responses
+      description: List canned responses. Requires agent role or higher.
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            maxLength: 100
+        - name: search
+          in: query
+          schema:
+            type: string
+            maxLength: 200
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: List of canned responses
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CannedResponse'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Canned Responses
+      summary: Create canned response
+      description: Create a new canned response. Requires agent role or higher.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCannedResponseRequest'
+      responses:
+        '201':
+          description: Response created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CannedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/canned-responses/categories:
+    get:
+      tags:
+        - Canned Responses
+      summary: List categories
+      description: Get list of canned response categories. Requires agent role or higher.
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/canned-responses/{responseId}:
+    get:
+      tags:
+        - Canned Responses
+      summary: Get canned response
+      description: Get canned response by ID. Requires agent role or higher.
+      parameters:
+        - name: responseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Response details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CannedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Canned Responses
+      summary: Update canned response
+      description: Update a canned response. Requires agent role or higher.
+      parameters:
+        - name: responseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCannedResponseRequest'
+      responses:
+        '200':
+          description: Response updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CannedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Canned Responses
+      summary: Delete canned response
+      description: Delete a canned response. Requires agent role or higher.
+      parameters:
+        - name: responseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Response deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CSAT (Customer Satisfaction)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  /api/csat/respond/{token}:
+    get:
+      tags:
+        - CSAT
+      summary: Get survey by token (public)
+      description: Retrieve a CSAT survey using a unique token. This is a public endpoint.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique survey token
+      responses:
+        '200':
+          description: Survey retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsatSurvey'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+        - CSAT
+      summary: Submit survey response (public)
+      description: Submit a customer satisfaction rating. This is a public endpoint.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique survey token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitSurveyRequest'
+      responses:
+        '200':
+          description: Survey submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsatSurvey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/csat/{organizationId}:
+    get:
+      tags:
+        - CSAT
+      summary: List all surveys
+      description: List all CSAT surveys for an organization with filtering options.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: agentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by agent
+        - name: rating
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: Filter by rating
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: responded
+          in: query
+          schema:
+            type: boolean
+          description: Filter by response status
+      responses:
+        '200':
+          description: Surveys list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CsatSurvey'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/csat/{organizationId}/stats:
+    get:
+      tags:
+        - CSAT
+      summary: Get CSAT statistics
+      description: Get overall CSAT statistics for an organization.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: agentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by agent
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: CSAT statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CsatStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/csat/{organizationId}/agents:
+    get:
+      tags:
+        - CSAT
+      summary: Get agent performance stats
+      description: Get CSAT statistics per agent.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Agent CSAT stats
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AgentCsatStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/csat/{organizationId}/{surveyId}:
+    get:
+      tags:
+        - CSAT
+      summary: Get single survey
+      description: Get a specific CSAT survey by ID.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: surveyId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Survey details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsatSurvey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/csat/{organizationId}/send/{ticketId}:
+    post:
+      tags:
+        - CSAT
+      summary: Send survey for ticket
+      description: Manually trigger a CSAT survey for a specific ticket.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - $ref: '#/components/parameters/TicketId'
+      responses:
+        '201':
+          description: Survey sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsatSurvey'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/csat/{organizationId}/send-bulk:
+    post:
+      tags:
+        - CSAT
+      summary: Bulk send surveys
+      description: Send CSAT surveys for all resolved/closed tickets without existing surveys.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: Bulk send results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sent:
+                    type: integer
+                    description: Number of surveys sent
+                  skipped:
+                    type: integer
+                    description: Number of tickets skipped
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # EXPORT
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  /api/export/{organizationId}/fields:
+    get:
+      tags:
+        - Export
+      summary: Get available export fields
+      description: Get list of available fields for ticket export.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+      responses:
+        '200':
+          description: Available fields
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExportField'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/export/{organizationId}/tickets:
+    get:
+      tags:
+        - Export
+      summary: Export tickets
+      description: Export tickets as CSV or XLSX file with optional filtering.
+      parameters:
+        - $ref: '#/components/parameters/OrganizationId'
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, xlsx]
+            default: csv
+        - name: fields
+          in: query
+          schema:
+            type: string
+          description: Comma-separated list of fields to include
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, pending, resolved, closed]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, urgent]
+        - name: assigneeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Exported file
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+            application/vnd.ms-excel:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DASHBOARD
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  /api/dashboard/stats:
+    get:
+      tags:
+        - Dashboard
+      summary: Get dashboard statistics
+      description: Get overall dashboard statistics. Requires agent role or higher.
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DashboardStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/dashboard/trends:
+    get:
+      tags:
+        - Dashboard
+      summary: Get ticket trends
+      description: Get ticket creation and resolution trends over time. Requires agent role or higher.
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: week
+        - name: periods
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 52
+            default: 7
+          description: Number of periods to look back
+      responses:
+        '200':
+          description: Trend data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/DashboardTrends'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/dashboard/priority-distribution:
+    get:
+      tags:
+        - Dashboard
+      summary: Get priority distribution
+      description: Get ticket distribution by priority. Requires agent role or higher.
+      responses:
+        '200':
+          description: Priority distribution
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PriorityDistribution'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/dashboard/agent-performance:
+    get:
+      tags:
+        - Dashboard
+      summary: Get agent performance
+      description: Get performance metrics per agent. Requires admin role or higher.
+      responses:
+        '200':
+          description: Agent performance metrics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AgentPerformance'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # JOBS (Background Jobs Administration)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  /api/jobs/status:
+    get:
+      tags:
+        - Jobs
+      summary: Get job status
+      description: Get status of all scheduled background jobs. Requires admin role.
+      responses:
+        '200':
+          description: Job status list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/JobStatus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/jobs/{name}/trigger:
+    post:
+      tags:
+        - Jobs
+      summary: Trigger a job
+      description: Manually trigger a background job. Requires admin role.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job name (e.g., 'sla-check', 'auto-close')
+      responses:
+        '200':
+          description: Job triggered
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Job 'sla-check' triggered successfully"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/jobs/sla/stats:
+    get:
+      tags:
+        - Jobs
+      summary: Get SLA statistics
+      description: Get SLA breach statistics for the organization. Requires admin role.
+      responses:
+        '200':
+          description: SLA statistics
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SlaStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/jobs/auto-close/preview:
+    get:
+      tags:
+        - Jobs
+      summary: Preview auto-close candidates
+      description: Preview tickets that would be auto-closed by the next job run. Requires admin role.
+      responses:
+        '200':
+          description: Auto-close preview
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AutoClosePreview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PLANS (Subscription Plans)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  /api/plans/public:
+    get:
+      tags:
+        - Plans
+      summary: List public plans
+      description: Get visible subscription plans for pricing page. No authentication required.
+      security: []
+      responses:
+        '200':
+          description: Public plans list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PublicPlan'
+
+  /api/plans/public/{slug}:
+    get:
+      tags:
+        - Plans
+      summary: Get public plan by slug
+      description: Get a specific plan by its slug. No authentication required.
+      security: []
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Plan slug (e.g., 'starter', 'professional')
+      responses:
+        '200':
+          description: Plan details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PublicPlan'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/plans:
+    get:
+      tags:
+        - Plans
+      summary: List all plans (admin)
+      description: List all subscription plans including inactive/hidden. Requires owner role.
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: includeHidden
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Plans list
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Plan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Plans
+      summary: Create a plan
+      description: Create a new subscription plan. Requires owner role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanRequest'
+      responses:
+        '201':
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Plan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/plans/{id}:
+    get:
+      tags:
+        - Plans
+      summary: Get plan by ID
+      description: Get plan details by ID. Requires owner role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plan details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Plan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+        - Plans
+      summary: Update a plan
+      description: Update plan properties. Requires owner role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanRequest'
+      responses:
+        '200':
+          description: Plan updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Plan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+        - Plans
+      summary: Delete a plan
+      description: Delete a subscription plan. Requires owner role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plan deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/plans/seed:
+    post:
+      tags:
+        - Plans
+      summary: Seed default plans
+      description: Seed default subscription plans (Free, Starter, Professional, Enterprise). Requires owner role.
+      responses:
+        '200':
+          description: Plans already exist
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          seeded:
+                            type: boolean
+                          plans:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Plan'
+        '201':
+          description: Plans seeded
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          seeded:
+                            type: boolean
+                          plans:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Plan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SUBSCRIPTIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  /api/subscriptions/current:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get current subscription
+      description: Get the current organization's subscription details.
+      responses:
+        '200':
+          description: Current subscription
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Subscription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/subscriptions/usage:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get current usage
+      description: Get the current period's usage statistics.
+      responses:
+        '200':
+          description: Usage data
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SubscriptionUsage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/subscriptions/usage/history:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get usage history
+      description: Get historical usage data. Requires admin role or higher.
+      parameters:
+        - name: periodStart
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: periodEnd
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Usage history
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UsageRecord'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/subscriptions/limits/{type}:
+    get:
+      tags:
+        - Subscriptions
+      summary: Check specific limit
+      description: Check if a specific resource limit has been reached.
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [tickets, messages, storage, api]
+          description: Type of limit to check
+      responses:
+        '200':
+          description: Limit check result
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/LimitCheckResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/subscriptions/change-plan:
+    post:
+      tags:
+        - Subscriptions
+      summary: Change subscription plan
+      description: Upgrade or downgrade the subscription plan. Requires owner role.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePlanRequest'
+      responses:
+        '200':
+          description: Plan changed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          subscription:
+                            $ref: '#/components/schemas/Subscription'
+                          isUpgrade:
+                            type: boolean
+                          message:
+                            type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/subscriptions/cancel:
+    post:
+      tags:
+        - Subscriptions
+      summary: Cancel subscription
+      description: Cancel the current subscription. Requires owner role.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                immediately:
+                  type: boolean
+                  default: false
+                  description: Cancel immediately or at end of billing period
+      responses:
+        '200':
+          description: Subscription canceled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          subscription:
+                            $ref: '#/components/schemas/Subscription'
+                          message:
+                            type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/subscriptions/reactivate:
+    post:
+      tags:
+        - Subscriptions
+      summary: Reactivate subscription
+      description: Reactivate a canceled subscription. Requires owner role.
+      responses:
+        '200':
+          description: Subscription reactivated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          subscription:
+                            $ref: '#/components/schemas/Subscription'
+                          message:
+                            type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AUDIT LOGS
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  /api/audit:
+    get:
+      tags:
+        - Audit
+      summary: List audit logs
+      description: List audit logs with filtering and pagination. Requires admin role.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: action
+          in: query
+          schema:
+            $ref: '#/components/schemas/AuditAction'
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: resourceId
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, action, userId]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AuditLog'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/audit/export:
+    get:
+      tags:
+        - Audit
+      summary: Export audit logs
+      description: Export audit logs as JSON or CSV. Requires admin role.
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv]
+            default: json
+        - name: action
+          in: query
+          schema:
+            $ref: '#/components/schemas/AuditAction'
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Exported audit logs
+          content:
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/audit/{id}:
+    get:
+      tags:
+        - Audit
+      summary: Get audit log by ID
+      description: Get a single audit log entry. Requires admin role.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Audit log details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuditLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: better-auth.session_token
+      description: Session cookie set by the authentication system
+
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: User ID
+
+    OrganizationId:
+      name: organizationId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Organization ID
+
+    TicketId:
+      name: ticketId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Ticket ID
+
+    MessageId:
+      name: messageId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Message ID
+
+  responses:
+    BadRequest:
+      description: Bad request - Invalid input data
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized - Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden - Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Not found - Resource does not exist
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: Conflict - Resource already exists
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    # ─────────────────────────────────────────────────────────────
+    # Common Schemas
+    # ─────────────────────────────────────────────────────────────
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: "Error message"
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 5
+
+    # ─────────────────────────────────────────────────────────────
+    # Auth Schemas
+    # ─────────────────────────────────────────────────────────────
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserProfile'
+            session:
+              type: object
+              properties:
+                id:
+                  type: string
+                expiresAt:
+                  type: string
+                  format: date-time
+
+    SessionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            session:
+              type: object
+              properties:
+                id:
+                  type: string
+                userId:
+                  type: string
+                  format: uuid
+                expiresAt:
+                  type: string
+                  format: date-time
+            user:
+              $ref: '#/components/schemas/UserProfile'
+
+    CurrentUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/UserProfile'
+            organizations:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  slug:
+                    type: string
+                  role:
+                    $ref: '#/components/schemas/UserRole'
+
+    # ─────────────────────────────────────────────────────────────
+    # User Schemas
+    # ─────────────────────────────────────────────────────────────
+    UserRole:
+      type: string
+      enum: [customer, agent, admin, owner]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        emailVerified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        role:
+          $ref: '#/components/schemas/UserRole'
+        isActive:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        ticketCount:
+          type: integer
+          description: Number of open tickets assigned
+
+    # ─────────────────────────────────────────────────────────────
+    # Ticket Schemas
+    # ─────────────────────────────────────────────────────────────
+    TicketStatus:
+      type: string
+      enum: [open, pending, resolved, closed]
+
+    TicketPriority:
+      type: string
+      enum: [low, medium, high, urgent]
+
+    TicketChannel:
+      type: string
+      enum: [web, email, chat, api]
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticketNumber:
+          type: string
+          example: "TKT-0001"
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/TicketStatus'
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+        channel:
+          $ref: '#/components/schemas/TicketChannel'
+        customer:
+          $ref: '#/components/schemas/UserSummary'
+        assignee:
+          $ref: '#/components/schemas/UserSummary'
+          nullable: true
+        category:
+          $ref: '#/components/schemas/CategorySummary'
+          nullable: true
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSummary'
+        slaResponseDue:
+          type: string
+          format: date-time
+          nullable: true
+        slaResolutionDue:
+          type: string
+          format: date-time
+          nullable: true
+        firstResponseAt:
+          type: string
+          format: date-time
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        closedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TicketSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticketNumber:
+          type: string
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/TicketStatus'
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+
+    UserSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+
+    CategorySummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+
+    TagSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+
+    TicketStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        open:
+          type: integer
+        pending:
+          type: integer
+        resolved:
+          type: integer
+        closed:
+          type: integer
+        avgResponseTime:
+          type: number
+          description: Average first response time in minutes
+        avgResolutionTime:
+          type: number
+          description: Average resolution time in minutes
+
+    TicketActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [created, status_changed, priority_changed, assigned, unassigned, comment_added, closed, reopened, merged]
+        description:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateTicketRequest:
+      type: object
+      required:
+        - title
+        - description
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 255
+        description:
+          type: string
+          minLength: 10
+          maxLength: 10000
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+          default: medium
+        channel:
+          $ref: '#/components/schemas/TicketChannel'
+          default: web
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        categoryId:
+          type: string
+          format: uuid
+
+    UpdateTicketRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 255
+        description:
+          type: string
+          minLength: 10
+          maxLength: 10000
+        status:
+          $ref: '#/components/schemas/TicketStatus'
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        categoryId:
+          type: string
+          format: uuid
+          nullable: true
+
+    BulkUpdateTicketsRequest:
+      type: object
+      required:
+        - ticketIds
+        - updates
+      properties:
+        ticketIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 100
+        updates:
+          type: object
+          properties:
+            status:
+              $ref: '#/components/schemas/TicketStatus'
+            priority:
+              $ref: '#/components/schemas/TicketPriority'
+            assigneeId:
+              type: string
+              format: uuid
+              nullable: true
+            categoryId:
+              type: string
+              format: uuid
+              nullable: true
+            addTags:
+              type: array
+              items:
+                type: string
+              maxItems: 10
+            removeTags:
+              type: array
+              items:
+                type: string
+              maxItems: 10
+
+    MergeTicketsRequest:
+      type: object
+      required:
+        - primaryTicketId
+        - secondaryTicketIds
+      properties:
+        primaryTicketId:
+          type: string
+          format: uuid
+        secondaryTicketIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 10
+        mergeComments:
+          type: boolean
+          default: true
+
+    # ─────────────────────────────────────────────────────────────
+    # Message Schemas
+    # ─────────────────────────────────────────────────────────────
+    MessageType:
+      type: string
+      enum: [reply, internal_note, system]
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        type:
+          $ref: '#/components/schemas/MessageType'
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttachmentSummary'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AttachmentSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        url:
+          type: string
+          format: uri
+        mimeType:
+          type: string
+        size:
+          type: integer
+
+    CreateMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 50000
+        type:
+          $ref: '#/components/schemas/MessageType'
+          default: reply
+        attachments:
+          type: array
+          items:
+            type: object
+            required:
+              - id
+              - filename
+              - url
+              - mimeType
+              - size
+            properties:
+              id:
+                type: string
+                format: uuid
+              filename:
+                type: string
+              url:
+                type: string
+                format: uri
+              mimeType:
+                type: string
+              size:
+                type: integer
+          maxItems: 10
+
+    UpdateMessageRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 50000
+
+    # ─────────────────────────────────────────────────────────────
+    # Organization Schemas
+    # ─────────────────────────────────────────────────────────────
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        isActive:
+          type: boolean
+        settings:
+          $ref: '#/components/schemas/OrganizationSettings'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    OrganizationSettings:
+      type: object
+      properties:
+        branding:
+          type: object
+          properties:
+            primaryColor:
+              type: string
+              pattern: '^#[0-9a-fA-F]{6}$'
+            logoUrl:
+              type: string
+              format: uri
+        notifications:
+          type: object
+          properties:
+            emailOnNewTicket:
+              type: boolean
+            emailOnTicketUpdate:
+              type: boolean
+            slackWebhookUrl:
+              type: string
+              format: uri
+        features:
+          type: object
+          properties:
+            liveChatEnabled:
+              type: boolean
+            customerPortalEnabled:
+              type: boolean
+
+    OrganizationMember:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        role:
+          $ref: '#/components/schemas/UserRole'
+        joinedAt:
+          type: string
+          format: date-time
+
+    Invitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+        status:
+          type: string
+          enum: [pending, accepted, expired]
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateOrganizationRequest:
+      type: object
+      required:
+        - name
+        - slug
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 50
+          pattern: '^[a-z0-9-]+$'
+
+    UpdateOrganizationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        settings:
+          $ref: '#/components/schemas/OrganizationSettings'
+
+    # ─────────────────────────────────────────────────────────────
+    # Category Schemas
+    # ─────────────────────────────────────────────────────────────
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CategoryTree:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryTree'
+
+    CreateCategoryRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        isActive:
+          type: boolean
+
+    # ─────────────────────────────────────────────────────────────
+    # Tag Schemas
+    # ─────────────────────────────────────────────────────────────
+    Tag:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        createdAt:
+          type: string
+          format: date-time
+
+    TagWithCount:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+        ticketCount:
+          type: integer
+
+    CreateTagRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+
+    UpdateTagRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+
+    # ─────────────────────────────────────────────────────────────
+    # Attachment Schemas
+    # ─────────────────────────────────────────────────────────────
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        originalFilename:
+          type: string
+        mimeType:
+          type: string
+        size:
+          type: integer
+          description: File size in bytes
+        url:
+          type: string
+          format: uri
+        folder:
+          type: string
+          enum: [tickets, comments, avatars, general]
+        ticketId:
+          type: string
+          format: uuid
+          nullable: true
+        uploadedBy:
+          $ref: '#/components/schemas/UserSummary'
+        createdAt:
+          type: string
+          format: date-time
+
+    # ─────────────────────────────────────────────────────────────
+    # Saved Filter Schemas
+    # ─────────────────────────────────────────────────────────────
+    SavedFilter:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        criteria:
+          $ref: '#/components/schemas/FilterCriteria'
+        isDefault:
+          type: boolean
+        isShared:
+          type: boolean
+        sortBy:
+          type: string
+        sortOrder:
+          type: string
+          enum: [asc, desc]
+        color:
+          type: string
+        icon:
+          type: string
+        position:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FilterCriteria:
+      type: object
+      properties:
+        status:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketStatus'
+        priority:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketPriority'
+        assigneeId:
+          type: string
+          format: uuid
+          nullable: true
+        customerId:
+          type: string
+          format: uuid
+        tags:
+          type: array
+          items:
+            type: string
+        categoryId:
+          type: string
+          format: uuid
+        search:
+          type: string
+        dateRange:
+          type: object
+          properties:
+            field:
+              type: string
+              enum: [createdAt, updatedAt, resolvedAt, closedAt]
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+
+    CreateSavedFilterRequest:
+      type: object
+      required:
+        - name
+        - criteria
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        criteria:
+          $ref: '#/components/schemas/FilterCriteria'
+        isDefault:
+          type: boolean
+          default: false
+        isShared:
+          type: boolean
+          default: false
+        sortBy:
+          type: string
+          enum: [createdAt, updatedAt, priority, status]
+        sortOrder:
+          type: string
+          enum: [asc, desc]
+          default: desc
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        icon:
+          type: string
+          maxLength: 50
+
+    UpdateSavedFilterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        criteria:
+          $ref: '#/components/schemas/FilterCriteria'
+        isDefault:
+          type: boolean
+        isShared:
+          type: boolean
+        sortBy:
+          type: string
+          enum: [createdAt, updatedAt, priority, status]
+        sortOrder:
+          type: string
+          enum: [asc, desc]
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        icon:
+          type: string
+          maxLength: 50
+        position:
+          type: integer
+          minimum: 0
+
+    # ─────────────────────────────────────────────────────────────
+    # SLA Policy Schemas
+    # ─────────────────────────────────────────────────────────────
+    SlaPolicy:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+        firstResponseTime:
+          type: integer
+          description: First response time in minutes
+        resolutionTime:
+          type: integer
+          description: Resolution time in minutes
+        businessHoursOnly:
+          type: boolean
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateSlaPolicyRequest:
+      type: object
+      required:
+        - name
+        - priority
+        - firstResponseTime
+        - resolutionTime
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        priority:
+          $ref: '#/components/schemas/TicketPriority'
+        firstResponseTime:
+          type: integer
+          minimum: 1
+          maximum: 10080
+          description: First response time in minutes (max 7 days)
+        resolutionTime:
+          type: integer
+          minimum: 1
+          maximum: 43200
+          description: Resolution time in minutes (max 30 days)
+        businessHoursOnly:
+          type: boolean
+          default: true
+        isDefault:
+          type: boolean
+          default: false
+
+    UpdateSlaPolicyRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        firstResponseTime:
+          type: integer
+          minimum: 1
+          maximum: 10080
+        resolutionTime:
+          type: integer
+          minimum: 1
+          maximum: 43200
+        businessHoursOnly:
+          type: boolean
+        isDefault:
+          type: boolean
+
+    # ─────────────────────────────────────────────────────────────
+    # Canned Response Schemas
+    # ─────────────────────────────────────────────────────────────
+    CannedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        content:
+          type: string
+        shortcut:
+          type: string
+        category:
+          type: string
+        createdBy:
+          $ref: '#/components/schemas/UserSummary'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateCannedResponseRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        shortcut:
+          type: string
+          maxLength: 50
+        category:
+          type: string
+          maxLength: 100
+
+    UpdateCannedResponseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        shortcut:
+          type: string
+          maxLength: 50
+        category:
+          type: string
+          maxLength: 100
+
+    # ─────────────────────────────────────────────────────────────
+    # CSAT Schemas
+    # ─────────────────────────────────────────────────────────────
+
+    CsatSurvey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ticketId:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        agentId:
+          type: string
+          format: uuid
+        token:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        feedback:
+          type: string
+          nullable: true
+        respondedAt:
+          type: string
+          format: date-time
+          nullable: true
+        sentAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    SubmitSurveyRequest:
+      type: object
+      required:
+        - rating
+      properties:
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        feedback:
+          type: string
+          maxLength: 2000
+
+    CsatStats:
+      type: object
+      properties:
+        totalSurveys:
+          type: integer
+        respondedSurveys:
+          type: integer
+        responseRate:
+          type: number
+          format: float
+        averageRating:
+          type: number
+          format: float
+          nullable: true
+        ratingDistribution:
+          type: object
+          properties:
+            '1':
+              type: integer
+            '2':
+              type: integer
+            '3':
+              type: integer
+            '4':
+              type: integer
+            '5':
+              type: integer
+
+    AgentCsatStats:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        agentName:
+          type: string
+        agentEmail:
+          type: string
+          format: email
+        totalSurveys:
+          type: integer
+        respondedSurveys:
+          type: integer
+        averageRating:
+          type: number
+          format: float
+          nullable: true
+
+    # ─────────────────────────────────────────────────────────────
+    # Export Schemas
+    # ─────────────────────────────────────────────────────────────
+
+    ExportField:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Field identifier
+          example: ticketNumber
+        label:
+          type: string
+          description: Human-readable label
+          example: Ticket Number
+        type:
+          type: string
+          enum: [string, number, date, array]
+
+    # ─────────────────────────────────────────────────────────────
+    # Dashboard Schemas
+    # ─────────────────────────────────────────────────────────────
+
+    DashboardStats:
+      type: object
+      properties:
+        tickets:
+          type: object
+          properties:
+            total:
+              type: integer
+            open:
+              type: integer
+            pending:
+              type: integer
+            resolved:
+              type: integer
+            closed:
+              type: integer
+        performance:
+          type: object
+          properties:
+            avgFirstResponseTime:
+              type: number
+              nullable: true
+              description: Average first response time in minutes
+            avgResolutionTime:
+              type: number
+              nullable: true
+              description: Average resolution time in minutes
+            slaComplianceRate:
+              type: number
+              description: SLA compliance rate as percentage
+        agents:
+          type: object
+          properties:
+            total:
+              type: integer
+            active:
+              type: integer
+
+    DashboardTrends:
+      type: object
+      properties:
+        period:
+          type: string
+          enum: [day, week, month]
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+              created:
+                type: integer
+              resolved:
+                type: integer
+              closed:
+                type: integer
+
+    PriorityDistribution:
+      type: object
+      properties:
+        low:
+          type: integer
+        medium:
+          type: integer
+        high:
+          type: integer
+        urgent:
+          type: integer
+
+    AgentPerformance:
+      type: object
+      properties:
+        agentId:
+          type: string
+          format: uuid
+        agentName:
+          type: string
+        assignedTickets:
+          type: integer
+        resolvedTickets:
+          type: integer
+        avgResolutionTime:
+          type: number
+          nullable: true
+          description: Average resolution time in minutes
+        avgFirstResponseTime:
+          type: number
+          nullable: true
+          description: Average first response time in minutes
+
+    # ─────────────────────────────────────────────────────────────
+    # Jobs Schemas
+    # ─────────────────────────────────────────────────────────────
+
+    JobStatus:
+      type: object
+      properties:
+        name:
+          type: string
+          example: sla-check
+        schedule:
+          type: string
+          description: Cron expression
+          example: '*/5 * * * *'
+        lastRun:
+          type: string
+          format: date-time
+          nullable: true
+        nextRun:
+          type: string
+          format: date-time
+          nullable: true
+        isRunning:
+          type: boolean
+        enabled:
+          type: boolean
+
+    SlaStats:
+      type: object
+      properties:
+        totalTickets:
+          type: integer
+        breachedResponse:
+          type: integer
+          description: Tickets that breached response SLA
+        breachedResolution:
+          type: integer
+          description: Tickets that breached resolution SLA
+        atRiskResponse:
+          type: integer
+          description: Tickets at risk of breaching response SLA
+        atRiskResolution:
+          type: integer
+          description: Tickets at risk of breaching resolution SLA
+
+    AutoClosePreview:
+      type: object
+      properties:
+        candidateCount:
+          type: integer
+          description: Number of tickets that would be auto-closed
+        tickets:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              ticketNumber:
+                type: integer
+              title:
+                type: string
+              status:
+                type: string
+              lastActivityAt:
+                type: string
+                format: date-time
+
+    # ─────────────────────────────────────────────────────────────
+    # Plans Schemas
+    # ─────────────────────────────────────────────────────────────
+
+    PlanLimits:
+      type: object
+      properties:
+        ticketsPerMonth:
+          type: integer
+          description: -1 for unlimited
+        messagesPerMonth:
+          type: integer
+          description: -1 for unlimited
+        storagePerOrgMB:
+          type: integer
+          description: -1 for unlimited
+        apiRequestsPerMinute:
+          type: integer
+        agentsPerOrg:
+          type: integer
+          description: -1 for unlimited
+        customersPerOrg:
+          type: integer
+          description: -1 for unlimited
+        slaEnabled:
+          type: boolean
+        customFieldsEnabled:
+          type: boolean
+        reportingEnabled:
+          type: boolean
+        apiAccessEnabled:
+          type: boolean
+        prioritySupport:
+          type: boolean
+
+    PlanFeatures:
+      type: object
+      properties:
+        ticketManagement:
+          type: boolean
+        emailChannel:
+          type: boolean
+        chatWidget:
+          type: boolean
+        apiChannel:
+          type: boolean
+        cannedResponses:
+          type: boolean
+        tags:
+          type: boolean
+        categories:
+          type: boolean
+        fileAttachments:
+          type: boolean
+        csatSurveys:
+          type: boolean
+        slaManagement:
+          type: boolean
+        customFields:
+          type: boolean
+        analytics:
+          type: boolean
+        advancedReporting:
+          type: boolean
+        dataExport:
+          type: boolean
+        customBranding:
+          type: boolean
+        singleSignOn:
+          type: boolean
+        auditLog:
+          type: boolean
+        multipleWorkspaces:
+          type: boolean
+
+    PublicPlan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        price:
+          type: integer
+          description: Price in cents
+        currency:
+          type: string
+          example: USD
+        billingInterval:
+          type: string
+          enum: [monthly, yearly, lifetime]
+        limits:
+          $ref: '#/components/schemas/PlanLimits'
+        features:
+          $ref: '#/components/schemas/PlanFeatures'
+        position:
+          type: integer
+
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        price:
+          type: integer
+          description: Price in cents
+        currency:
+          type: string
+        billingInterval:
+          type: string
+          enum: [monthly, yearly, lifetime]
+        limits:
+          $ref: '#/components/schemas/PlanLimits'
+        features:
+          $ref: '#/components/schemas/PlanFeatures'
+        isActive:
+          type: boolean
+        isDefault:
+          type: boolean
+        isVisible:
+          type: boolean
+        alertsEnabled:
+          type: boolean
+        alertThreshold:
+          type: integer
+          minimum: 50
+          maximum: 100
+        position:
+          type: integer
+        stripeProductId:
+          type: string
+          nullable: true
+        stripePriceId:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePlanRequest:
+      type: object
+      required:
+        - name
+        - slug
+        - limits
+        - features
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9-]+$'
+        description:
+          type: string
+          maxLength: 500
+        price:
+          type: integer
+          minimum: 0
+          default: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          default: USD
+        billingInterval:
+          type: string
+          enum: [monthly, yearly, lifetime]
+          default: monthly
+        limits:
+          $ref: '#/components/schemas/PlanLimits'
+        features:
+          $ref: '#/components/schemas/PlanFeatures'
+        isActive:
+          type: boolean
+          default: true
+        isDefault:
+          type: boolean
+          default: false
+        isVisible:
+          type: boolean
+          default: true
+        alertsEnabled:
+          type: boolean
+          default: true
+        alertThreshold:
+          type: integer
+          minimum: 50
+          maximum: 100
+          default: 90
+        position:
+          type: integer
+          minimum: 0
+          default: 0
+        stripeProductId:
+          type: string
+        stripePriceId:
+          type: string
+        metadata:
+          type: object
+
+    UpdatePlanRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        slug:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-z0-9-]+$'
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+        price:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        billingInterval:
+          type: string
+          enum: [monthly, yearly, lifetime]
+        limits:
+          $ref: '#/components/schemas/PlanLimits'
+        features:
+          $ref: '#/components/schemas/PlanFeatures'
+        isActive:
+          type: boolean
+        isDefault:
+          type: boolean
+        isVisible:
+          type: boolean
+        alertsEnabled:
+          type: boolean
+        alertThreshold:
+          type: integer
+          minimum: 50
+          maximum: 100
+        position:
+          type: integer
+          minimum: 0
+        stripeProductId:
+          type: string
+          nullable: true
+        stripePriceId:
+          type: string
+          nullable: true
+        metadata:
+          type: object
+
+    # ─────────────────────────────────────────────────────────────
+    # Subscriptions Schemas
+    # ─────────────────────────────────────────────────────────────
+
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        plan:
+          $ref: '#/components/schemas/Plan'
+        status:
+          type: string
+          enum: [active, canceled, past_due, trialing]
+        currentPeriodStart:
+          type: string
+          format: date-time
+        currentPeriodEnd:
+          type: string
+          format: date-time
+        cancelAtPeriodEnd:
+          type: boolean
+        canceledAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SubscriptionUsage:
+      type: object
+      properties:
+        plan:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            slug:
+              type: string
+        usage:
+          type: object
+          nullable: true
+          properties:
+            tickets:
+              type: object
+              properties:
+                used:
+                  type: integer
+                limit:
+                  type: integer
+                remaining:
+                  type: integer
+                percentUsed:
+                  type: integer
+            messages:
+              type: object
+              properties:
+                used:
+                  type: integer
+                limit:
+                  type: integer
+                remaining:
+                  type: integer
+                percentUsed:
+                  type: integer
+            storage:
+              type: object
+              properties:
+                usedMB:
+                  type: number
+                limitMB:
+                  type: integer
+                remainingMB:
+                  type: number
+                percentUsed:
+                  type: integer
+            apiRequests:
+              type: object
+              properties:
+                count:
+                  type: integer
+                rateLimit:
+                  type: integer
+            periodStart:
+              type: string
+              format: date-time
+            periodEnd:
+              type: string
+              format: date-time
+        alertsEnabled:
+          type: boolean
+        alertThreshold:
+          type: integer
+
+    UsageRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        periodStart:
+          type: string
+          format: date-time
+        periodEnd:
+          type: string
+          format: date-time
+        ticketsCreated:
+          type: integer
+        messagesCreated:
+          type: integer
+        storageUsedMB:
+          type: number
+        apiRequestsCount:
+          type: integer
+
+    LimitCheckResult:
+      type: object
+      properties:
+        allowed:
+          type: boolean
+        usageType:
+          type: string
+          enum: [tickets, messages, storage, api]
+        current:
+          type: number
+        limit:
+          type: integer
+        remaining:
+          type: number
+        percentUsed:
+          type: integer
+        shouldAlert:
+          type: boolean
+        upgradeUrl:
+          type: string
+
+    ChangePlanRequest:
+      type: object
+      required:
+        - planId
+      properties:
+        planId:
+          type: string
+          format: uuid
+
+    # ─────────────────────────────────────────────────────────────
+    # Audit Schemas
+    # ─────────────────────────────────────────────────────────────
+
+    AuditAction:
+      type: string
+      enum:
+        - user_login
+        - user_logout
+        - user_password_changed
+        - user_email_changed
+        - organization_created
+        - organization_updated
+        - organization_deleted
+        - subscription_created
+        - subscription_upgraded
+        - subscription_downgraded
+        - subscription_canceled
+        - subscription_renewed
+        - user_invited
+        - user_removed
+        - user_role_changed
+        - settings_updated
+        - sla_policy_created
+        - sla_policy_updated
+        - sla_policy_deleted
+        - data_exported
+        - api_key_created
+        - api_key_revoked
+
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        user:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            email:
+              type: string
+              format: email
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        resourceType:
+          type: string
+          nullable: true
+        resourceId:
+          type: string
+          nullable: true
+        previousValue:
+          type: object
+          nullable: true
+        newValue:
+          type: object
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+        ipAddress:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time

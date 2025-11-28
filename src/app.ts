@@ -2,7 +2,11 @@ import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type Express } from "express";
+import fs from "node:fs";
+import path from "node:path";
 import helmet from "helmet";
+import swaggerUi from "swagger-ui-express";
+import YAML from "yaml";
 import { config } from "./config";
 import { httpLogger } from "./lib/logger";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
@@ -38,7 +42,7 @@ export function createApp(): Express {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:"],
         },
@@ -99,6 +103,24 @@ export function createApp(): Express {
       version: process.env.npm_package_version || "0.1.0",
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // API Documentation (Swagger UI)
+  // ─────────────────────────────────────────────────────────────
+  try {
+    const openapiPath = path.join(process.cwd(), "docs", "openapi.yaml");
+    const openapiSpec = YAML.parse(fs.readFileSync(openapiPath, "utf-8"));
+    app.use(
+      "/api-docs",
+      swaggerUi.serve,
+      swaggerUi.setup(openapiSpec, {
+        customCss: ".swagger-ui .topbar { display: none }",
+        customSiteTitle: "InsightDesk API Documentation",
+      }),
+    );
+  } catch (_error) {
+    httpLogger.warn("OpenAPI spec not found, Swagger UI disabled");
+  }
 
   // ─────────────────────────────────────────────────────────────
   // API Routes
