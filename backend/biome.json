@@ -1,12 +1,13 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
-    "useIgnoreFile": true
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
   },
   "files": {
-    "includes": ["src/**/*.ts"],
+    "includes": ["src/**"],
     "ignoreUnknown": true
   },
   "formatter": {
@@ -19,24 +20,14 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
-      "complexity": {
-        "noExcessiveCognitiveComplexity": "warn",
-        "noForEach": "off"
-      },
-      "correctness": {
-        "noUnusedImports": "error",
-        "noUnusedVariables": "error"
-      },
-      "style": {
-        "noNonNullAssertion": "off",
-        "useConst": "error",
-        "useImportType": "error",
-        "useNodejsImportProtocol": "error"
-      },
-      "suspicious": {
-        "noExplicitAny": "warn",
-        "noConsole": "off"
+      "recommended": true
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
       }
     }
   },
@@ -48,11 +39,25 @@
       "arrowParentheses": "always"
     }
   },
-  "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
+  "json": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/modules/**/*.routes.ts", "src/modules/**/*.service.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "warn"
+          }
+        }
       }
     }
-  }
+  ]
 }
