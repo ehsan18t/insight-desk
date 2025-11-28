@@ -15,6 +15,7 @@ import { cannedResponsesRouter } from "./modules/canned-responses";
 import { categoriesRouter } from "./modules/categories";
 import { csatRoutes } from "./modules/csat";
 import { dashboardRouter } from "./modules/dashboard";
+import { exportRouter } from "./modules/export";
 import { jobsRouter } from "./modules/jobs";
 import { organizationsRouter } from "./modules/organizations";
 import { savedFiltersRouter } from "./modules/saved-filters";
@@ -110,6 +111,7 @@ export function createApp(): Express {
   app.use("/api/sla-policies", slaRouter);
   app.use("/api/canned-responses", cannedResponsesRouter);
   app.use("/api/csat", csatRoutes);
+  app.use("/api/export", exportRouter);
   app.use("/api/dashboard", dashboardRouter);
   app.use("/api/jobs", jobsRouter);
 
