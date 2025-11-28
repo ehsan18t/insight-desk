@@ -1,0 +1,64 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:18
+    container_name: insightdesk-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-insightdesk}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-insightdesk_dev_2025}
+      POSTGRES_DB: ${DB_NAME:-insightdesk}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-insightdesk}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Valkey (Redis alternative) for caching and Socket.IO adapter
+  valkey:
+    image: valkey/valkey:9.0-alpine
+    container_name: insightdesk-valkey
+    ports:
+      - "${VALKEY_PORT:-6379}:6379"
+    volumes:
+      - valkey_data:/data
+    command: valkey-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Backend API (uncomment when ready)
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: insightdesk-backend
+  #   environment:
+  #     - NODE_ENV=development
+  #     - DATABASE_URL=postgresql://${DB_USER:-insightdesk}:${DB_PASSWORD:-insightdesk_dev_2025}@postgres:5432/${DB_NAME:-insightdesk}
+  #     - VALKEY_URL=valkey://valkey:6379
+  #   ports:
+  #     - "${API_PORT:-3001}:3001"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     valkey:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./backend/src:/app/src
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
+  valkey_data:
+
+networks:
+  default:
+    name: insightdesk-network

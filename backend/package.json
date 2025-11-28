@@ -1,0 +1,51 @@
+{
+  "name": "@insightdesk/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "bun src/db/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "cors": "^2.8.5",
+    "helmet": "^8.1.0",
+    "compression": "^1.8.0",
+    "cookie-parser": "^1.4.7",
+    "drizzle-orm": "^0.44.0",
+    "postgres": "^3.4.7",
+    "better-auth": "^1.2.0",
+    "zod": "^3.25.0",
+    "socket.io": "^4.8.0",
+    "@socket.io/valkey-adapter": "^0.1.0",
+    "iovalkey": "^0.3.0",
+    "pg-boss": "^10.1.0",
+    "resend": "^4.1.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "nanoid": "^5.1.0",
+    "date-fns": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "@types/express": "^5.0.1",
+    "@types/cors": "^2.8.17",
+    "@types/compression": "^1.7.5",
+    "@types/cookie-parser": "^1.4.8",
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.9.0",
+    "@typescript-eslint/eslint-plugin": "^8.32.0",
+    "@typescript-eslint/parser": "^8.32.0",
+    "eslint": "^9.20.0"
+  }
+}

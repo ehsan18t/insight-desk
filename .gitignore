@@ -1,0 +1,30 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+out/
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Testing
+coverage/
+
+# Docker volumes (if not using named volumes)
+.docker/

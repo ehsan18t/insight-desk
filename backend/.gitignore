@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+bun.lockb
+
+# Build output
+dist/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Drizzle
+drizzle/meta/
+
+# Testing
+coverage/
