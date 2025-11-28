@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import type { NextFunction, Request, Response } from "express";
-import { db } from "../../db";
-import { type UserRole, userOrganizations } from "../../db/schema/index";
-import { ForbiddenError, UnauthorizedError } from "../../middleware/error-handler";
+import { db } from "@/db";
+import { type UserRole, userOrganizations } from "@/db/schema/index";
+import { ForbiddenError, UnauthorizedError } from "@/middleware/error-handler";
 import { auth } from "./auth.config";
 
 // Extend Express Request type

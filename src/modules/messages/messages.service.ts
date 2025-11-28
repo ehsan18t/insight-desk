@@ -1,13 +1,8 @@
 import { and, asc, eq, sql } from "drizzle-orm";
-import { db } from "../../db";
-import {
-  type TicketMessage,
-  ticketActivities,
-  ticketMessages,
-  tickets,
-} from "../../db/schema/index";
-import { createLogger } from "../../lib/logger";
-import { ForbiddenError, NotFoundError } from "../../middleware/error-handler";
+import { db } from "@/db";
+import { type TicketMessage, ticketActivities, ticketMessages, tickets } from "@/db/schema/index";
+import { createLogger } from "@/lib/logger";
+import { ForbiddenError, NotFoundError } from "@/middleware/error-handler";
 import type { CreateMessageInput, MessageQuery, UpdateMessageInput } from "./messages.schema";
 
 const logger = createLogger("messages");

@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
-import { db } from "../../db";
-import type { User } from "../../db/schema";
-import { type UserRole, userOrganizations, users } from "../../db/schema";
+import { db } from "@/db";
+import type { User } from "@/db/schema";
+import { type UserRole, userOrganizations, users } from "@/db/schema";
 import type { UpdateProfileInput, UpdateUserRoleInput, UserQuery } from "./users.schema";
 
 // Build user list query conditions for users within an organization

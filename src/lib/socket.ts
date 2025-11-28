@@ -2,10 +2,10 @@ import type { Server as HttpServer } from "node:http";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { and, eq } from "drizzle-orm";
 import { type Socket, Server as SocketServer } from "socket.io";
-import { config } from "../config";
-import { db } from "../db";
-import { userOrganizations } from "../db/schema";
-import { auth } from "../modules/auth/auth.config";
+import { config } from "@/config";
+import { db } from "@/db";
+import { userOrganizations } from "@/db/schema";
+import { auth } from "@/modules/auth/auth.config";
 import { valkey } from "./cache";
 import { logger } from "./logger";
 

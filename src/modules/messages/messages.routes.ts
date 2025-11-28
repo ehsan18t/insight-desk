@@ -1,6 +1,6 @@
 import { type NextFunction, type Request, type Response, Router } from "express";
-import { validateRequest } from "../../middleware/validate";
-import { authenticate } from "../auth/auth.middleware";
+import { validateRequest } from "@/middleware/validate";
+import { authenticate } from "@/modules/auth/auth.middleware";
 import {
   createMessageSchema,
   type MessageQuery,

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
-import { db } from "../../db";
+import { db } from "@/db";
 import {
   DEFAULT_SLA_TIMES,
   type NewTicket,
@@ -9,9 +9,9 @@ import {
   ticketActivities,
   tickets,
   users,
-} from "../../db/schema/index";
-import { createLogger } from "../../lib/logger";
-import { ForbiddenError, NotFoundError } from "../../middleware/error-handler";
+} from "@/db/schema/index";
+import { createLogger } from "@/lib/logger";
+import { ForbiddenError, NotFoundError } from "@/middleware/error-handler";
 import type { CreateTicketInput, TicketQuery, UpdateTicketInput } from "./tickets.schema";
 
 const logger = createLogger("tickets");

@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, ilike, type SQL } from "drizzle-orm";
-import { db } from "../../db";
+import { db } from "@/db";
 import {
   type Organization,
   type OrganizationSettings,
@@ -7,7 +7,7 @@ import {
   type UserRole,
   userOrganizations,
   users,
-} from "../../db/schema";
+} from "@/db/schema";
 import type {
   CreateOrganizationInput,
   InviteMemberInput,

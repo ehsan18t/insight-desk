@@ -1,8 +1,8 @@
 import { type NextFunction, type Request, type Response, Router } from "express";
-import { ForbiddenError } from "../../middleware/error-handler";
-import { validateRequest } from "../../middleware/validate";
-import { authenticate, requireRole } from "../auth/auth.middleware";
-import { messagesRouter } from "../messages";
+import { ForbiddenError } from "@/middleware/error-handler";
+import { validateRequest } from "@/middleware/validate";
+import { authenticate, requireRole } from "@/modules/auth/auth.middleware";
+import { messagesRouter } from "@/modules/messages";
 import {
   assignTicketSchema,
   createTicketSchema,

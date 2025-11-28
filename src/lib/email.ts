@@ -1,5 +1,5 @@
 import nodemailer, { type Transporter } from "nodemailer";
-import { config } from "../config";
+import { config } from "@/config";
 import { createLogger } from "./logger";
 
 const logger = createLogger("email");

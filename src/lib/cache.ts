@@ -1,5 +1,5 @@
 import Valkey from "iovalkey";
-import { config } from "../config";
+import { config } from "@/config";
 import { createLogger } from "./logger";
 
 const logger = createLogger("cache");

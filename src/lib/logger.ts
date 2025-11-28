@@ -1,5 +1,5 @@
 import pino from "pino";
-import { config, isDev } from "../config";
+import { config, isDev } from "@/config";
 
 // Create logger instance
 export const logger = pino({

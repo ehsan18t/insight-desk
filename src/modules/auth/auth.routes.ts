@@ -2,11 +2,11 @@ import { toNodeHandler } from "better-auth/node";
 import { eq } from "drizzle-orm";
 import { Router } from "express";
 import { nanoid } from "nanoid";
-import { db } from "../../db";
-import { organizations, userOrganizations, users } from "../../db/schema/index";
-import { createLogger } from "../../lib/logger";
-import { BadRequestError } from "../../middleware/error-handler";
-import { authRateLimit } from "../../middleware/rate-limit";
+import { db } from "@/db";
+import { organizations, userOrganizations, users } from "@/db/schema/index";
+import { createLogger } from "@/lib/logger";
+import { BadRequestError } from "@/middleware/error-handler";
+import { authRateLimit } from "@/middleware/rate-limit";
 import { auth } from "./auth.config";
 import { authenticate } from "./auth.middleware";
 

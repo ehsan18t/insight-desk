@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import type { Job, SendOptions } from "pg-boss";
 import { PgBoss } from "pg-boss";
-import { config } from "../config";
-import { db } from "../db";
-import { tickets, userOrganizations, users } from "../db/schema";
+import { config } from "@/config";
+import { db } from "@/db";
+import { tickets, userOrganizations, users } from "@/db/schema";
 import { sendEmail } from "./email";
 import { logger } from "./logger";
 import { broadcastTicketEvent, sendNotification } from "./socket";
