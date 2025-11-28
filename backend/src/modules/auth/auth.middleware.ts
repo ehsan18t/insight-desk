@@ -1,9 +1,12 @@
-import type { Request, Response, NextFunction } from 'express';
-import { auth } from './auth.config';
-import { db } from '../../db';
-import { userOrganizations, type UserRole } from '../../db/schema/index';
-import { eq, and } from 'drizzle-orm';
-import { UnauthorizedError, ForbiddenError } from '../../middleware/error-handler';
+import { and, eq } from "drizzle-orm";
+import type { NextFunction, Request, Response } from "express";
+import { db } from "../../db";
+import { userOrganizations, type UserRole } from "../../db/schema/index";
+import {
+  ForbiddenError,
+  UnauthorizedError,
+} from "../../middleware/error-handler";
+import { auth } from "./auth.config";
 
 // Extend Express Request type
 declare global {
@@ -40,7 +43,7 @@ export async function authenticate(
     });
 
     if (!session?.user) {
-      throw new UnauthorizedError('Authentication required');
+      throw new UnauthorizedError("Authentication required");
     }
 
     // Attach user and session to request
@@ -63,7 +66,7 @@ export async function authenticate(
     if (error instanceof UnauthorizedError) {
       next(error);
     } else {
-      next(new UnauthorizedError('Invalid or expired session'));
+      next(new UnauthorizedError("Invalid or expired session"));
     }
   }
 }
@@ -72,12 +75,12 @@ export async function authenticate(
 export function requireRole(...allowedRoles: UserRole[]) {
   return async (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
-      return next(new UnauthorizedError('Authentication required'));
+      return next(new UnauthorizedError("Authentication required"));
     }
 
-    const orgId = req.organizationId || req.headers['x-organization-id'];
-    if (!orgId || typeof orgId !== 'string') {
-      return next(new ForbiddenError('Organization context required'));
+    const orgId = req.organizationId || req.headers["x-organization-id"];
+    if (!orgId || typeof orgId !== "string") {
+      return next(new ForbiddenError("Organization context required"));
     }
 
     // Get user's role in this organization
@@ -89,14 +92,14 @@ export function requireRole(...allowedRoles: UserRole[]) {
     });
 
     if (!membership) {
-      return next(new ForbiddenError('Not a member of this organization'));
+      return next(new ForbiddenError("Not a member of this organization"));
     }
 
     // Check if user's role is allowed
     if (!allowedRoles.includes(membership.role)) {
       return next(
         new ForbiddenError(
-          `Access denied. Required role: ${allowedRoles.join(' or ')}`
+          `Access denied. Required role: ${allowedRoles.join(" or ")}`
         )
       );
     }
@@ -111,9 +114,12 @@ export function requireRole(...allowedRoles: UserRole[]) {
 
 // Convenience middleware combinations
 export const requireAuth = authenticate;
-export const requireAgent = [authenticate, requireRole('agent', 'admin', 'owner')];
-export const requireAdmin = [authenticate, requireRole('admin', 'owner')];
-export const requireOwner = [authenticate, requireRole('owner')];
+export const requireAgent = [
+  authenticate,
+  requireRole("agent", "admin", "owner"),
+];
+export const requireAdmin = [authenticate, requireRole("admin", "owner")];
+export const requireOwner = [authenticate, requireRole("owner")];
 
 // Optional auth - doesn't fail if not authenticated
 export async function optionalAuth(

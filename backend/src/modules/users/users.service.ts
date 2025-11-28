@@ -1,8 +1,12 @@
-import { eq, ilike, and, or, desc, asc, count, SQL } from 'drizzle-orm';
-import { db } from '../../db';
-import { users, userOrganizations, type UserRole } from '../../db/schema';
-import type { UpdateProfileInput, UserQuery, UpdateUserRoleInput } from './users.schema';
-import type { User } from '../../db/schema';
+import { and, asc, count, desc, eq, ilike, or, SQL } from "drizzle-orm";
+import { db } from "../../db";
+import type { User } from "../../db/schema";
+import { userOrganizations, users, type UserRole } from "../../db/schema";
+import type {
+  UpdateProfileInput,
+  UpdateUserRoleInput,
+  UserQuery,
+} from "./users.schema";
 
 // Build user list query conditions for users within an organization
 function buildUserQuery(query: UserQuery): {
@@ -36,17 +40,17 @@ function buildUserQuery(query: UserQuery): {
 }
 
 // Get order by clause
-function getOrderBy(sortBy: string, sortOrder: 'asc' | 'desc') {
-  const orderFn = sortOrder === 'asc' ? asc : desc;
-  
+function getOrderBy(sortBy: string, sortOrder: "asc" | "desc") {
+  const orderFn = sortOrder === "asc" ? asc : desc;
+
   switch (sortBy) {
-    case 'name':
+    case "name":
       return orderFn(users.name);
-    case 'email':
+    case "email":
       return orderFn(users.email);
-    case 'lastLoginAt':
+    case "lastLoginAt":
       return orderFn(users.lastLoginAt);
-    case 'createdAt':
+    case "createdAt":
     default:
       return orderFn(users.createdAt);
   }
@@ -76,9 +80,19 @@ export const usersService = {
     query: Partial<UserQuery> = {}
   ): Promise<{
     data: UserWithRole[];
-    pagination: { page: number; limit: number; total: number; totalPages: number };
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   }> {
-    const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = query;
     const offset = (page - 1) * limit;
     const { userConditions, roleFilter } = buildUserQuery(query as UserQuery);
 
@@ -107,24 +121,14 @@ export const usersService = {
       })
       .from(users)
       .innerJoin(userOrganizations, eq(users.id, userOrganizations.userId))
-      .where(
-        and(
-          ...membershipConditions,
-          userConditions
-        )
-      );
+      .where(and(...membershipConditions, userConditions));
 
     // Get total count
     const countResult = await db
       .select({ total: count() })
       .from(users)
       .innerJoin(userOrganizations, eq(users.id, userOrganizations.userId))
-      .where(
-        and(
-          ...membershipConditions,
-          userConditions
-        )
-      );
+      .where(and(...membershipConditions, userConditions));
 
     const total = countResult[0]?.total ?? 0;
 
@@ -208,7 +212,7 @@ export const usersService = {
       .returning();
 
     if (!user) {
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
     return user;
@@ -225,7 +229,7 @@ export const usersService = {
   ): Promise<UserWithRole> {
     // Can't change own role
     if (userId === requesterId) {
-      throw new Error('Cannot change your own role');
+      throw new Error("Cannot change your own role");
     }
 
     // Get target user's membership
@@ -237,12 +241,12 @@ export const usersService = {
     });
 
     if (!membership) {
-      throw new Error('User is not a member of this organization');
+      throw new Error("User is not a member of this organization");
     }
 
     // Can't change owner role
-    if (membership.role === 'owner') {
-      throw new Error('Cannot change owner role');
+    if (membership.role === "owner") {
+      throw new Error("Cannot change owner role");
     }
 
     // Update the role
@@ -259,7 +263,7 @@ export const usersService = {
     // Return updated user
     const updated = await this.getByIdInOrganization(userId, organizationId);
     if (!updated) {
-      throw new Error('Failed to update user role');
+      throw new Error("Failed to update user role");
     }
 
     return updated;
@@ -268,13 +272,10 @@ export const usersService = {
   /**
    * Deactivate user (admin only)
    */
-  async deactivate(
-    userId: string,
-    requesterId: string
-  ): Promise<User> {
+  async deactivate(userId: string, requesterId: string): Promise<User> {
     // Can't deactivate self
     if (userId === requesterId) {
-      throw new Error('Cannot deactivate your own account');
+      throw new Error("Cannot deactivate your own account");
     }
 
     const [targetUser] = await db
@@ -284,7 +285,7 @@ export const usersService = {
       .limit(1);
 
     if (!targetUser) {
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
     const [user] = await db
@@ -313,7 +314,7 @@ export const usersService = {
       .returning();
 
     if (!user) {
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
     return user;
@@ -334,7 +335,15 @@ export const usersService = {
    */
   async getAvailableAgents(
     organizationId: string
-  ): Promise<{ id: string; name: string; email: string; avatarUrl: string | null; role: UserRole }[]> {
+  ): Promise<
+    {
+      id: string;
+      name: string;
+      email: string;
+      avatarUrl: string | null;
+      role: UserRole;
+    }[]
+  > {
     return await db
       .select({
         id: users.id,
@@ -350,9 +359,9 @@ export const usersService = {
           eq(userOrganizations.organizationId, organizationId),
           eq(users.isActive, true),
           or(
-            eq(userOrganizations.role, 'agent'),
-            eq(userOrganizations.role, 'admin'),
-            eq(userOrganizations.role, 'owner')
+            eq(userOrganizations.role, "agent"),
+            eq(userOrganizations.role, "admin"),
+            eq(userOrganizations.role, "owner")
           )
         )
       )
@@ -369,7 +378,7 @@ export const usersService = {
   ): Promise<void> {
     // Can't remove self
     if (userId === requesterId) {
-      throw new Error('Cannot remove yourself from the organization');
+      throw new Error("Cannot remove yourself from the organization");
     }
 
     // Get target user's membership
@@ -381,12 +390,12 @@ export const usersService = {
     });
 
     if (!membership) {
-      throw new Error('User is not a member of this organization');
+      throw new Error("User is not a member of this organization");
     }
 
     // Can't remove owner
-    if (membership.role === 'owner') {
-      throw new Error('Cannot remove the organization owner');
+    if (membership.role === "owner") {
+      throw new Error("Cannot remove the organization owner");
     }
 
     // Remove membership

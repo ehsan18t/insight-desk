@@ -1,7 +1,7 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Message type enum
-export const messageTypeValues = ['reply', 'internal_note', 'system'] as const;
+export const messageTypeValues = ["reply", "internal_note", "system"] as const;
 
 // Attachment schema
 export const attachmentSchema = z.object({
@@ -16,9 +16,9 @@ export const attachmentSchema = z.object({
 export const createMessageSchema = z.object({
   content: z
     .string()
-    .min(1, 'Message content is required')
-    .max(50000, 'Message cannot exceed 50000 characters'),
-  type: z.enum(messageTypeValues).default('reply'),
+    .min(1, "Message content is required")
+    .max(50000, "Message cannot exceed 50000 characters"),
+  type: z.enum(messageTypeValues).default("reply"),
   attachments: z.array(attachmentSchema).max(10).optional(),
 });
 
@@ -26,8 +26,8 @@ export const createMessageSchema = z.object({
 export const updateMessageSchema = z.object({
   content: z
     .string()
-    .min(1, 'Message content is required')
-    .max(50000, 'Message cannot exceed 50000 characters'),
+    .min(1, "Message content is required")
+    .max(50000, "Message cannot exceed 50000 characters"),
 });
 
 // Message query params schema

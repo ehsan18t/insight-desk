@@ -1,35 +1,35 @@
-import { db, checkDatabaseConnection, closeDatabaseConnection } from './db';
-import type { OrganizationSettings } from './db/schema';
+import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { checkDatabaseConnection, closeDatabaseConnection, db } from "./db";
+import type { OrganizationSettings } from "./db/schema";
 import {
   organizations,
-  users,
-  userOrganizations,
-  tickets,
   ticketMessages,
-} from './db/schema';
-import { eq } from 'drizzle-orm';
-import { auth } from './modules/auth';
-import { logger } from './lib/logger';
-import { nanoid } from 'nanoid';
+  tickets,
+  userOrganizations,
+  users,
+} from "./db/schema";
+import { logger } from "./lib/logger";
+import { auth } from "./modules/auth";
 
 /**
  * Seed script for development environment
  * Creates sample organizations, users, tickets, and messages
  */
 async function seed() {
-  logger.info('Starting database seed...');
+  logger.info("Starting database seed...");
 
   // Check database connection
   const connected = await checkDatabaseConnection();
   if (!connected) {
-    logger.error('Failed to connect to database');
+    logger.error("Failed to connect to database");
     process.exit(1);
   }
 
   try {
     // Create organizations
-    logger.info('Creating organizations...');
-    
+    logger.info("Creating organizations...");
+
     const acmeSettings: OrganizationSettings = {
       notifications: {
         emailOnNewTicket: true,
@@ -40,7 +40,7 @@ async function seed() {
         customerPortalEnabled: true,
       },
     };
-    
+
     const techSettings: OrganizationSettings = {
       notifications: {
         emailOnNewTicket: false,
@@ -52,32 +52,41 @@ async function seed() {
       },
     };
 
-    const [acmeOrg] = await db.insert(organizations).values({
-      id: nanoid(),
-      name: 'Acme Corporation',
-      slug: 'acme-corp',
-      settings: acmeSettings,
-    }).returning();
-    
-    const [techOrg] = await db.insert(organizations).values({
-      id: nanoid(),
-      name: 'TechStart Inc',
-      slug: 'techstart',
-      settings: techSettings,
-    }).returning();
+    const [acmeOrg] = await db
+      .insert(organizations)
+      .values({
+        id: nanoid(),
+        name: "Acme Corporation",
+        slug: "acme-corp",
+        settings: acmeSettings,
+      })
+      .returning();
 
-    logger.info({ acmeOrgId: acmeOrg.id, techOrgId: techOrg.id }, 'Organizations created');
+    const [techOrg] = await db
+      .insert(organizations)
+      .values({
+        id: nanoid(),
+        name: "TechStart Inc",
+        slug: "techstart",
+        settings: techSettings,
+      })
+      .returning();
+
+    logger.info(
+      { acmeOrgId: acmeOrg.id, techOrgId: techOrg.id },
+      "Organizations created"
+    );
 
     // Create users using Better Auth
-    logger.info('Creating users...');
+    logger.info("Creating users...");
 
     // Admin user
-    const adminEmail = 'admin@acme.com';
+    const adminEmail = "admin@acme.com";
     await auth.api.signUpEmail({
       body: {
         email: adminEmail,
-        password: 'Admin123!',
-        name: 'Alice Admin',
+        password: "Admin123!",
+        name: "Alice Admin",
       },
     });
 
@@ -88,12 +97,12 @@ async function seed() {
       .limit(1);
 
     // Agent user
-    const agentEmail = 'agent@acme.com';
+    const agentEmail = "agent@acme.com";
     await auth.api.signUpEmail({
       body: {
         email: agentEmail,
-        password: 'Agent123!',
-        name: 'Bob Agent',
+        password: "Agent123!",
+        name: "Bob Agent",
       },
     });
 
@@ -104,12 +113,12 @@ async function seed() {
       .limit(1);
 
     // Customer user
-    const customerEmail = 'customer@example.com';
+    const customerEmail = "customer@example.com";
     await auth.api.signUpEmail({
       body: {
         email: customerEmail,
-        password: 'Customer123!',
-        name: 'Charlie Customer',
+        password: "Customer123!",
+        name: "Charlie Customer",
       },
     });
 
@@ -120,12 +129,12 @@ async function seed() {
       .limit(1);
 
     // Second admin for TechStart
-    const techAdminEmail = 'admin@techstart.com';
+    const techAdminEmail = "admin@techstart.com";
     await auth.api.signUpEmail({
       body: {
         email: techAdminEmail,
-        password: 'TechAdmin123!',
-        name: 'Diana Tech',
+        password: "TechAdmin123!",
+        name: "Diana Tech",
       },
     });
 
@@ -142,188 +151,213 @@ async function seed() {
         customerId: customerUser.id,
         techAdminId: techAdminUser.id,
       },
-      'Users created'
+      "Users created"
     );
 
     // Create user-organization relationships
-    logger.info('Creating user-organization relationships...');
-    
+    logger.info("Creating user-organization relationships...");
+
     // Acme Corp users
     await db.insert(userOrganizations).values({
       id: nanoid(),
       userId: adminUser.id,
       organizationId: acmeOrg.id,
-      role: 'admin',
+      role: "admin",
     });
-    
+
     await db.insert(userOrganizations).values({
       id: nanoid(),
       userId: agentUser.id,
       organizationId: acmeOrg.id,
-      role: 'agent',
+      role: "agent",
     });
-    
+
     await db.insert(userOrganizations).values({
       id: nanoid(),
       userId: customerUser.id,
       organizationId: acmeOrg.id,
-      role: 'customer',
+      role: "customer",
     });
-    
+
     // TechStart users
     await db.insert(userOrganizations).values({
       id: nanoid(),
       userId: techAdminUser.id,
       organizationId: techOrg.id,
-      role: 'admin',
+      role: "admin",
     });
-    
+
     await db.insert(userOrganizations).values({
       id: nanoid(),
       userId: customerUser.id,
       organizationId: techOrg.id,
-      role: 'customer',
+      role: "customer",
     });
 
-    logger.info('User-organization relationships created');
+    logger.info("User-organization relationships created");
 
     // Create sample tickets
-    logger.info('Creating tickets...');
-    
-    const [ticket1] = await db.insert(tickets).values({
-      id: nanoid(),
-      organizationId: acmeOrg.id,
-      ticketNumber: 1001,
-      title: 'Cannot login to dashboard',
-      description: 'I am getting an error when trying to login to the admin dashboard. The error says "Invalid credentials" even though I am using the correct password.',
-      status: 'open',
-      priority: 'high',
-      customerId: customerUser.id,
-      assigneeId: agentUser.id,
-      tags: ['login', 'urgent'],
-    }).returning();
-    
-    await db.insert(tickets).values({
-      id: nanoid(),
-      organizationId: acmeOrg.id,
-      ticketNumber: 1002,
-      title: 'Feature request: Dark mode',
-      description: 'It would be great if the application supported a dark mode option. Many of our users work late at night and a darker theme would reduce eye strain.',
-      status: 'open',
-      priority: 'low',
-      customerId: customerUser.id,
-      tags: ['feature', 'ui'],
-    }).returning();
-    
-    const [ticket3] = await db.insert(tickets).values({
-      id: nanoid(),
-      organizationId: acmeOrg.id,
-      ticketNumber: 1003,
-      title: 'Billing question about subscription',
-      description: 'I was charged twice for my monthly subscription. Can you please look into this and refund the extra charge?',
-      status: 'pending',
-      priority: 'medium',
-      customerId: customerUser.id,
-      assigneeId: adminUser.id,
-      tags: ['billing', 'refund'],
-    }).returning();
-    
-    const [ticket4] = await db.insert(tickets).values({
-      id: nanoid(),
-      organizationId: acmeOrg.id,
-      ticketNumber: 1004,
-      title: 'API rate limiting too strict',
-      description: 'We are hitting rate limits with our integration. Can the limit be increased for our account?',
-      status: 'resolved',
-      priority: 'medium',
-      customerId: customerUser.id,
-      assigneeId: agentUser.id,
-      resolvedAt: new Date(),
-      tags: ['api', 'rate-limit'],
-    }).returning();
-    
-    await db.insert(tickets).values({
-      id: nanoid(),
-      organizationId: techOrg.id,
-      ticketNumber: 2001,
-      title: 'Need help with onboarding',
-      description: 'We just signed up and need help setting up our first project. Can someone guide us through the process?',
-      status: 'open',
-      priority: 'high',
-      customerId: customerUser.id,
-      tags: ['onboarding', 'new-customer'],
-    }).returning();
+    logger.info("Creating tickets...");
 
-    logger.info({ ticketCount: 5 }, 'Tickets created');
+    const [ticket1] = await db
+      .insert(tickets)
+      .values({
+        id: nanoid(),
+        organizationId: acmeOrg.id,
+        ticketNumber: 1001,
+        title: "Cannot login to dashboard",
+        description:
+          'I am getting an error when trying to login to the admin dashboard. The error says "Invalid credentials" even though I am using the correct password.',
+        status: "open",
+        priority: "high",
+        customerId: customerUser.id,
+        assigneeId: agentUser.id,
+        tags: ["login", "urgent"],
+      })
+      .returning();
+
+    await db
+      .insert(tickets)
+      .values({
+        id: nanoid(),
+        organizationId: acmeOrg.id,
+        ticketNumber: 1002,
+        title: "Feature request: Dark mode",
+        description:
+          "It would be great if the application supported a dark mode option. Many of our users work late at night and a darker theme would reduce eye strain.",
+        status: "open",
+        priority: "low",
+        customerId: customerUser.id,
+        tags: ["feature", "ui"],
+      })
+      .returning();
+
+    const [ticket3] = await db
+      .insert(tickets)
+      .values({
+        id: nanoid(),
+        organizationId: acmeOrg.id,
+        ticketNumber: 1003,
+        title: "Billing question about subscription",
+        description:
+          "I was charged twice for my monthly subscription. Can you please look into this and refund the extra charge?",
+        status: "pending",
+        priority: "medium",
+        customerId: customerUser.id,
+        assigneeId: adminUser.id,
+        tags: ["billing", "refund"],
+      })
+      .returning();
+
+    const [ticket4] = await db
+      .insert(tickets)
+      .values({
+        id: nanoid(),
+        organizationId: acmeOrg.id,
+        ticketNumber: 1004,
+        title: "API rate limiting too strict",
+        description:
+          "We are hitting rate limits with our integration. Can the limit be increased for our account?",
+        status: "resolved",
+        priority: "medium",
+        customerId: customerUser.id,
+        assigneeId: agentUser.id,
+        resolvedAt: new Date(),
+        tags: ["api", "rate-limit"],
+      })
+      .returning();
+
+    await db
+      .insert(tickets)
+      .values({
+        id: nanoid(),
+        organizationId: techOrg.id,
+        ticketNumber: 2001,
+        title: "Need help with onboarding",
+        description:
+          "We just signed up and need help setting up our first project. Can someone guide us through the process?",
+        status: "open",
+        priority: "high",
+        customerId: customerUser.id,
+        tags: ["onboarding", "new-customer"],
+      })
+      .returning();
+
+    logger.info({ ticketCount: 5 }, "Tickets created");
 
     // Create sample messages
-    logger.info('Creating messages...');
-    
+    logger.info("Creating messages...");
+
     // Messages for ticket 1 (login issue)
     await db.insert(ticketMessages).values({
       id: nanoid(),
       ticketId: ticket1.id,
       senderId: customerUser.id,
-      content: 'This is really urgent, I need to access the dashboard for an important presentation tomorrow!',
+      content:
+        "This is really urgent, I need to access the dashboard for an important presentation tomorrow!",
     });
-    
+
     await db.insert(ticketMessages).values({
       id: nanoid(),
       ticketId: ticket1.id,
       senderId: agentUser.id,
-      content: "Hi Charlie, I understand the urgency. Let me check your account settings. Can you please confirm the email address you're using to login?",
+      content:
+        "Hi Charlie, I understand the urgency. Let me check your account settings. Can you please confirm the email address you're using to login?",
     });
-    
+
     await db.insert(ticketMessages).values({
       id: nanoid(),
       ticketId: ticket1.id,
       senderId: agentUser.id,
-      content: 'Internal note: Checked the logs, looks like there might be a session issue. Escalating to dev team.',
-      type: 'internal_note',
+      content:
+        "Internal note: Checked the logs, looks like there might be a session issue. Escalating to dev team.",
+      type: "internal_note",
     });
-    
+
     // Messages for ticket 3 (billing)
     await db.insert(ticketMessages).values({
       id: nanoid(),
       ticketId: ticket3.id,
       senderId: adminUser.id,
-      content: "Hi Charlie, I've reviewed your account and I can see the duplicate charge. I've initiated a refund which should appear in 3-5 business days.",
+      content:
+        "Hi Charlie, I've reviewed your account and I can see the duplicate charge. I've initiated a refund which should appear in 3-5 business days.",
     });
-    
+
     await db.insert(ticketMessages).values({
       id: nanoid(),
       ticketId: ticket3.id,
       senderId: customerUser.id,
-      content: 'Thank you so much for the quick response! I appreciate it.',
+      content: "Thank you so much for the quick response! I appreciate it.",
     });
-    
+
     // Messages for ticket 4 (resolved)
     await db.insert(ticketMessages).values({
       id: nanoid(),
       ticketId: ticket4.id,
       senderId: agentUser.id,
-      content: "Hi Charlie, I've increased the API rate limit for your account from 100 to 500 requests per minute. Let me know if you need further adjustments.",
+      content:
+        "Hi Charlie, I've increased the API rate limit for your account from 100 to 500 requests per minute. Let me know if you need further adjustments.",
     });
-    
+
     await db.insert(ticketMessages).values({
       id: nanoid(),
       ticketId: ticket4.id,
       senderId: customerUser.id,
-      content: 'Perfect, that should be enough. Thank you!',
+      content: "Perfect, that should be enough. Thank you!",
     });
 
-    logger.info({ messageCount: 7 }, 'Messages created');
+    logger.info({ messageCount: 7 }, "Messages created");
 
-    logger.info('Database seeding completed successfully!');
-    logger.info('---');
-    logger.info('Test accounts:');
-    logger.info('  Admin: admin@acme.com / Admin123!');
-    logger.info('  Agent: agent@acme.com / Agent123!');
-    logger.info('  Customer: customer@example.com / Customer123!');
-    logger.info('  TechStart Admin: admin@techstart.com / TechAdmin123!');
-    logger.info('---');
+    logger.info("Database seeding completed successfully!");
+    logger.info("---");
+    logger.info("Test accounts:");
+    logger.info("  Admin: admin@acme.com / Admin123!");
+    logger.info("  Agent: agent@acme.com / Agent123!");
+    logger.info("  Customer: customer@example.com / Customer123!");
+    logger.info("  TechStart Admin: admin@techstart.com / TechAdmin123!");
+    logger.info("---");
   } catch (error) {
-    logger.error({ err: error }, 'Seed failed');
+    logger.error({ err: error }, "Seed failed");
     throw error;
   } finally {
     await closeDatabaseConnection();
@@ -336,6 +370,6 @@ seed()
     process.exit(0);
   })
   .catch((error) => {
-    console.error('Seed error:', error);
+    console.error("Seed error:", error);
     process.exit(1);
   });

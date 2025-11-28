@@ -23,17 +23,17 @@ bun dev
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `bun dev` | Start development server with hot reload |
-| `bun start` | Start production server |
-| `bun db:generate` | Generate migration from schema changes |
-| `bun db:migrate` | Apply pending migrations |
-| `bun db:push` | Push schema directly (dev only) |
-| `bun db:studio` | Open Drizzle Studio GUI |
-| `bun db:seed` | Seed demo data |
-| `bun typecheck` | TypeScript type checking |
-| `bun test` | Run tests |
+| Command           | Description                              |
+| ----------------- | ---------------------------------------- |
+| `bun dev`         | Start development server with hot reload |
+| `bun start`       | Start production server                  |
+| `bun db:generate` | Generate migration from schema changes   |
+| `bun db:migrate`  | Apply pending migrations                 |
+| `bun db:push`     | Push schema directly (dev only)          |
+| `bun db:studio`   | Open Drizzle Studio GUI                  |
+| `bun db:seed`     | Seed demo data                           |
+| `bun typecheck`   | TypeScript type checking                 |
+| `bun test`        | Run tests                                |
 
 ## Environment Variables
 

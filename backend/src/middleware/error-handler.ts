@@ -1,7 +1,7 @@
-import type { Request, Response, NextFunction } from 'express';
-import { createLogger } from '../lib/logger';
+import type { NextFunction, Request, Response } from "express";
+import { createLogger } from "../lib/logger";
 
-const logger = createLogger('error');
+const logger = createLogger("error");
 
 // Custom error classes
 export class AppError extends Error {
@@ -24,32 +24,32 @@ export class AppError extends Error {
 }
 
 export class NotFoundError extends AppError {
-  constructor(message = 'Resource not found') {
-    super(message, 404, 'NOT_FOUND');
+  constructor(message = "Resource not found") {
+    super(message, 404, "NOT_FOUND");
   }
 }
 
 export class UnauthorizedError extends AppError {
-  constructor(message = 'Unauthorized') {
-    super(message, 401, 'UNAUTHORIZED');
+  constructor(message = "Unauthorized") {
+    super(message, 401, "UNAUTHORIZED");
   }
 }
 
 export class ForbiddenError extends AppError {
-  constructor(message = 'Forbidden') {
-    super(message, 403, 'FORBIDDEN');
+  constructor(message = "Forbidden") {
+    super(message, 403, "FORBIDDEN");
   }
 }
 
 export class BadRequestError extends AppError {
-  constructor(message = 'Bad request') {
-    super(message, 400, 'BAD_REQUEST');
+  constructor(message = "Bad request") {
+    super(message, 400, "BAD_REQUEST");
   }
 }
 
 export class ConflictError extends AppError {
-  constructor(message = 'Resource already exists') {
-    super(message, 409, 'CONFLICT');
+  constructor(message = "Resource already exists") {
+    super(message, 409, "CONFLICT");
   }
 }
 
@@ -74,12 +74,12 @@ export function errorHandler(
   if (err instanceof AppError && err.isOperational) {
     logger.warn(
       { err, path: req.path, method: req.method },
-      'Operational error'
+      "Operational error"
     );
   } else {
     logger.error(
       { err, path: req.path, method: req.method },
-      'Unexpected error'
+      "Unexpected error"
     );
   }
 
@@ -89,12 +89,12 @@ export function errorHandler(
   // Build response
   const response: ErrorResponse = {
     success: false,
-    error: err.message || 'Internal server error',
-    code: err instanceof AppError ? err.code : 'INTERNAL_ERROR',
+    error: err.message || "Internal server error",
+    code: err instanceof AppError ? err.code : "INTERNAL_ERROR",
   };
 
   // Include stack trace in development
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     response.stack = err.stack;
   }
 
@@ -106,6 +106,6 @@ export function notFoundHandler(req: Request, res: Response) {
   res.status(404).json({
     success: false,
     error: `Route ${req.method} ${req.path} not found`,
-    code: 'ROUTE_NOT_FOUND',
+    code: "ROUTE_NOT_FOUND",
   });
 }

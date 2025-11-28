@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Create organization schema
 export const createOrganizationSchema = z.object({
@@ -7,7 +7,10 @@ export const createOrganizationSchema = z.object({
     .string()
     .min(2)
     .max(50)
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens only'),
+    .regex(
+      /^[a-z0-9-]+$/,
+      "Slug must be lowercase alphanumeric with hyphens only"
+    ),
 });
 
 // Update organization schema
@@ -17,7 +20,10 @@ export const updateOrganizationSchema = z.object({
     .object({
       branding: z
         .object({
-          primaryColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+          primaryColor: z
+            .string()
+            .regex(/^#[0-9a-fA-F]{6}$/)
+            .optional(),
           logoUrl: z.string().url().optional(),
         })
         .optional(),
@@ -53,12 +59,12 @@ export const organizationIdParamSchema = z.object({
 // Invite member schema
 export const inviteMemberSchema = z.object({
   email: z.string().email(),
-  role: z.enum(['customer', 'agent', 'admin']).default('customer'),
+  role: z.enum(["customer", "agent", "admin"]).default("customer"),
 });
 
 // Update member role schema
 export const updateMemberRoleSchema = z.object({
-  role: z.enum(['customer', 'agent', 'admin']),
+  role: z.enum(["customer", "agent", "admin"]),
 });
 
 // Member ID param schema

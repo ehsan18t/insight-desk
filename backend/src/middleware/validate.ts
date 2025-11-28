@@ -1,6 +1,11 @@
-import type { Request, Response, NextFunction, ParamsDictionary } from 'express-serve-static-core';
-import type { ParsedQs } from 'qs';
-import { ZodError, type ZodSchema, type ZodIssue } from 'zod';
+import type {
+  NextFunction,
+  ParamsDictionary,
+  Request,
+  Response,
+} from "express-serve-static-core";
+import type { ParsedQs } from "qs";
+import { ZodError, type ZodIssue, type ZodSchema } from "zod";
 
 // Validation error response type
 interface ValidationError {
@@ -9,7 +14,10 @@ interface ValidationError {
 }
 
 // Validate request body, query, or params
-export function validate(schema: ZodSchema, source: 'body' | 'query' | 'params' = 'body') {
+export function validate(
+  schema: ZodSchema,
+  source: "body" | "query" | "params" = "body"
+) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = schema.parse(req[source]);
@@ -18,13 +26,13 @@ export function validate(schema: ZodSchema, source: 'body' | 'query' | 'params' 
     } catch (error) {
       if (error instanceof ZodError) {
         const errors: ValidationError[] = error.issues.map((e: ZodIssue) => ({
-          field: e.path.join('.'),
+          field: e.path.join("."),
           message: e.message,
         }));
 
         res.status(400).json({
           success: false,
-          error: 'Validation failed',
+          error: "Validation failed",
           details: errors,
         });
         return;
@@ -55,13 +63,13 @@ export function validateRequest(schemas: {
     } catch (error) {
       if (error instanceof ZodError) {
         const errors: ValidationError[] = error.issues.map((e: ZodIssue) => ({
-          field: e.path.join('.'),
+          field: e.path.join("."),
           message: e.message,
         }));
 
         res.status(400).json({
           success: false,
-          error: 'Validation failed',
+          error: "Validation failed",
           details: errors,
         });
         return;

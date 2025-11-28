@@ -1,15 +1,20 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
-import { messagesService } from './messages.service';
+import {
+  Router,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
+import { validateRequest } from "../../middleware/validate";
+import { authenticate } from "../auth/auth.middleware";
 import {
   createMessageSchema,
-  updateMessageSchema,
+  messageIdParamSchema,
   messageQuerySchema,
   ticketIdParamSchema,
-  messageIdParamSchema,
+  updateMessageSchema,
   type MessageQuery,
-} from './messages.schema';
-import { validateRequest } from '../../middleware/validate';
-import { authenticate } from '../auth/auth.middleware';
+} from "./messages.schema";
+import { messagesService } from "./messages.service";
 
 const router = Router({ mergeParams: true }); // Enable access to :id from parent router
 
@@ -20,7 +25,7 @@ router.use(authenticate);
 // GET /api/tickets/:id/messages - List messages for a ticket
 // ─────────────────────────────────────────────────────────────
 router.get(
-  '/',
+  "/",
   validateRequest({ params: ticketIdParamSchema, query: messageQuerySchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -45,7 +50,7 @@ router.get(
 // GET /api/tickets/:id/messages/:messageId - Get a specific message
 // ─────────────────────────────────────────────────────────────
 router.get(
-  '/:messageId',
+  "/:messageId",
   validateRequest({ params: messageIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -70,7 +75,7 @@ router.get(
 // POST /api/tickets/:id/messages - Create a new message
 // ─────────────────────────────────────────────────────────────
 router.post(
-  '/',
+  "/",
   validateRequest({ params: ticketIdParamSchema, body: createMessageSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -95,7 +100,7 @@ router.post(
 // PATCH /api/tickets/:id/messages/:messageId - Update a message
 // ─────────────────────────────────────────────────────────────
 router.patch(
-  '/:messageId',
+  "/:messageId",
   validateRequest({ params: messageIdParamSchema, body: updateMessageSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -120,7 +125,7 @@ router.patch(
 // DELETE /api/tickets/:id/messages/:messageId - Delete a message
 // ─────────────────────────────────────────────────────────────
 router.delete(
-  '/:messageId',
+  "/:messageId",
   validateRequest({ params: messageIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -133,7 +138,7 @@ router.delete(
 
       res.json({
         success: true,
-        message: 'Message deleted',
+        message: "Message deleted",
       });
     } catch (error) {
       next(error);

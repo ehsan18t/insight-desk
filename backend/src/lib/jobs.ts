@@ -1,12 +1,12 @@
-import { PgBoss } from 'pg-boss';
-import type { Job, SendOptions } from 'pg-boss';
-import { config } from '../config';
-import { logger } from './logger';
-import { sendEmail } from './email';
-import { db } from '../db';
-import { tickets, users, userOrganizations } from '../db/schema';
-import { eq, and } from 'drizzle-orm';
-import { broadcastTicketEvent, sendNotification } from './socket';
+import { and, eq } from "drizzle-orm";
+import type { Job, SendOptions } from "pg-boss";
+import { PgBoss } from "pg-boss";
+import { config } from "../config";
+import { db } from "../db";
+import { tickets, userOrganizations, users } from "../db/schema";
+import { sendEmail } from "./email";
+import { logger } from "./logger";
+import { broadcastTicketEvent, sendNotification } from "./socket";
 
 let boss: PgBoss | null = null;
 
@@ -19,7 +19,13 @@ export interface EmailJobData {
 
 export interface TicketNotificationJobData {
   ticketId: string;
-  action: 'created' | 'assigned' | 'updated' | 'message_added' | 'resolved' | 'closed';
+  action:
+    | "created"
+    | "assigned"
+    | "updated"
+    | "message_added"
+    | "resolved"
+    | "closed";
   actorId: string;
   recipientIds: string[];
 }
@@ -36,12 +42,12 @@ export interface SLABreachedJobData {
 
 // Job names
 export const JobNames = {
-  SEND_EMAIL: 'send-email',
-  TICKET_NOTIFICATION: 'ticket-notification',
-  SLA_CHECK: 'sla-check',
-  SLA_BREACHED: 'sla-breached',
-  CLEANUP_SESSIONS: 'cleanup-sessions',
-  GENERATE_REPORTS: 'generate-reports',
+  SEND_EMAIL: "send-email",
+  TICKET_NOTIFICATION: "ticket-notification",
+  SLA_CHECK: "sla-check",
+  SLA_BREACHED: "sla-breached",
+  CLEANUP_SESSIONS: "cleanup-sessions",
+  GENERATE_REPORTS: "generate-reports",
 } as const;
 
 /**
@@ -53,16 +59,16 @@ export async function initializeJobQueue(): Promise<PgBoss> {
     monitorIntervalSeconds: 60,
   });
 
-  boss.on('error', (error: Error) => {
-    logger.error({ err: error }, 'pg-boss error');
+  boss.on("error", (error: Error) => {
+    logger.error({ err: error }, "pg-boss error");
   });
 
-  boss.on('wip', (data) => {
-    logger.debug({ wip: data }, 'Job queue work in progress');
+  boss.on("wip", (data) => {
+    logger.debug({ wip: data }, "Job queue work in progress");
   });
 
   await boss.start();
-  logger.info('pg-boss job queue started');
+  logger.info("pg-boss job queue started");
 
   await registerJobHandlers(boss);
   await scheduleRecurringJobs(boss);
@@ -80,16 +86,16 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
     { batchSize: 5, pollingIntervalSeconds: 5 },
     async (jobs: Job<EmailJobData>[]) => {
       for (const job of jobs) {
-        logger.info({ jobId: job.id, to: job.data.to }, 'Processing email job');
+        logger.info({ jobId: job.id, to: job.data.to }, "Processing email job");
         try {
           await sendEmail({
             to: job.data.to,
             subject: job.data.subject,
             html: job.data.html,
           });
-          logger.info({ jobId: job.id }, 'Email sent successfully');
+          logger.info({ jobId: job.id }, "Email sent successfully");
         } catch (error) {
-          logger.error({ err: error, jobId: job.id }, 'Email job failed');
+          logger.error({ err: error, jobId: job.id }, "Email job failed");
           throw error;
         }
       }
@@ -103,7 +109,10 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
     async (jobs: Job<TicketNotificationJobData>[]) => {
       for (const job of jobs) {
         const { ticketId, action, actorId, recipientIds } = job.data;
-        logger.info({ jobId: job.id, ticketId, action }, 'Processing notification job');
+        logger.info(
+          { jobId: job.id, ticketId, action },
+          "Processing notification job"
+        );
 
         try {
           const [ticket] = await db
@@ -113,7 +122,7 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
             .limit(1);
 
           if (!ticket) {
-            logger.warn({ ticketId }, 'Ticket not found for notification');
+            logger.warn({ ticketId }, "Ticket not found for notification");
             continue;
           }
 
@@ -123,31 +132,34 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
             .where(eq(users.id, actorId))
             .limit(1);
 
-          const actorName = actor?.name || 'Someone';
+          const actorName = actor?.name || "Someone";
 
-          const notificationMessages: Record<string, { title: string; message: string }> = {
+          const notificationMessages: Record<
+            string,
+            { title: string; message: string }
+          > = {
             created: {
-              title: 'New Ticket Created',
+              title: "New Ticket Created",
               message: `${actorName} created ticket #${ticket.ticketNumber}: ${ticket.title}`,
             },
             assigned: {
-              title: 'Ticket Assigned',
+              title: "Ticket Assigned",
               message: `${actorName} assigned ticket #${ticket.ticketNumber} to you`,
             },
             updated: {
-              title: 'Ticket Updated',
+              title: "Ticket Updated",
               message: `${actorName} updated ticket #${ticket.ticketNumber}`,
             },
             message_added: {
-              title: 'New Message',
+              title: "New Message",
               message: `${actorName} replied to ticket #${ticket.ticketNumber}`,
             },
             resolved: {
-              title: 'Ticket Resolved',
+              title: "Ticket Resolved",
               message: `Ticket #${ticket.ticketNumber} has been resolved`,
             },
             closed: {
-              title: 'Ticket Closed',
+              title: "Ticket Closed",
               message: `Ticket #${ticket.ticketNumber} has been closed`,
             },
           };
@@ -157,16 +169,19 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
           for (const userId of recipientIds) {
             if (userId !== actorId) {
               sendNotification({
-                type: 'notification',
+                type: "notification",
                 userId,
                 data: { ...notification, ticketId, action },
               });
             }
           }
 
-          logger.info({ jobId: job.id }, 'Notification job completed');
+          logger.info({ jobId: job.id }, "Notification job completed");
         } catch (error) {
-          logger.error({ err: error, jobId: job.id }, 'Notification job failed');
+          logger.error(
+            { err: error, jobId: job.id },
+            "Notification job failed"
+          );
           throw error;
         }
       }
@@ -180,7 +195,7 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
     async (jobs: Job<SLACheckJobData>[]) => {
       for (const job of jobs) {
         const { ticketId, slaDeadline } = job.data;
-        logger.info({ ticketId }, 'Processing SLA check');
+        logger.info({ ticketId }, "Processing SLA check");
 
         try {
           const [ticket] = await db
@@ -190,7 +205,7 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
             .limit(1);
 
           if (!ticket) {
-            logger.warn({ ticketId }, 'Ticket not found for SLA check');
+            logger.warn({ ticketId }, "Ticket not found for SLA check");
             continue;
           }
 
@@ -198,8 +213,8 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
           const deadline = new Date(slaDeadline);
 
           if (
-            ticket.status !== 'closed' &&
-            ticket.status !== 'resolved' &&
+            ticket.status !== "closed" &&
+            ticket.status !== "resolved" &&
             now > deadline &&
             !ticket.slaBreached
           ) {
@@ -214,16 +229,16 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
             });
 
             broadcastTicketEvent({
-              type: 'ticket:updated',
+              type: "ticket:updated",
               ticketId,
               organizationId: ticket.organizationId,
               data: { slaBreached: true },
             });
 
-            logger.info({ ticketId }, 'SLA breached');
+            logger.info({ ticketId }, "SLA breached");
           }
         } catch (error) {
-          logger.error({ err: error, jobId: job.id }, 'SLA check job failed');
+          logger.error({ err: error, jobId: job.id }, "SLA check job failed");
           throw error;
         }
       }
@@ -237,7 +252,7 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
     async (jobs: Job<SLABreachedJobData>[]) => {
       for (const job of jobs) {
         const { ticketId, organizationId } = job.data;
-        logger.info({ ticketId }, 'Processing SLA breach notification');
+        logger.info({ ticketId }, "Processing SLA breach notification");
 
         try {
           const [ticket] = await db
@@ -259,7 +274,7 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
             .where(
               and(
                 eq(userOrganizations.organizationId, organizationId),
-                eq(userOrganizations.role, 'admin')
+                eq(userOrganizations.role, "admin")
               )
             );
 
@@ -271,45 +286,48 @@ async function registerJobHandlers(boss: PgBoss): Promise<void> {
 
           for (const userId of notifyUserIds) {
             sendNotification({
-              type: 'notification',
+              type: "notification",
               userId,
               data: {
-                title: 'SLA Breach Alert',
+                title: "SLA Breach Alert",
                 message: `Ticket #${ticket.ticketNumber} has breached its SLA deadline`,
                 ticketId,
-                action: 'sla_breached',
+                action: "sla_breached",
               },
             });
           }
 
-          logger.info({ ticketId }, 'SLA breach notification sent');
+          logger.info({ ticketId }, "SLA breach notification sent");
         } catch (error) {
-          logger.error({ err: error, jobId: job.id }, 'SLA breach notification failed');
+          logger.error(
+            { err: error, jobId: job.id },
+            "SLA breach notification failed"
+          );
           throw error;
         }
       }
     }
   );
 
-  logger.info('Job handlers registered');
+  logger.info("Job handlers registered");
 }
 
 /**
  * Schedule recurring jobs
  */
 async function scheduleRecurringJobs(boss: PgBoss): Promise<void> {
-  await boss.schedule(JobNames.CLEANUP_SESSIONS, '0 * * * *', {});
-  await boss.schedule(JobNames.GENERATE_REPORTS, '0 0 * * *', {});
+  await boss.schedule(JobNames.CLEANUP_SESSIONS, "0 * * * *", {});
+  await boss.schedule(JobNames.GENERATE_REPORTS, "0 0 * * *", {});
 
   await boss.work(JobNames.CLEANUP_SESSIONS, async () => {
-    logger.info('Running session cleanup');
+    logger.info("Running session cleanup");
   });
 
   await boss.work(JobNames.GENERATE_REPORTS, async () => {
-    logger.info('Running daily report generation');
+    logger.info("Running daily report generation");
   });
 
-  logger.info('Recurring jobs scheduled');
+  logger.info("Recurring jobs scheduled");
 }
 
 /**
@@ -317,7 +335,7 @@ async function scheduleRecurringJobs(boss: PgBoss): Promise<void> {
  */
 export function getJobQueue(): PgBoss {
   if (!boss) {
-    throw new Error('Job queue not initialized');
+    throw new Error("Job queue not initialized");
   }
   return boss;
 }
@@ -385,6 +403,6 @@ export async function scheduleSLACheck(
 export async function stopJobQueue(): Promise<void> {
   if (boss) {
     await boss.stop();
-    logger.info('pg-boss job queue stopped');
+    logger.info("pg-boss job queue stopped");
   }
 }

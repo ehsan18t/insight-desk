@@ -1,12 +1,12 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from './schema/index';
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema/index";
 
 // Get database URL from environment
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error('DATABASE_URL environment variable is required');
+  throw new Error("DATABASE_URL environment variable is required");
 }
 
 // Create postgres connection
@@ -19,7 +19,7 @@ const client = postgres(databaseUrl, {
 // Create drizzle instance with schema
 export const db = drizzle(client, {
   schema,
-  logger: process.env.NODE_ENV === 'development',
+  logger: process.env.NODE_ENV === "development",
 });
 
 // Export types
@@ -31,7 +31,7 @@ export async function checkDatabaseConnection(): Promise<boolean> {
     await client`SELECT 1`;
     return true;
   } catch (error) {
-    console.error('Database connection failed:', error);
+    console.error("Database connection failed:", error);
     return false;
   }
 }

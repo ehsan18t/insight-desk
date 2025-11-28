@@ -1,8 +1,8 @@
-import nodemailer, { type Transporter } from 'nodemailer';
-import { config } from '../config';
-import { createLogger } from './logger';
+import nodemailer, { type Transporter } from "nodemailer";
+import { config } from "../config";
+import { createLogger } from "./logger";
 
-const logger = createLogger('email');
+const logger = createLogger("email");
 
 // Initialize nodemailer transporter
 let transporter: Transporter | null = null;
@@ -12,8 +12,8 @@ function getTransporter(): Transporter | null {
   if (transporter) return transporter;
 
   // For development, use ethereal (fake SMTP) or console logging
-  if (config.NODE_ENV === 'development' && !config.SMTP_HOST) {
-    logger.warn('SMTP not configured - emails will be logged only');
+  if (config.NODE_ENV === "development" && !config.SMTP_HOST) {
+    logger.warn("SMTP not configured - emails will be logged only");
     return null;
   }
 
@@ -38,13 +38,13 @@ function getTransporter(): Transporter | null {
 
 // Email templates
 export type EmailTemplate =
-  | 'ticket-created'
-  | 'ticket-reply'
-  | 'ticket-assigned'
-  | 'ticket-resolved'
-  | 'welcome'
-  | 'password-reset'
-  | 'email-verification';
+  | "ticket-created"
+  | "ticket-reply"
+  | "ticket-assigned"
+  | "ticket-resolved"
+  | "welcome"
+  | "password-reset"
+  | "email-verification";
 
 interface EmailData {
   to: string;
@@ -57,8 +57,8 @@ export async function sendEmail(data: EmailData): Promise<boolean> {
   const transport = getTransporter();
 
   if (!transport) {
-    logger.warn('Email not sent - SMTP not configured');
-    logger.debug({ to: data.to, subject: data.subject }, 'Would send email');
+    logger.warn("Email not sent - SMTP not configured");
+    logger.debug({ to: data.to, subject: data.subject }, "Would send email");
     return false;
   }
 
@@ -72,11 +72,11 @@ export async function sendEmail(data: EmailData): Promise<boolean> {
 
     logger.info(
       { to: data.to, subject: data.subject, messageId: result.messageId },
-      'Email sent'
+      "Email sent"
     );
     return true;
   } catch (error) {
-    logger.error({ error }, 'Email send error');
+    logger.error({ error }, "Email send error");
     return false;
   }
 }
@@ -97,7 +97,7 @@ function renderTemplate(
   data: Record<string, unknown>
 ): { subject: string; html: string } {
   const templates: Record<EmailTemplate, { subject: string; html: string }> = {
-    'ticket-created': {
+    "ticket-created": {
       subject: `Ticket #${data.ticketNumber} Created - ${data.title}`,
       html: `
         <h2>Your support ticket has been created</h2>
@@ -106,7 +106,7 @@ function renderTemplate(
         <p><a href="${config.FRONTEND_URL}/tickets/${data.ticketId}">View Ticket</a></p>
       `,
     },
-    'ticket-reply': {
+    "ticket-reply": {
       subject: `New reply on Ticket #${data.ticketNumber}`,
       html: `
         <h2>New message on your ticket</h2>
@@ -115,7 +115,7 @@ function renderTemplate(
         <p><a href="${config.FRONTEND_URL}/tickets/${data.ticketId}">View Conversation</a></p>
       `,
     },
-    'ticket-assigned': {
+    "ticket-assigned": {
       subject: `Ticket #${data.ticketNumber} assigned to you`,
       html: `
         <h2>A ticket has been assigned to you</h2>
@@ -123,7 +123,7 @@ function renderTemplate(
         <p><a href="${config.FRONTEND_URL}/tickets/${data.ticketId}">View Ticket</a></p>
       `,
     },
-    'ticket-resolved': {
+    "ticket-resolved": {
       subject: `Ticket #${data.ticketNumber} Resolved`,
       html: `
         <h2>Your ticket has been resolved</h2>
@@ -132,15 +132,15 @@ function renderTemplate(
       `,
     },
     welcome: {
-      subject: 'Welcome to InsightDesk!',
+      subject: "Welcome to InsightDesk!",
       html: `
         <h2>Welcome, ${data.name}!</h2>
         <p>Your account has been created successfully.</p>
         <p><a href="${config.FRONTEND_URL}">Get Started</a></p>
       `,
     },
-    'password-reset': {
-      subject: 'Reset Your Password',
+    "password-reset": {
+      subject: "Reset Your Password",
       html: `
         <h2>Password Reset Request</h2>
         <p>Click the link below to reset your password:</p>
@@ -148,8 +148,8 @@ function renderTemplate(
         <p>This link expires in 1 hour.</p>
       `,
     },
-    'email-verification': {
-      subject: 'Verify Your Email',
+    "email-verification": {
+      subject: "Verify Your Email",
       html: `
         <h2>Verify Your Email Address</h2>
         <p>Click the link below to verify your email:</p>

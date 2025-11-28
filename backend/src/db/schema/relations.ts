@@ -1,19 +1,19 @@
 // Database Schema - Relations
 // All Drizzle ORM relations defined separately to avoid circular imports
 
-import { relations } from 'drizzle-orm';
+import { relations } from "drizzle-orm";
 import {
-  users,
-  organizations,
-  userOrganizations,
-  tickets,
-  ticketMessages,
-  ticketActivities,
-  slaPolicies,
-  cannedResponses,
-  sessions,
   accounts,
-} from './tables';
+  cannedResponses,
+  organizations,
+  sessions,
+  slaPolicies,
+  ticketActivities,
+  ticketMessages,
+  tickets,
+  userOrganizations,
+  users,
+} from "./tables";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USER RELATIONS
@@ -21,8 +21,8 @@ import {
 
 export const usersRelations = relations(users, ({ many }) => ({
   organizations: many(userOrganizations),
-  customerTickets: many(tickets, { relationName: 'customer_tickets' }),
-  assignedTickets: many(tickets, { relationName: 'assigned_tickets' }),
+  customerTickets: many(tickets, { relationName: "customer_tickets" }),
+  assignedTickets: many(tickets, { relationName: "assigned_tickets" }),
   messages: many(ticketMessages),
   activities: many(ticketActivities),
   sessions: many(sessions),
@@ -44,16 +44,19 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
 // USER ORGANIZATIONS RELATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const userOrganizationsRelations = relations(userOrganizations, ({ one }) => ({
-  user: one(users, {
-    fields: [userOrganizations.userId],
-    references: [users.id],
-  }),
-  organization: one(organizations, {
-    fields: [userOrganizations.organizationId],
-    references: [organizations.id],
-  }),
-}));
+export const userOrganizationsRelations = relations(
+  userOrganizations,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [userOrganizations.userId],
+      references: [users.id],
+    }),
+    organization: one(organizations, {
+      fields: [userOrganizations.organizationId],
+      references: [organizations.id],
+    }),
+  })
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TICKET RELATIONS
@@ -67,12 +70,12 @@ export const ticketsRelations = relations(tickets, ({ one, many }) => ({
   customer: one(users, {
     fields: [tickets.customerId],
     references: [users.id],
-    relationName: 'customer_tickets',
+    relationName: "customer_tickets",
   }),
   assignee: one(users, {
     fields: [tickets.assigneeId],
     references: [users.id],
-    relationName: 'assigned_tickets',
+    relationName: "assigned_tickets",
   }),
   messages: many(ticketMessages),
   activities: many(ticketActivities),
@@ -97,16 +100,19 @@ export const ticketMessagesRelations = relations(ticketMessages, ({ one }) => ({
 // ACTIVITY RELATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const ticketActivitiesRelations = relations(ticketActivities, ({ one }) => ({
-  ticket: one(tickets, {
-    fields: [ticketActivities.ticketId],
-    references: [tickets.id],
-  }),
-  user: one(users, {
-    fields: [ticketActivities.userId],
-    references: [users.id],
-  }),
-}));
+export const ticketActivitiesRelations = relations(
+  ticketActivities,
+  ({ one }) => ({
+    ticket: one(tickets, {
+      fields: [ticketActivities.ticketId],
+      references: [tickets.id],
+    }),
+    user: one(users, {
+      fields: [ticketActivities.userId],
+      references: [users.id],
+    }),
+  })
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLA POLICY RELATIONS
@@ -123,16 +129,19 @@ export const slaPoliciesRelations = relations(slaPolicies, ({ one }) => ({
 // CANNED RESPONSE RELATIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
-export const cannedResponsesRelations = relations(cannedResponses, ({ one }) => ({
-  organization: one(organizations, {
-    fields: [cannedResponses.organizationId],
-    references: [organizations.id],
-  }),
-  createdBy: one(users, {
-    fields: [cannedResponses.createdById],
-    references: [users.id],
-  }),
-}));
+export const cannedResponsesRelations = relations(
+  cannedResponses,
+  ({ one }) => ({
+    organization: one(organizations, {
+      fields: [cannedResponses.organizationId],
+      references: [organizations.id],
+    }),
+    createdBy: one(users, {
+      fields: [cannedResponses.createdById],
+      references: [users.id],
+    }),
+  })
+);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SESSION RELATIONS

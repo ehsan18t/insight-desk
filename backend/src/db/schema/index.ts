@@ -2,34 +2,38 @@
 // Re-export all tables, relations, enums, and types
 
 // Tables and Enums
-export * from './tables';
+export * from "./tables";
 
 // Relations
-export * from './relations';
+export * from "./relations";
 
 // Re-export types from tables
-export type { OrganizationSettings, Attachment, ActivityMetadata } from './tables';
+export type {
+  ActivityMetadata,
+  Attachment,
+  OrganizationSettings,
+} from "./tables";
 
 // Inferred Types (using $inferSelect and $inferInsert)
 import {
-  users,
-  organizations,
-  userOrganizations,
-  tickets,
-  ticketMessages,
-  ticketActivities,
-  slaPolicies,
-  cannedResponses,
-  sessions,
   accounts,
-  verifications,
-  userRoleEnum,
-  ticketStatusEnum,
-  ticketPriorityEnum,
-  ticketChannelEnum,
-  messageTypeEnum,
   activityActionEnum,
-} from './tables';
+  cannedResponses,
+  messageTypeEnum,
+  organizations,
+  sessions,
+  slaPolicies,
+  ticketActivities,
+  ticketChannelEnum,
+  ticketMessages,
+  ticketPriorityEnum,
+  tickets,
+  ticketStatusEnum,
+  userOrganizations,
+  userRoleEnum,
+  users,
+  verifications,
+} from "./tables";
 
 // User types
 export type User = typeof users.$inferSelect;

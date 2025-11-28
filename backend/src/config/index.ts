@@ -1,21 +1,21 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Environment schema validation
 const envSchema = z.object({
   // Server
   NODE_ENV: z
-    .enum(['development', 'production', 'test'])
-    .default('development'),
+    .enum(["development", "production", "test"])
+    .default("development"),
   PORT: z.coerce.number().default(3001),
-  HOST: z.string().default('localhost'),
+  HOST: z.string().default("localhost"),
   API_URL: z.string().url().optional(),
-  FRONTEND_URL: z.string().url().default('http://localhost:3000'),
+  FRONTEND_URL: z.string().url().default("http://localhost:3000"),
 
   // Database
   DATABASE_URL: z.string().min(1),
 
   // Valkey (Redis)
-  VALKEY_URL: z.string().default('valkey://localhost:6379'),
+  VALKEY_URL: z.string().default("valkey://localhost:6379"),
 
   // Authentication
   BETTER_AUTH_SECRET: z.string().min(32),
@@ -37,13 +37,13 @@ const envSchema = z.object({
   SMTP_SECURE: z
     .string()
     .optional()
-    .transform((v) => v === 'true'),
+    .transform((v) => v === "true"),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  EMAIL_FROM: z.string().default('InsightDesk <noreply@example.com>'),
+  EMAIL_FROM: z.string().default("InsightDesk <noreply@example.com>"),
 
   // Logging
-  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
 
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60000),
@@ -55,7 +55,7 @@ function loadConfig() {
   const parsed = envSchema.safeParse(process.env);
 
   if (!parsed.success) {
-    console.error('❌ Invalid environment variables:');
+    console.error("❌ Invalid environment variables:");
     console.error(parsed.error.format());
     process.exit(1);
   }
@@ -66,6 +66,6 @@ function loadConfig() {
 export const config = loadConfig();
 
 // Derived config
-export const isDev = config.NODE_ENV === 'development';
-export const isProd = config.NODE_ENV === 'production';
-export const isTest = config.NODE_ENV === 'test';
+export const isDev = config.NODE_ENV === "development";
+export const isProd = config.NODE_ENV === "production";
+export const isTest = config.NODE_ENV === "test";

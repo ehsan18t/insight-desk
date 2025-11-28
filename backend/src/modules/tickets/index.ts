@@ -1,3 +1,3 @@
-export { ticketsRouter } from './tickets.routes';
-export { ticketsService } from './tickets.service';
-export * from './tickets.schema';
+export { ticketsRouter } from "./tickets.routes";
+export * from "./tickets.schema";
+export { ticketsService } from "./tickets.service";

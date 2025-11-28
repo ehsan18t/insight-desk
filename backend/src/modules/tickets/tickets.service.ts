@@ -1,20 +1,34 @@
-import { db } from '../../db';
 import {
-  tickets,
-  ticketActivities,
-  slaPolicies,
-  users,
+  and,
+  asc,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
+import { db } from "../../db";
+import {
   DEFAULT_SLA_TIMES,
-  type Ticket,
+  slaPolicies,
+  ticketActivities,
+  tickets,
+  users,
   type NewTicket,
+  type Ticket,
   type TicketPriority,
-} from '../../db/schema/index';
-import { eq, and, or, ilike, inArray, desc, asc, sql, isNull } from 'drizzle-orm';
-import { NotFoundError, ForbiddenError } from '../../middleware/error-handler';
-import { createLogger } from '../../lib/logger';
-import type { CreateTicketInput, UpdateTicketInput, TicketQuery } from './tickets.schema';
+} from "../../db/schema/index";
+import { createLogger } from "../../lib/logger";
+import { ForbiddenError, NotFoundError } from "../../middleware/error-handler";
+import type {
+  CreateTicketInput,
+  TicketQuery,
+  UpdateTicketInput,
+} from "./tickets.schema";
 
-const logger = createLogger('tickets');
+const logger = createLogger("tickets");
 
 // Get next ticket number for organization
 async function getNextTicketNumber(organizationId: string): Promise<number> {
@@ -22,7 +36,7 @@ async function getNextTicketNumber(organizationId: string): Promise<number> {
     .select({ maxNumber: sql<number>`COALESCE(MAX(ticket_number), 0)` })
     .from(tickets)
     .where(eq(tickets.organizationId, organizationId));
-  
+
   return (result[0]?.maxNumber || 0) + 1;
 }
 
@@ -60,7 +74,7 @@ export const ticketsService = {
     const ticketNumber = await getNextTicketNumber(organizationId);
     const slaDeadline = await calculateSLADeadline(
       organizationId,
-      input.priority || 'medium'
+      input.priority || "medium"
     );
 
     const [ticket] = await db
@@ -69,8 +83,8 @@ export const ticketsService = {
         ticketNumber,
         title: input.title,
         description: input.description,
-        priority: input.priority || 'medium',
-        channel: input.channel || 'web',
+        priority: input.priority || "medium",
+        channel: input.channel || "web",
         tags: input.tags || [],
         categoryId: input.categoryId,
         organizationId,
@@ -83,10 +97,10 @@ export const ticketsService = {
     await db.insert(ticketActivities).values({
       ticketId: ticket.id,
       userId: customerId,
-      action: 'created',
+      action: "created",
     });
 
-    logger.info({ ticketId: ticket.id, ticketNumber }, 'Ticket created');
+    logger.info({ ticketId: ticket.id, ticketNumber }, "Ticket created");
 
     return ticket;
   },
@@ -97,7 +111,12 @@ export const ticketsService = {
     userId: string,
     userRole?: string,
     organizationId?: string
-  ): Promise<Ticket & { customer: typeof users.$inferSelect; assignee?: typeof users.$inferSelect }> {
+  ): Promise<
+    Ticket & {
+      customer: typeof users.$inferSelect;
+      assignee?: typeof users.$inferSelect;
+    }
+  > {
     const ticket = await db.query.tickets.findFirst({
       where: eq(tickets.id, ticketId),
       with: {
@@ -107,19 +126,22 @@ export const ticketsService = {
     });
 
     if (!ticket) {
-      throw new NotFoundError('Ticket not found');
+      throw new NotFoundError("Ticket not found");
     }
 
     // Access check
     const isCustomer = ticket.customerId === userId;
-    const isAgent = userRole && ['agent', 'admin', 'owner'].includes(userRole);
+    const isAgent = userRole && ["agent", "admin", "owner"].includes(userRole);
     const isOrgMember = organizationId === ticket.organizationId;
 
     if (!isCustomer && !(isAgent && isOrgMember)) {
-      throw new ForbiddenError('Access denied to this ticket');
+      throw new ForbiddenError("Access denied to this ticket");
     }
 
-    return ticket as Ticket & { customer: typeof users.$inferSelect; assignee?: typeof users.$inferSelect };
+    return ticket as Ticket & {
+      customer: typeof users.$inferSelect;
+      assignee?: typeof users.$inferSelect;
+    };
   },
 
   // List tickets with filters and pagination
@@ -137,7 +159,7 @@ export const ticketsService = {
     }
 
     // Role-based filtering
-    if (userRole === 'customer') {
+    if (userRole === "customer") {
       // Customers can only see their own tickets
       conditions.push(eq(tickets.customerId, userId));
     }
@@ -152,7 +174,7 @@ export const ticketsService = {
     }
 
     if (query.assigneeId) {
-      if (query.assigneeId === 'unassigned') {
+      if (query.assigneeId === "unassigned") {
         conditions.push(isNull(tickets.assigneeId));
       } else {
         conditions.push(eq(tickets.assigneeId, query.assigneeId));
@@ -185,7 +207,8 @@ export const ticketsService = {
       status: tickets.status,
     }[query.sortBy];
 
-    const orderBy = query.sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+    const orderBy =
+      query.sortOrder === "asc" ? asc(sortColumn) : desc(sortColumn);
 
     // Pagination
     const offset = (query.page - 1) * query.limit;
@@ -237,7 +260,7 @@ export const ticketsService = {
     });
 
     if (!ticket) {
-      throw new NotFoundError('Ticket not found');
+      throw new NotFoundError("Ticket not found");
     }
 
     // Build update object
@@ -246,7 +269,8 @@ export const ticketsService = {
     };
 
     // Track changes for activity log
-    const activities: { action: string; metadata: Record<string, unknown> }[] = [];
+    const activities: { action: string; metadata: Record<string, unknown> }[] =
+      [];
 
     if (input.title !== undefined) {
       updates.title = input.title;
@@ -259,7 +283,7 @@ export const ticketsService = {
     if (input.priority !== undefined && input.priority !== ticket.priority) {
       updates.priority = input.priority;
       activities.push({
-        action: 'priority_changed',
+        action: "priority_changed",
         metadata: { fromPriority: ticket.priority, toPriority: input.priority },
       });
     }
@@ -267,15 +291,15 @@ export const ticketsService = {
     if (input.status !== undefined && input.status !== ticket.status) {
       updates.status = input.status;
       activities.push({
-        action: 'status_changed',
+        action: "status_changed",
         metadata: { fromStatus: ticket.status, toStatus: input.status },
       });
 
       // Set resolved/closed timestamps
-      if (input.status === 'resolved' && !ticket.resolvedAt) {
+      if (input.status === "resolved" && !ticket.resolvedAt) {
         updates.resolvedAt = new Date();
       }
-      if (input.status === 'closed' && !ticket.closedAt) {
+      if (input.status === "closed" && !ticket.closedAt) {
         updates.closedAt = new Date();
       }
     }
@@ -300,12 +324,12 @@ export const ticketsService = {
       await db.insert(ticketActivities).values({
         ticketId,
         userId,
-        action: activity.action as 'priority_changed' | 'status_changed',
+        action: activity.action as "priority_changed" | "status_changed",
         metadata: activity.metadata,
       });
     }
 
-    logger.info({ ticketId, updates: Object.keys(updates) }, 'Ticket updated');
+    logger.info({ ticketId, updates: Object.keys(updates) }, "Ticket updated");
 
     return updated;
   },
@@ -321,7 +345,7 @@ export const ticketsService = {
     });
 
     if (!ticket) {
-      throw new NotFoundError('Ticket not found');
+      throw new NotFoundError("Ticket not found");
     }
 
     // Verify assignee exists (if not null)
@@ -331,7 +355,7 @@ export const ticketsService = {
         where: eq(users.id, assigneeId),
       });
       if (!assignee) {
-        throw new NotFoundError('Assignee not found');
+        throw new NotFoundError("Assignee not found");
       }
       assigneeName = assignee.name;
     }
@@ -341,7 +365,7 @@ export const ticketsService = {
       .update(tickets)
       .set({
         assigneeId,
-        status: assigneeId ? 'pending' : 'open',
+        status: assigneeId ? "pending" : "open",
         updatedAt: new Date(),
       })
       .where(eq(tickets.id, ticketId))
@@ -351,35 +375,39 @@ export const ticketsService = {
     await db.insert(ticketActivities).values({
       ticketId,
       userId: assignedBy,
-      action: assigneeId ? 'assigned' : 'unassigned',
+      action: assigneeId ? "assigned" : "unassigned",
       metadata: assigneeId
         ? { assigneeId, assigneeName }
         : { previousAssignee: ticket.assigneeId },
     });
 
-    logger.info({ ticketId, assigneeId }, 'Ticket assigned');
+    logger.info({ ticketId, assigneeId }, "Ticket assigned");
 
     return updated;
   },
 
   // Close ticket
-  async close(ticketId: string, userId: string, reason?: string): Promise<Ticket> {
+  async close(
+    ticketId: string,
+    userId: string,
+    reason?: string
+  ): Promise<Ticket> {
     const ticket = await db.query.tickets.findFirst({
       where: eq(tickets.id, ticketId),
     });
 
     if (!ticket) {
-      throw new NotFoundError('Ticket not found');
+      throw new NotFoundError("Ticket not found");
     }
 
-    if (ticket.status === 'closed') {
-      throw new ForbiddenError('Ticket is already closed');
+    if (ticket.status === "closed") {
+      throw new ForbiddenError("Ticket is already closed");
     }
 
     const [updated] = await db
       .update(tickets)
       .set({
-        status: 'closed',
+        status: "closed",
         closedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -389,11 +417,11 @@ export const ticketsService = {
     await db.insert(ticketActivities).values({
       ticketId,
       userId,
-      action: 'closed',
+      action: "closed",
       metadata: reason ? { reason } : {},
     });
 
-    logger.info({ ticketId }, 'Ticket closed');
+    logger.info({ ticketId }, "Ticket closed");
 
     return updated;
   },
@@ -405,17 +433,17 @@ export const ticketsService = {
     });
 
     if (!ticket) {
-      throw new NotFoundError('Ticket not found');
+      throw new NotFoundError("Ticket not found");
     }
 
-    if (ticket.status !== 'closed') {
-      throw new ForbiddenError('Only closed tickets can be reopened');
+    if (ticket.status !== "closed") {
+      throw new ForbiddenError("Only closed tickets can be reopened");
     }
 
     const [updated] = await db
       .update(tickets)
       .set({
-        status: 'open',
+        status: "open",
         closedAt: null,
         updatedAt: new Date(),
       })
@@ -425,10 +453,10 @@ export const ticketsService = {
     await db.insert(ticketActivities).values({
       ticketId,
       userId,
-      action: 'reopened',
+      action: "reopened",
     });
 
-    logger.info({ ticketId }, 'Ticket reopened');
+    logger.info({ ticketId }, "Ticket reopened");
 
     return updated;
   },
@@ -453,14 +481,16 @@ export const ticketsService = {
       .where(
         and(
           eq(tickets.organizationId, organizationId),
-          inArray(tickets.status, ['open', 'pending'])
+          inArray(tickets.status, ["open", "pending"])
         )
       )
       .groupBy(tickets.priority);
 
     return {
       byStatus: Object.fromEntries(stats.map((s) => [s.status, s.count])),
-      byPriority: Object.fromEntries(byPriority.map((p) => [p.priority, p.count])),
+      byPriority: Object.fromEntries(
+        byPriority.map((p) => [p.priority, p.count])
+      ),
       total: stats.reduce((sum, s) => sum + s.count, 0),
     };
   },

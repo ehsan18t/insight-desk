@@ -1,17 +1,17 @@
-import { Router } from 'express';
-import { toNodeHandler } from 'better-auth/node';
-import { auth } from './auth.config';
-import { authenticate } from './auth.middleware';
-import { db } from '../../db';
-import { users, userOrganizations, organizations } from '../../db/schema/index';
-import { eq } from 'drizzle-orm';
-import { createLogger } from '../../lib/logger';
-import { authRateLimit } from '../../middleware/rate-limit';
-import { BadRequestError } from '../../middleware/error-handler';
-import { nanoid } from 'nanoid';
+import { toNodeHandler } from "better-auth/node";
+import { eq } from "drizzle-orm";
+import { Router } from "express";
+import { nanoid } from "nanoid";
+import { db } from "../../db";
+import { organizations, userOrganizations, users } from "../../db/schema/index";
+import { createLogger } from "../../lib/logger";
+import { BadRequestError } from "../../middleware/error-handler";
+import { authRateLimit } from "../../middleware/rate-limit";
+import { auth } from "./auth.config";
+import { authenticate } from "./auth.middleware";
 
 const router = Router();
-const logger = createLogger('auth');
+const logger = createLogger("auth");
 
 // ─────────────────────────────────────────────────────────────
 // Better Auth handles these routes:
@@ -29,14 +29,14 @@ const logger = createLogger('auth');
 router.use(authRateLimit);
 
 // Mount Better Auth handler
-router.all('/*', toNodeHandler(auth));
+router.all("/*", toNodeHandler(auth));
 
 // ─────────────────────────────────────────────────────────────
 // Custom auth endpoints
 // ─────────────────────────────────────────────────────────────
 
 // Get current user with organization membership
-router.get('/me', authenticate, async (req, res) => {
+router.get("/me", authenticate, async (req, res) => {
   const userId = req.user!.id;
 
   // Get user with their organization memberships
@@ -52,7 +52,7 @@ router.get('/me', authenticate, async (req, res) => {
   });
 
   if (!user) {
-    throw new BadRequestError('User not found');
+    throw new BadRequestError("User not found");
   }
 
   res.json({
@@ -63,24 +63,30 @@ router.get('/me', authenticate, async (req, res) => {
       name: user.name,
       avatarUrl: user.avatarUrl,
       emailVerified: user.emailVerified,
-      organizations: user.organizations.map((m: { organization: { id: string; name: string; slug: string }; role: string; joinedAt: Date }) => ({
-        id: m.organization.id,
-        name: m.organization.name,
-        slug: m.organization.slug,
-        role: m.role,
-        joinedAt: m.joinedAt,
-      })),
+      organizations: user.organizations.map(
+        (m: {
+          organization: { id: string; name: string; slug: string };
+          role: string;
+          joinedAt: Date;
+        }) => ({
+          id: m.organization.id,
+          name: m.organization.name,
+          slug: m.organization.slug,
+          role: m.role,
+          joinedAt: m.joinedAt,
+        })
+      ),
     },
   });
 });
 
 // Register with auto-create organization (for new signups)
-router.post('/register-with-org', authRateLimit, async (req, res, next) => {
+router.post("/register-with-org", authRateLimit, async (req, res, next) => {
   try {
     const { email, password, name, organizationName } = req.body;
 
     if (!email || !password || !name) {
-      throw new BadRequestError('Email, password, and name are required');
+      throw new BadRequestError("Email, password, and name are required");
     }
 
     // Use Better Auth to create user
@@ -88,18 +94,21 @@ router.post('/register-with-org', authRateLimit, async (req, res, next) => {
       body: { email, password, name },
     });
 
-    if (!signUpResult || 'error' in signUpResult) {
-      throw new BadRequestError('Failed to create account');
+    if (!signUpResult || "error" in signUpResult) {
+      throw new BadRequestError("Failed to create account");
     }
 
     const userId = signUpResult.user.id;
 
     // Create default organization if name provided
     if (organizationName) {
-      const slug = organizationName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') + '-' + nanoid(6);
+      const slug =
+        organizationName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "") +
+        "-" +
+        nanoid(6);
 
       const [org] = await db
         .insert(organizations)
@@ -113,18 +122,18 @@ router.post('/register-with-org', authRateLimit, async (req, res, next) => {
       await db.insert(userOrganizations).values({
         userId,
         organizationId: org.id,
-        role: 'owner',
+        role: "owner",
       });
 
       logger.info(
         { userId, orgId: org.id },
-        'User registered with new organization'
+        "User registered with new organization"
       );
     }
 
     res.status(201).json({
       success: true,
-      message: 'Account created successfully',
+      message: "Account created successfully",
       data: {
         userId,
       },

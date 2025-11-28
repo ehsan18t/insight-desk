@@ -1,20 +1,20 @@
-import { eq, ilike, and, desc, asc, count, SQL } from 'drizzle-orm';
-import { db } from '../../db';
+import { and, asc, count, desc, eq, ilike, SQL } from "drizzle-orm";
+import { db } from "../../db";
 import {
   organizations,
   userOrganizations,
   users,
-  type UserRole,
   type Organization,
   type OrganizationSettings,
-} from '../../db/schema';
+  type UserRole,
+} from "../../db/schema";
 import type {
   CreateOrganizationInput,
-  UpdateOrganizationInput,
-  OrganizationQuery,
   InviteMemberInput,
+  OrganizationQuery,
   UpdateMemberRoleInput,
-} from './organizations.schema';
+  UpdateOrganizationInput,
+} from "./organizations.schema";
 
 // Organization with member count
 export interface OrganizationWithStats extends Organization {
@@ -48,7 +48,7 @@ export const organizationsService = {
     });
 
     if (existing) {
-      throw new Error('Organization slug is already taken');
+      throw new Error("Organization slug is already taken");
     }
 
     // Create organization and add owner in a transaction
@@ -65,7 +65,7 @@ export const organizationsService = {
       await tx.insert(userOrganizations).values({
         userId: ownerId,
         organizationId: org.id,
-        role: 'owner',
+        role: "owner",
       });
 
       return org;
@@ -130,7 +130,12 @@ export const organizationsService = {
     query: Partial<OrganizationQuery> = {}
   ): Promise<{
     data: (Organization & { role: UserRole; memberCount: number })[];
-    pagination: { page: number; limit: number; total: number; totalPages: number };
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   }> {
     const { page = 1, limit = 20, search } = query;
     const offset = (page - 1) * limit;
@@ -241,7 +246,7 @@ export const organizationsService = {
       .returning();
 
     if (!org) {
-      throw new Error('Organization not found');
+      throw new Error("Organization not found");
     }
 
     return org;
@@ -255,7 +260,12 @@ export const organizationsService = {
     query: Partial<OrganizationQuery> = {}
   ): Promise<{
     data: OrganizationMember[];
-    pagination: { page: number; limit: number; total: number; totalPages: number };
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
   }> {
     const { page = 1, limit = 20, search } = query;
     const offset = (page - 1) * limit;
@@ -265,9 +275,7 @@ export const organizationsService = {
     ];
 
     if (search) {
-      conditions.push(
-        ilike(users.name, `%${search}%`)
-      );
+      conditions.push(ilike(users.name, `%${search}%`));
     }
 
     // Get total count
@@ -331,7 +339,7 @@ export const organizationsService = {
       });
 
       if (existingMembership) {
-        throw new Error('User is already a member of this organization');
+        throw new Error("User is already a member of this organization");
       }
 
       // Add user to organization
@@ -344,7 +352,7 @@ export const organizationsService = {
       return {
         userId: existingUser.id,
         invited: false,
-        message: 'User added to organization',
+        message: "User added to organization",
       };
     }
 
@@ -368,7 +376,7 @@ export const organizationsService = {
   ): Promise<OrganizationMember> {
     // Can't change own role
     if (userId === requesterId) {
-      throw new Error('Cannot change your own role');
+      throw new Error("Cannot change your own role");
     }
 
     // Get target membership
@@ -380,12 +388,12 @@ export const organizationsService = {
     });
 
     if (!membership) {
-      throw new Error('User is not a member of this organization');
+      throw new Error("User is not a member of this organization");
     }
 
     // Can't change owner role
-    if (membership.role === 'owner') {
-      throw new Error('Cannot change owner role');
+    if (membership.role === "owner") {
+      throw new Error("Cannot change owner role");
     }
 
     // Update role
@@ -434,7 +442,7 @@ export const organizationsService = {
   ): Promise<void> {
     // Can't remove self
     if (userId === requesterId) {
-      throw new Error('Cannot remove yourself from the organization');
+      throw new Error("Cannot remove yourself from the organization");
     }
 
     // Get target membership
@@ -446,12 +454,12 @@ export const organizationsService = {
     });
 
     if (!membership) {
-      throw new Error('User is not a member of this organization');
+      throw new Error("User is not a member of this organization");
     }
 
     // Can't remove owner
-    if (membership.role === 'owner') {
-      throw new Error('Cannot remove the organization owner');
+    if (membership.role === "owner") {
+      throw new Error("Cannot remove the organization owner");
     }
 
     // Remove membership
@@ -514,7 +522,7 @@ export const organizationsService = {
       .returning();
 
     if (!org) {
-      throw new Error('Organization not found');
+      throw new Error("Organization not found");
     }
 
     return org;
@@ -534,7 +542,7 @@ export const organizationsService = {
       .returning();
 
     if (!org) {
-      throw new Error('Organization not found');
+      throw new Error("Organization not found");
     }
 
     return org;

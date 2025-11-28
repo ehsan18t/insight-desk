@@ -1,12 +1,12 @@
-import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { db } from '../../db';
-import * as schema from '../../db/schema/index';
-import { config } from '../../config';
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { config } from "../../config";
+import { db } from "../../db";
+import * as schema from "../../db/schema/index";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
-    provider: 'pg',
+    provider: "pg",
     schema: {
       user: schema.users,
       session: schema.sessions,
@@ -16,7 +16,10 @@ export const auth = betterAuth({
   }),
 
   // Base URL
-  baseURL: config.BETTER_AUTH_URL || config.API_URL || `http://${config.HOST}:${config.PORT}`,
+  baseURL:
+    config.BETTER_AUTH_URL ||
+    config.API_URL ||
+    `http://${config.HOST}:${config.PORT}`,
 
   // Secret key for signing
   secret: config.BETTER_AUTH_SECRET,
@@ -62,7 +65,7 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       isActive: {
-        type: 'boolean',
+        type: "boolean",
         defaultValue: true,
         input: false, // Not settable by user
       },
@@ -71,7 +74,7 @@ export const auth = betterAuth({
 
   // Advanced options
   advanced: {
-    cookiePrefix: 'insightdesk',
+    cookiePrefix: "insightdesk",
     generateId: () => crypto.randomUUID(),
   },
 });

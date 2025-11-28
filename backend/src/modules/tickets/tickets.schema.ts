@@ -1,22 +1,32 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 // Ticket status and priority enums
-export const ticketStatusValues = ['open', 'pending', 'resolved', 'closed'] as const;
-export const ticketPriorityValues = ['low', 'medium', 'high', 'urgent'] as const;
-export const ticketChannelValues = ['web', 'email', 'chat', 'api'] as const;
+export const ticketStatusValues = [
+  "open",
+  "pending",
+  "resolved",
+  "closed",
+] as const;
+export const ticketPriorityValues = [
+  "low",
+  "medium",
+  "high",
+  "urgent",
+] as const;
+export const ticketChannelValues = ["web", "email", "chat", "api"] as const;
 
 // Create ticket schema
 export const createTicketSchema = z.object({
   title: z
     .string()
-    .min(5, 'Title must be at least 5 characters')
-    .max(255, 'Title cannot exceed 255 characters'),
+    .min(5, "Title must be at least 5 characters")
+    .max(255, "Title cannot exceed 255 characters"),
   description: z
     .string()
-    .min(10, 'Description must be at least 10 characters')
-    .max(10000, 'Description cannot exceed 10000 characters'),
-  priority: z.enum(ticketPriorityValues).default('medium'),
-  channel: z.enum(ticketChannelValues).default('web'),
+    .min(10, "Description must be at least 10 characters")
+    .max(10000, "Description cannot exceed 10000 characters"),
+  priority: z.enum(ticketPriorityValues).default("medium"),
+  channel: z.enum(ticketChannelValues).default("web"),
   tags: z.array(z.string()).max(10).optional(),
   categoryId: z.string().uuid().optional(),
 });
@@ -25,13 +35,13 @@ export const createTicketSchema = z.object({
 export const updateTicketSchema = z.object({
   title: z
     .string()
-    .min(5, 'Title must be at least 5 characters')
-    .max(255, 'Title cannot exceed 255 characters')
+    .min(5, "Title must be at least 5 characters")
+    .max(255, "Title cannot exceed 255 characters")
     .optional(),
   description: z
     .string()
-    .min(10, 'Description must be at least 10 characters')
-    .max(10000, 'Description cannot exceed 10000 characters')
+    .min(10, "Description must be at least 10 characters")
+    .max(10000, "Description cannot exceed 10000 characters")
     .optional(),
   priority: z.enum(ticketPriorityValues).optional(),
   status: z.enum(ticketStatusValues).optional(),
@@ -53,12 +63,14 @@ export const ticketQuerySchema = z.object({
   search: z.string().max(100).optional(),
   tags: z
     .string()
-    .transform((s) => s.split(',').filter(Boolean))
+    .transform((s) => s.split(",").filter(Boolean))
     .optional(),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
-  sortBy: z.enum(['createdAt', 'updatedAt', 'priority', 'status']).default('createdAt'),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  sortBy: z
+    .enum(["createdAt", "updatedAt", "priority", "status"])
+    .default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
 // Ticket ID param schema

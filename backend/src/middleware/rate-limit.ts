@@ -1,5 +1,5 @@
-import type { Request, Response, NextFunction } from 'express';
-import { config } from '../config';
+import type { NextFunction, Request, Response } from "express";
+import { config } from "../config";
 
 // Simple in-memory rate limiter
 // For production, use Redis/Valkey-based limiter
@@ -22,13 +22,15 @@ function getClientId(req: Request): string {
   if (userId) return `user:${userId}`;
 
   // Get IP from various headers (for proxies)
-  const forwarded = req.headers['x-forwarded-for'];
+  const forwarded = req.headers["x-forwarded-for"];
   if (forwarded) {
-    const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
+    const ip = Array.isArray(forwarded)
+      ? forwarded[0]
+      : forwarded.split(",")[0];
     return `ip:${ip.trim()}`;
   }
 
-  return `ip:${req.ip || 'unknown'}`;
+  return `ip:${req.ip || "unknown"}`;
 }
 
 // Rate limiter middleware
@@ -39,7 +41,8 @@ export function rateLimit(options?: {
 }) {
   const windowMs = options?.windowMs ?? config.RATE_LIMIT_WINDOW_MS;
   const maxRequests = options?.maxRequests ?? config.RATE_LIMIT_MAX_REQUESTS;
-  const message = options?.message ?? 'Too many requests, please try again later';
+  const message =
+    options?.message ?? "Too many requests, please try again later";
 
   return (req: Request, res: Response, next: NextFunction) => {
     const clientId = getClientId(req);
@@ -57,16 +60,19 @@ export function rateLimit(options?: {
 
     // Set rate limit headers
     res.set({
-      'X-RateLimit-Limit': maxRequests.toString(),
-      'X-RateLimit-Remaining': Math.max(0, maxRequests - record.count).toString(),
-      'X-RateLimit-Reset': Math.ceil(record.resetTime / 1000).toString(),
+      "X-RateLimit-Limit": maxRequests.toString(),
+      "X-RateLimit-Remaining": Math.max(
+        0,
+        maxRequests - record.count
+      ).toString(),
+      "X-RateLimit-Reset": Math.ceil(record.resetTime / 1000).toString(),
     });
 
     if (record.count > maxRequests) {
       res.status(429).json({
         success: false,
         error: message,
-        code: 'RATE_LIMIT_EXCEEDED',
+        code: "RATE_LIMIT_EXCEEDED",
         retryAfter: Math.ceil((record.resetTime - now) / 1000),
       });
       return;
@@ -80,5 +86,5 @@ export function rateLimit(options?: {
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   maxRequests: 10,
-  message: 'Too many login attempts, please try again later',
+  message: "Too many login attempts, please try again later",
 });

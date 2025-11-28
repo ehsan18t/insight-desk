@@ -1,13 +1,13 @@
-import { Server as SocketServer, type Socket } from 'socket.io';
-import type { Server as HttpServer } from 'http';
-import { createAdapter } from '@socket.io/redis-adapter';
-import { config } from '../config';
-import { logger } from './logger';
-import { valkey } from './cache';
-import { auth } from '../modules/auth/auth.config';
-import { db } from '../db';
-import { userOrganizations } from '../db/schema';
-import { eq, and } from 'drizzle-orm';
+import { createAdapter } from "@socket.io/redis-adapter";
+import { and, eq } from "drizzle-orm";
+import type { Server as HttpServer } from "http";
+import { Server as SocketServer, type Socket } from "socket.io";
+import { config } from "../config";
+import { db } from "../db";
+import { userOrganizations } from "../db/schema";
+import { auth } from "../modules/auth/auth.config";
+import { valkey } from "./cache";
+import { logger } from "./logger";
 
 // Socket with user data
 interface AuthenticatedSocket extends Socket {
@@ -22,19 +22,19 @@ interface AuthenticatedSocket extends Socket {
 // Event types
 export interface TicketEvent {
   type:
-    | 'ticket:created'
-    | 'ticket:updated'
-    | 'ticket:assigned'
-    | 'ticket:status_changed'
-    | 'ticket:message_added'
-    | 'ticket:closed';
+    | "ticket:created"
+    | "ticket:updated"
+    | "ticket:assigned"
+    | "ticket:status_changed"
+    | "ticket:message_added"
+    | "ticket:closed";
   ticketId: string;
   organizationId: string;
   data: Record<string, unknown>;
 }
 
 export interface NotificationEvent {
-  type: 'notification';
+  type: "notification";
   userId: string;
   data: {
     title: string;
@@ -49,7 +49,9 @@ let io: SocketServer | null = null;
 /**
  * Initialize Socket.IO server with Redis adapter for horizontal scaling
  */
-export async function initializeSocketIO(httpServer: HttpServer): Promise<SocketServer> {
+export async function initializeSocketIO(
+  httpServer: HttpServer
+): Promise<SocketServer> {
   // Create Redis clients for pub/sub using ioredis
   const pubClient = valkey.duplicate();
   const subClient = valkey.duplicate();
@@ -71,18 +73,18 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
       const headers = new Headers();
 
       if (cookies) {
-        headers.set('cookie', cookies);
+        headers.set("cookie", cookies);
       }
 
       const authHeader = socket.handshake.auth?.token;
       if (authHeader) {
-        headers.set('authorization', `Bearer ${authHeader}`);
+        headers.set("authorization", `Bearer ${authHeader}`);
       }
 
       const session = await auth.api.getSession({ headers });
 
       if (!session?.user) {
-        return next(new Error('Authentication required'));
+        return next(new Error("Authentication required"));
       }
 
       socket.user = {
@@ -109,13 +111,13 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
 
       next();
     } catch (error) {
-      logger.error({ err: error }, 'Socket authentication error');
-      next(new Error('Authentication failed'));
+      logger.error({ err: error }, "Socket authentication error");
+      next(new Error("Authentication failed"));
     }
   });
 
   // Connection handler
-  io.on('connection', (socket: AuthenticatedSocket) => {
+  io.on("connection", (socket: AuthenticatedSocket) => {
     logger.info(`Socket connected: ${socket.id} (user: ${socket.user?.id})`);
 
     // Join user-specific room for notifications
@@ -132,9 +134,9 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
     }
 
     // Handle joining a specific ticket room
-    socket.on('ticket:join', async (ticketId: string) => {
+    socket.on("ticket:join", async (ticketId: string) => {
       if (!socket.organizationId) {
-        socket.emit('error', { message: 'Organization context required' });
+        socket.emit("error", { message: "Organization context required" });
         return;
       }
 
@@ -144,22 +146,25 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
     });
 
     // Handle leaving a ticket room
-    socket.on('ticket:leave', (ticketId: string) => {
+    socket.on("ticket:leave", (ticketId: string) => {
       socket.leave(`ticket:${ticketId}`);
       logger.info(`User ${socket.user?.id} left ticket room: ${ticketId}`);
     });
 
     // Handle typing indicator
-    socket.on('ticket:typing', (data: { ticketId: string; isTyping: boolean }) => {
-      socket.to(`ticket:${data.ticketId}`).emit('ticket:typing', {
-        userId: socket.user?.id,
-        userName: socket.user?.name,
-        isTyping: data.isTyping,
-      });
-    });
+    socket.on(
+      "ticket:typing",
+      (data: { ticketId: string; isTyping: boolean }) => {
+        socket.to(`ticket:${data.ticketId}`).emit("ticket:typing", {
+          userId: socket.user?.id,
+          userName: socket.user?.name,
+          isTyping: data.isTyping,
+        });
+      }
+    );
 
     // Handle switching organizations
-    socket.on('organization:switch', async (organizationId: string) => {
+    socket.on("organization:switch", async (organizationId: string) => {
       if (!socket.user) return;
 
       // Verify membership
@@ -171,7 +176,7 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
       });
 
       if (!membership) {
-        socket.emit('error', { message: 'Not a member of this organization' });
+        socket.emit("error", { message: "Not a member of this organization" });
         return;
       }
 
@@ -190,12 +195,12 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
     });
 
     // Disconnect handler
-    socket.on('disconnect', () => {
+    socket.on("disconnect", () => {
       logger.info(`Socket disconnected: ${socket.id}`);
     });
   });
 
-  logger.info('Socket.IO server initialized with Redis adapter');
+  logger.info("Socket.IO server initialized with Redis adapter");
   return io;
 }
 
@@ -204,7 +209,7 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
  */
 export function getIO(): SocketServer {
   if (!io) {
-    throw new Error('Socket.IO not initialized');
+    throw new Error("Socket.IO not initialized");
   }
   return io;
 }
@@ -236,11 +241,7 @@ export function emitToTicket(
 /**
  * Emit notification to a specific user
  */
-export function emitToUser(
-  userId: string,
-  event: string,
-  data: unknown
-): void {
+export function emitToUser(userId: string, event: string, data: unknown): void {
   if (!io) return;
   io.to(`user:${userId}`).emit(event, data);
 }
@@ -263,5 +264,5 @@ export function broadcastTicketEvent(event: TicketEvent): void {
  * Send notification to user
  */
 export function sendNotification(event: NotificationEvent): void {
-  emitToUser(event.userId, 'notification', event.data);
+  emitToUser(event.userId, "notification", event.data);
 }

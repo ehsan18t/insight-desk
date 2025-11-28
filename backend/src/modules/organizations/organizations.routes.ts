@@ -1,17 +1,22 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
-import { organizationsService } from './organizations.service';
-import { authenticate } from '../auth/auth.middleware';
-import { validateRequest } from '../../middleware/validate';
+import {
+  Router,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
+import { ForbiddenError } from "../../middleware/error-handler";
+import { validateRequest } from "../../middleware/validate";
+import { authenticate } from "../auth/auth.middleware";
 import {
   createOrganizationSchema,
-  updateOrganizationSchema,
-  organizationQuerySchema,
-  organizationIdParamSchema,
   inviteMemberSchema,
-  updateMemberRoleSchema,
   memberIdParamSchema,
-} from './organizations.schema';
-import { ForbiddenError } from '../../middleware/error-handler';
+  organizationIdParamSchema,
+  organizationQuerySchema,
+  updateMemberRoleSchema,
+  updateOrganizationSchema,
+} from "./organizations.schema";
+import { organizationsService } from "./organizations.service";
 
 export const organizationsRouter = Router();
 
@@ -23,7 +28,7 @@ organizationsRouter.use(authenticate);
  * List all organizations for the current user
  */
 organizationsRouter.get(
-  '/',
+  "/",
   validateRequest({ query: organizationQuerySchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -43,14 +48,14 @@ organizationsRouter.get(
  * Create a new organization
  */
 organizationsRouter.post(
-  '/',
+  "/",
   validateRequest({ body: createOrganizationSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const org = await organizationsService.create(req.body, req.user!.id);
       res.status(201).json({ success: true, data: org });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('already taken')) {
+      if (error instanceof Error && error.message.includes("already taken")) {
         res.status(409).json({ success: false, error: error.message });
         return;
       }
@@ -64,7 +69,7 @@ organizationsRouter.post(
  * Get organization details
  */
 organizationsRouter.get(
-  '/:organizationId',
+  "/:organizationId",
   validateRequest({ params: organizationIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -77,7 +82,7 @@ organizationsRouter.get(
       if (!role) {
         res.status(403).json({
           success: false,
-          error: 'Not a member of this organization',
+          error: "Not a member of this organization",
         });
         return;
       }
@@ -85,7 +90,9 @@ organizationsRouter.get(
       const org = await organizationsService.getById(req.params.organizationId);
 
       if (!org) {
-        res.status(404).json({ success: false, error: 'Organization not found' });
+        res
+          .status(404)
+          .json({ success: false, error: "Organization not found" });
         return;
       }
 
@@ -101,7 +108,7 @@ organizationsRouter.get(
  * Update organization settings (admin/owner only)
  */
 organizationsRouter.patch(
-  '/:organizationId',
+  "/:organizationId",
   validateRequest({
     params: organizationIdParamSchema,
     body: updateOrganizationSchema,
@@ -112,11 +119,11 @@ organizationsRouter.patch(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ['admin', 'owner']
+        ["admin", "owner"]
       );
 
       if (!hasPermission) {
-        throw new ForbiddenError('Admin or owner role required');
+        throw new ForbiddenError("Admin or owner role required");
       }
 
       const org = await organizationsService.update(
@@ -126,7 +133,10 @@ organizationsRouter.patch(
 
       res.json({ success: true, data: org });
     } catch (error) {
-      if (error instanceof Error && error.message === 'Organization not found') {
+      if (
+        error instanceof Error &&
+        error.message === "Organization not found"
+      ) {
         res.status(404).json({ success: false, error: error.message });
         return;
       }
@@ -140,7 +150,7 @@ organizationsRouter.patch(
  * List organization members
  */
 organizationsRouter.get(
-  '/:organizationId/members',
+  "/:organizationId/members",
   validateRequest({
     params: organizationIdParamSchema,
     query: organizationQuerySchema,
@@ -156,7 +166,7 @@ organizationsRouter.get(
       if (!role) {
         res.status(403).json({
           success: false,
-          error: 'Not a member of this organization',
+          error: "Not a member of this organization",
         });
         return;
       }
@@ -178,7 +188,7 @@ organizationsRouter.get(
  * Invite a member to the organization (admin/owner only)
  */
 organizationsRouter.post(
-  '/:organizationId/members',
+  "/:organizationId/members",
   validateRequest({
     params: organizationIdParamSchema,
     body: inviteMemberSchema,
@@ -189,11 +199,11 @@ organizationsRouter.post(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ['admin', 'owner']
+        ["admin", "owner"]
       );
 
       if (!hasPermission) {
-        throw new ForbiddenError('Admin or owner role required');
+        throw new ForbiddenError("Admin or owner role required");
       }
 
       const result = await organizationsService.inviteMember(
@@ -204,7 +214,10 @@ organizationsRouter.post(
 
       res.status(201).json({ success: true, ...result });
     } catch (error) {
-      if (error instanceof Error && error.message.includes('already a member')) {
+      if (
+        error instanceof Error &&
+        error.message.includes("already a member")
+      ) {
         res.status(409).json({ success: false, error: error.message });
         return;
       }
@@ -218,7 +231,7 @@ organizationsRouter.post(
  * Update member role (admin/owner only)
  */
 organizationsRouter.patch(
-  '/:organizationId/members/:userId',
+  "/:organizationId/members/:userId",
   validateRequest({
     params: memberIdParamSchema,
     body: updateMemberRoleSchema,
@@ -229,11 +242,11 @@ organizationsRouter.patch(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ['admin', 'owner']
+        ["admin", "owner"]
       );
 
       if (!hasPermission) {
-        throw new ForbiddenError('Admin or owner role required');
+        throw new ForbiddenError("Admin or owner role required");
       }
 
       const member = await organizationsService.updateMemberRole(
@@ -247,13 +260,13 @@ organizationsRouter.patch(
     } catch (error) {
       if (error instanceof Error) {
         if (
-          error.message.includes('Cannot change') ||
-          error.message.includes('Cannot remove')
+          error.message.includes("Cannot change") ||
+          error.message.includes("Cannot remove")
         ) {
           res.status(403).json({ success: false, error: error.message });
           return;
         }
-        if (error.message.includes('not a member')) {
+        if (error.message.includes("not a member")) {
           res.status(404).json({ success: false, error: error.message });
           return;
         }
@@ -268,7 +281,7 @@ organizationsRouter.patch(
  * Remove member from organization (admin/owner only)
  */
 organizationsRouter.delete(
-  '/:organizationId/members/:userId',
+  "/:organizationId/members/:userId",
   validateRequest({ params: memberIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -276,11 +289,11 @@ organizationsRouter.delete(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ['admin', 'owner']
+        ["admin", "owner"]
       );
 
       if (!hasPermission) {
-        throw new ForbiddenError('Admin or owner role required');
+        throw new ForbiddenError("Admin or owner role required");
       }
 
       await organizationsService.removeMember(
@@ -289,14 +302,14 @@ organizationsRouter.delete(
         req.user!.id
       );
 
-      res.json({ success: true, message: 'Member removed from organization' });
+      res.json({ success: true, message: "Member removed from organization" });
     } catch (error) {
       if (error instanceof Error) {
-        if (error.message.includes('Cannot remove')) {
+        if (error.message.includes("Cannot remove")) {
           res.status(403).json({ success: false, error: error.message });
           return;
         }
-        if (error.message.includes('not a member')) {
+        if (error.message.includes("not a member")) {
           res.status(404).json({ success: false, error: error.message });
           return;
         }
@@ -311,7 +324,7 @@ organizationsRouter.delete(
  * Deactivate organization (owner only)
  */
 organizationsRouter.post(
-  '/:organizationId/deactivate',
+  "/:organizationId/deactivate",
   validateRequest({ params: organizationIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -319,17 +332,26 @@ organizationsRouter.post(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ['owner']
+        ["owner"]
       );
 
       if (!hasPermission) {
-        throw new ForbiddenError('Owner role required');
+        throw new ForbiddenError("Owner role required");
       }
 
-      const org = await organizationsService.deactivate(req.params.organizationId);
-      res.json({ success: true, data: org, message: 'Organization deactivated' });
+      const org = await organizationsService.deactivate(
+        req.params.organizationId
+      );
+      res.json({
+        success: true,
+        data: org,
+        message: "Organization deactivated",
+      });
     } catch (error) {
-      if (error instanceof Error && error.message === 'Organization not found') {
+      if (
+        error instanceof Error &&
+        error.message === "Organization not found"
+      ) {
         res.status(404).json({ success: false, error: error.message });
         return;
       }
@@ -343,7 +365,7 @@ organizationsRouter.post(
  * Reactivate organization (owner only)
  */
 organizationsRouter.post(
-  '/:organizationId/reactivate',
+  "/:organizationId/reactivate",
   validateRequest({ params: organizationIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -351,17 +373,26 @@ organizationsRouter.post(
       const hasPermission = await organizationsService.checkUserRole(
         req.user!.id,
         req.params.organizationId,
-        ['owner']
+        ["owner"]
       );
 
       if (!hasPermission) {
-        throw new ForbiddenError('Owner role required');
+        throw new ForbiddenError("Owner role required");
       }
 
-      const org = await organizationsService.reactivate(req.params.organizationId);
-      res.json({ success: true, data: org, message: 'Organization reactivated' });
+      const org = await organizationsService.reactivate(
+        req.params.organizationId
+      );
+      res.json({
+        success: true,
+        data: org,
+        message: "Organization reactivated",
+      });
     } catch (error) {
-      if (error instanceof Error && error.message === 'Organization not found') {
+      if (
+        error instanceof Error &&
+        error.message === "Organization not found"
+      ) {
         res.status(404).json({ success: false, error: error.message });
         return;
       }

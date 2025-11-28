@@ -1,12 +1,12 @@
 // Auth module exports
-export { auth } from './auth.config';
-export { authRouter } from './auth.routes';
+export { auth } from "./auth.config";
 export {
   authenticate,
-  requireRole,
-  requireAuth,
-  requireAgent,
-  requireAdmin,
-  requireOwner,
   optionalAuth,
-} from './auth.middleware';
+  requireAdmin,
+  requireAgent,
+  requireAuth,
+  requireOwner,
+  requireRole,
+} from "./auth.middleware";
+export { authRouter } from "./auth.routes";

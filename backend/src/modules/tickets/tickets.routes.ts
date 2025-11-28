@@ -1,17 +1,22 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
-import { ticketsService } from './tickets.service';
 import {
-  createTicketSchema,
-  updateTicketSchema,
+  Router,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
+import { ForbiddenError } from "../../middleware/error-handler";
+import { validateRequest } from "../../middleware/validate";
+import { authenticate, requireRole } from "../auth/auth.middleware";
+import { messagesRouter } from "../messages";
+import {
   assignTicketSchema,
-  ticketQuerySchema,
+  createTicketSchema,
   ticketIdParamSchema,
+  ticketQuerySchema,
+  updateTicketSchema,
   type TicketQuery,
-} from './tickets.schema';
-import { validateRequest } from '../../middleware/validate';
-import { authenticate, requireRole } from '../auth/auth.middleware';
-import { ForbiddenError } from '../../middleware/error-handler';
-import { messagesRouter } from '../messages';
+} from "./tickets.schema";
+import { ticketsService } from "./tickets.service";
 
 const router = Router();
 
@@ -19,13 +24,13 @@ const router = Router();
 router.use(authenticate);
 
 // Mount messages router as nested routes
-router.use('/:id/messages', messagesRouter);
+router.use("/:id/messages", messagesRouter);
 
 // ─────────────────────────────────────────────────────────────
 // GET /api/tickets - List tickets
 // ─────────────────────────────────────────────────────────────
 router.get(
-  '/',
+  "/",
   validateRequest({ query: ticketQuerySchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -50,12 +55,12 @@ router.get(
 // GET /api/tickets/stats - Get ticket statistics
 // ─────────────────────────────────────────────────────────────
 router.get(
-  '/stats',
-  requireRole('agent', 'admin', 'owner'),
+  "/stats",
+  requireRole("agent", "admin", "owner"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.organizationId) {
-        throw new ForbiddenError('Organization context required');
+        throw new ForbiddenError("Organization context required");
       }
 
       const stats = await ticketsService.getStats(req.organizationId);
@@ -74,7 +79,7 @@ router.get(
 // GET /api/tickets/:id - Get ticket details
 // ─────────────────────────────────────────────────────────────
 router.get(
-  '/:id',
+  "/:id",
   validateRequest({ params: ticketIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -99,12 +104,12 @@ router.get(
 // POST /api/tickets - Create ticket
 // ─────────────────────────────────────────────────────────────
 router.post(
-  '/',
+  "/",
   validateRequest({ body: createTicketSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.organizationId) {
-        throw new ForbiddenError('Organization context required');
+        throw new ForbiddenError("Organization context required");
       }
 
       const ticket = await ticketsService.create(
@@ -127,7 +132,7 @@ router.post(
 // PATCH /api/tickets/:id - Update ticket
 // ─────────────────────────────────────────────────────────────
 router.patch(
-  '/:id',
+  "/:id",
   validateRequest({ params: ticketIdParamSchema, body: updateTicketSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -152,9 +157,9 @@ router.patch(
 // POST /api/tickets/:id/assign - Assign ticket
 // ─────────────────────────────────────────────────────────────
 router.post(
-  '/:id/assign',
+  "/:id/assign",
   validateRequest({ params: ticketIdParamSchema, body: assignTicketSchema }),
-  requireRole('agent', 'admin', 'owner'),
+  requireRole("agent", "admin", "owner"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const ticket = await ticketsService.assign(
@@ -177,7 +182,7 @@ router.post(
 // POST /api/tickets/:id/close - Close ticket
 // ─────────────────────────────────────────────────────────────
 router.post(
-  '/:id/close',
+  "/:id/close",
   validateRequest({ params: ticketIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -201,7 +206,7 @@ router.post(
 // POST /api/tickets/:id/reopen - Reopen ticket
 // ─────────────────────────────────────────────────────────────
 router.post(
-  '/:id/reopen',
+  "/:id/reopen",
   validateRequest({ params: ticketIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
     try {

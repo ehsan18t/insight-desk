@@ -1,20 +1,20 @@
-import { db } from '../../db';
+import { and, asc, eq, sql } from "drizzle-orm";
+import { db } from "../../db";
 import {
+  ticketActivities,
   ticketMessages,
   tickets,
-  ticketActivities,
   type TicketMessage,
-} from '../../db/schema/index';
-import { eq, and, asc, sql } from 'drizzle-orm';
-import { NotFoundError, ForbiddenError } from '../../middleware/error-handler';
-import { createLogger } from '../../lib/logger';
+} from "../../db/schema/index";
+import { createLogger } from "../../lib/logger";
+import { ForbiddenError, NotFoundError } from "../../middleware/error-handler";
 import type {
   CreateMessageInput,
-  UpdateMessageInput,
   MessageQuery,
-} from './messages.schema';
+  UpdateMessageInput,
+} from "./messages.schema";
 
-const logger = createLogger('messages');
+const logger = createLogger("messages");
 
 // ─────────────────────────────────────────────────────────────
 // Messages Service
@@ -33,12 +33,12 @@ export const messagesService = {
     });
 
     if (!ticket) {
-      throw new NotFoundError('Ticket not found');
+      throw new NotFoundError("Ticket not found");
     }
 
     // Internal notes can only be created by agents/admins
-    if (input.type === 'internal_note' && senderRole === 'customer') {
-      throw new ForbiddenError('Customers cannot create internal notes');
+    if (input.type === "internal_note" && senderRole === "customer") {
+      throw new ForbiddenError("Customers cannot create internal notes");
     }
 
     // Create the message
@@ -48,7 +48,7 @@ export const messagesService = {
         ticketId,
         senderId,
         content: input.content,
-        type: input.type || 'reply',
+        type: input.type || "reply",
         attachments: input.attachments || [],
       })
       .returning();
@@ -60,7 +60,7 @@ export const messagesService = {
       .where(eq(tickets.id, ticketId));
 
     // If this is the first agent response, record first response time
-    if (senderRole && ['agent', 'admin', 'owner'].includes(senderRole)) {
+    if (senderRole && ["agent", "admin", "owner"].includes(senderRole)) {
       if (!ticket.firstResponseAt) {
         await db
           .update(tickets)
@@ -73,13 +73,13 @@ export const messagesService = {
     await db.insert(ticketActivities).values({
       ticketId,
       userId: senderId,
-      action: 'message_added',
+      action: "message_added",
       metadata: {
-        messageType: input.type || 'reply',
+        messageType: input.type || "reply",
       },
     });
 
-    logger.info({ ticketId, messageId: message.id }, 'Message created');
+    logger.info({ ticketId, messageId: message.id }, "Message created");
 
     return message;
   },
@@ -97,22 +97,20 @@ export const messagesService = {
     });
 
     if (!ticket) {
-      throw new NotFoundError('Ticket not found');
+      throw new NotFoundError("Ticket not found");
     }
 
     // Customers can only see their own tickets
-    if (userRole === 'customer' && ticket.customerId !== userId) {
-      throw new ForbiddenError('Access denied to this ticket');
+    if (userRole === "customer" && ticket.customerId !== userId) {
+      throw new ForbiddenError("Access denied to this ticket");
     }
 
     // Build conditions
     const conditions = [eq(ticketMessages.ticketId, ticketId)];
 
     // Customers cannot see internal notes
-    if (userRole === 'customer') {
-      conditions.push(
-        sql`${ticketMessages.type} != 'internal_note'`
-      );
+    if (userRole === "customer") {
+      conditions.push(sql`${ticketMessages.type} != 'internal_note'`);
     }
 
     // Filter by type if specified
@@ -161,7 +159,11 @@ export const messagesService = {
     messageId: string,
     userId: string,
     userRole?: string
-  ): Promise<TicketMessage & { sender: { id: string; name: string; avatarUrl: string | null } | null }> {
+  ): Promise<
+    TicketMessage & {
+      sender: { id: string; name: string; avatarUrl: string | null } | null;
+    }
+  > {
     const message = await db.query.ticketMessages.findFirst({
       where: and(
         eq(ticketMessages.id, messageId),
@@ -175,7 +177,7 @@ export const messagesService = {
     });
 
     if (!message) {
-      throw new NotFoundError('Message not found');
+      throw new NotFoundError("Message not found");
     }
 
     // Verify ticket access
@@ -184,17 +186,17 @@ export const messagesService = {
     });
 
     if (!ticket) {
-      throw new NotFoundError('Ticket not found');
+      throw new NotFoundError("Ticket not found");
     }
 
     // Customers can only see their own tickets
-    if (userRole === 'customer' && ticket.customerId !== userId) {
-      throw new ForbiddenError('Access denied to this message');
+    if (userRole === "customer" && ticket.customerId !== userId) {
+      throw new ForbiddenError("Access denied to this message");
     }
 
     // Customers cannot see internal notes
-    if (userRole === 'customer' && message.type === 'internal_note') {
-      throw new ForbiddenError('Access denied to this message');
+    if (userRole === "customer" && message.type === "internal_note") {
+      throw new ForbiddenError("Access denied to this message");
     }
 
     return message;
@@ -215,17 +217,17 @@ export const messagesService = {
     });
 
     if (!message) {
-      throw new NotFoundError('Message not found');
+      throw new NotFoundError("Message not found");
     }
 
     // Only the sender can edit their own message
     if (message.senderId !== userId) {
-      throw new ForbiddenError('You can only edit your own messages');
+      throw new ForbiddenError("You can only edit your own messages");
     }
 
     // System messages cannot be edited
-    if (message.type === 'system') {
-      throw new ForbiddenError('System messages cannot be edited');
+    if (message.type === "system") {
+      throw new ForbiddenError("System messages cannot be edited");
     }
 
     // Update the message
@@ -239,7 +241,7 @@ export const messagesService = {
       .where(eq(ticketMessages.id, messageId))
       .returning();
 
-    logger.info({ ticketId, messageId }, 'Message updated');
+    logger.info({ ticketId, messageId }, "Message updated");
 
     return updated;
   },
@@ -259,23 +261,23 @@ export const messagesService = {
     });
 
     if (!message) {
-      throw new NotFoundError('Message not found');
+      throw new NotFoundError("Message not found");
     }
 
     // Only the sender or admins can delete messages
-    const isAdmin = userRole && ['admin', 'owner'].includes(userRole);
+    const isAdmin = userRole && ["admin", "owner"].includes(userRole);
     if (message.senderId !== userId && !isAdmin) {
-      throw new ForbiddenError('You can only delete your own messages');
+      throw new ForbiddenError("You can only delete your own messages");
     }
 
     // System messages cannot be deleted
-    if (message.type === 'system') {
-      throw new ForbiddenError('System messages cannot be deleted');
+    if (message.type === "system") {
+      throw new ForbiddenError("System messages cannot be deleted");
     }
 
     await db.delete(ticketMessages).where(eq(ticketMessages.id, messageId));
 
-    logger.info({ ticketId, messageId }, 'Message deleted');
+    logger.info({ ticketId, messageId }, "Message deleted");
   },
 
   // Get message count for a ticket

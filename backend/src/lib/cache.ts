@@ -1,15 +1,15 @@
-import Valkey from 'iovalkey';
-import { config } from '../config';
-import { createLogger } from './logger';
+import Valkey from "iovalkey";
+import { config } from "../config";
+import { createLogger } from "./logger";
 
-const logger = createLogger('cache');
+const logger = createLogger("cache");
 
 // Create Valkey client
 export const valkey = new Valkey(config.VALKEY_URL, {
   maxRetriesPerRequest: 3,
   retryStrategy: (times) => {
     if (times > 3) {
-      logger.error('Valkey connection failed after 3 retries');
+      logger.error("Valkey connection failed after 3 retries");
       return null; // Stop retrying
     }
     return Math.min(times * 200, 2000); // Exponential backoff
@@ -17,9 +17,9 @@ export const valkey = new Valkey(config.VALKEY_URL, {
 });
 
 // Event handlers
-valkey.on('connect', () => logger.info('Connected to Valkey'));
-valkey.on('error', (err) => logger.error({ err }, 'Valkey error'));
-valkey.on('close', () => logger.warn('Valkey connection closed'));
+valkey.on("connect", () => logger.info("Connected to Valkey"));
+valkey.on("error", (err) => logger.error({ err }, "Valkey error"));
+valkey.on("close", () => logger.warn("Valkey connection closed"));
 
 // Cache helper functions
 const DEFAULT_TTL = 300; // 5 minutes
@@ -39,7 +39,7 @@ export async function cacheSet<T>(
   value: T,
   ttlSeconds = DEFAULT_TTL
 ): Promise<void> {
-  await valkey.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+  await valkey.set(key, JSON.stringify(value), "EX", ttlSeconds);
 }
 
 export async function cacheDelete(key: string): Promise<void> {
