@@ -677,61 +677,64 @@ export async function setupSocketIO(io: Server) {
 
 ## ⏰ Background Jobs
 
-### pg-boss 10.x
+### BullMQ 5.x
 
-PostgreSQL-based job queue.
+Redis/Valkey-based job queue - fast, reliable, and uses the same infrastructure as caching.
 
 ```typescript
-// backend/src/jobs/index.ts
-import PgBoss from 'pg-boss';
+// src/lib/jobs.ts
+import { Queue, Worker, type Job } from 'bullmq';
+import { config } from '@/config';
 
-export const boss = new PgBoss({
-  connectionString: process.env.DATABASE_URL,
-  retryLimit: 3,
-  retryDelay: 30, // seconds
-  retryBackoff: true,
-  expireInHours: 24,
+// Connection config (reuses Valkey)
+const connectionConfig = {
+  host: 'localhost',
+  port: 6379,
+  maxRetriesPerRequest: null, // Required for workers
+};
+
+// Create typed queues
+const emailQueue = new Queue<EmailJobData>('email', {
+  connection: connectionConfig,
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 1000 },
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 500 },
+  },
 });
 
-// Job handlers
-boss.work('email:send', async (job) => {
-  const { to, subject, html } = job.data;
-  await sendEmail({ to, subject, html });
-});
+// Create workers
+const emailWorker = new Worker<EmailJobData>(
+  'email',
+  async (job: Job<EmailJobData>) => {
+    await sendEmail(job.data);
+  },
+  { connection: connectionConfig, concurrency: 5 }
+);
 
-boss.work('sla:check', async (job) => {
-  const { ticketId } = job.data;
-  await checkSLABreaches(ticketId);
-});
-
-boss.work('ticket:auto-close', async (job) => {
-  const { ticketId } = job.data;
-  await autoCloseTicket(ticketId);
-});
-
-// Schedule recurring jobs
-await boss.schedule('sla:check-all', '*/5 * * * *'); // Every 5 minutes
-
-// Start the boss
-await boss.start();
+// Schedule recurring jobs with upsertJobScheduler
+await scheduledQueue.upsertJobScheduler(
+  'cleanup-sessions',
+  { pattern: '0 * * * *' }, // Every hour
+  { name: 'cleanup-sessions', data: {} }
+);
 ```
 
 ```typescript
 // Using jobs in services
-// backend/src/services/tickets.ts
-import { boss } from '../jobs';
+// src/modules/tickets/tickets.service.ts
+import { scheduleSLACheck, queueEmail } from '@/lib/jobs';
 
 export async function createTicket(data: CreateTicketInput) {
   const ticket = await db.insert(tickets).values(data).returning();
   
-  // Schedule SLA breach check
+  // Schedule delayed SLA check
   const slaDeadline = calculateSLADeadline(ticket.priority);
-  await boss.send('sla:check', { ticketId: ticket.id }, {
-    startAfter: slaDeadline,
-  });
+  await scheduleSLACheck(ticket.id, slaDeadline);
   
   // Send notification email
-  await boss.send('email:send', {
+  await queueEmail({
     to: data.customerEmail,
     subject: `Ticket #${ticket.id} created`,
     html: renderTicketCreatedEmail(ticket),
@@ -888,34 +891,50 @@ test.describe('Ticket Management', () => {
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target node",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "docker:up": "docker compose -f docker-compose.dev.yml up -d",
+    "docker:down": "docker compose -f docker-compose.dev.yml down",
+    "setup": "copy .env.development .env && bun install && bun run docker:up && bun run db:push",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "test": "vitest",
-    "test:coverage": "vitest --coverage"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint src",
+    "format": "biome format --write src",
+    "check": "biome check src",
+    "test": "bun test"
   },
   "dependencies": {
     "express": "^5.1.0",
     "cors": "^2.8.5",
-    "helmet": "^8.0.0",
-    "socket.io": "^4.8.0",
-    "@socket.io/valkey-adapter": "^0.2.0",
-    "valkey": "^9.0.0",
-    "drizzle-orm": "^0.44.0",
-    "postgres": "^3.4.0",
-    "pg-boss": "^10.0.0",
-    "better-auth": "^1.0.0",
-    "zod": "^4.0.0",
-    "resend": "^4.0.0"
+    "helmet": "^8.1.0",
+    "compression": "^1.8.1",
+    "cookie-parser": "^1.4.7",
+    "socket.io": "^4.8.1",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "iovalkey": "^0.3.3",
+    "drizzle-orm": "^0.44.7",
+    "postgres": "^3.4.7",
+    "bullmq": "^5.65.0",
+    "better-auth": "^1.4.3",
+    "zod": "^4.1.13",
+    "nodemailer": "^7.0.11",
+    "pino": "^10.1.0",
+    "pino-pretty": "^13.1.2",
+    "nanoid": "^5.1.6",
+    "date-fns": "^4.1.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.0",
-    "@types/cors": "^2.8.17",
-    "drizzle-kit": "^0.30.0",
-    "vitest": "^4.0.0",
-    "@vitest/coverage-v8": "^4.0.0",
-    "typescript": "^5.9.0"
+    "@biomejs/biome": "^2.3.8",
+    "@types/bun": "^1.3.3",
+    "@types/express": "^5.0.5",
+    "@types/cors": "^2.8.19",
+    "@types/compression": "^1.8.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/nodemailer": "^6.4.21",
+    "drizzle-kit": "^0.31.7",
+    "typescript": "^5.9.3"
   }
 }
 ```

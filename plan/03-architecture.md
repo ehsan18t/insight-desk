@@ -34,7 +34,7 @@ InsightDesk uses a **separated frontend/backend architecture** running in Docker
 │   │  │  │  Routes  │ │Controllers│ │ Services │ │  Socket.IO   │ │  │   │
 │   │  │  └──────────┘ └───────────┘ └──────────┘ └──────────────┘ │  │   │
 │   │  │  ┌──────────┐ ┌──────────┐ ┌──────────┐                   │  │   │
-│   │  │  │ pg-boss  │ │  Auth    │ │Middleware│                   │  │   │
+│   │  │  │ BullMQ   │ │  Auth    │ │Middleware│                   │  │   │
 │   │  │  │  (jobs)  │ │(Better)  │ │(validate)│                   │  │   │
 │   │  │  └──────────┘ └──────────┘ └──────────┘                   │  │   │
 │   │  └───────────────────────────────────────────────────────────┘  │   │
@@ -42,12 +42,13 @@ InsightDesk uses a **separated frontend/backend architecture** running in Docker
 │                             │                      │                    │
 │                             ▼                      ▼                    │
 │  ┌─────────────────────────────────┐  ┌──────────────────────────────┐  │
-│  │      PostgreSQL 18 (:5432)      │  │      Valkey 9.0 (:6379)      │  │
-│  │  ┌───────────┐ ┌─────────────┐  │  │  ┌───────────────────────┐   │  │
-│  │  │ App Data  │ │  pg-boss    │  │  │  │  Socket.IO Adapter    │   │  │
-│  │  │  Tables   │ │   Tables    │  │  │  │  Session Cache        │   │  │
-│  │  └───────────┘ └─────────────┘  │  │  │  Rate Limiting        │   │  │
-│  └─────────────────────────────────┘  │  └───────────────────────┘   │  │
+│  │      PostgreSQL 17 (:5432)      │  │      Valkey 8.0 (:6379)      │  │
+│  │  ┌───────────────────────────┐  │  │  ┌───────────────────────┐   │  │
+│  │  │       App Data Tables     │  │  │  │  Socket.IO Adapter    │   │  │
+│  │  │                           │  │  │  │  BullMQ Job Queues    │   │  │
+│  │  └───────────────────────────┘  │  │  │  Session Cache        │   │  │
+│  └─────────────────────────────────┘  │  │  Rate Limiting        │   │  │
+│                                       │  └───────────────────────┘   │  │
 │                                       └──────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -247,23 +248,18 @@ insight-desk/
 │       │   ├── ticket-handlers.ts
 │       │   └── chat-handlers.ts
 │       │
-│       ├── jobs/                  # pg-boss jobs
-│       │   ├── index.ts           # Job manager
-│       │   ├── email.job.ts
-│       │   ├── sla.job.ts
-│       │   └── cleanup.job.ts
+│       ├── lib/                   # Shared utilities
+│       │   ├── jobs.ts            # BullMQ queues & workers
+│       │   ├── cache.ts           # Valkey client
+│       │   ├── email.ts           # Nodemailer client
+│       │   ├── socket.ts          # Socket.IO instance
+│       │   └── logger.ts          # Pino logging
 │       │
 │       ├── middleware/            # Express middleware
 │       │   ├── auth.ts            # Authentication
 │       │   ├── validate.ts        # Zod validation
 │       │   ├── rate-limit.ts      # Rate limiting
 │       │   └── error-handler.ts   # Global error handler
-│       │
-│       ├── lib/                   # Shared utilities
-│       │   ├── auth.ts            # Better Auth instance
-│       │   ├── cache.ts           # Valkey client
-│       │   ├── email.ts           # Resend client
-│       │   └── logger.ts          # Logging
 │       │
 │       └── types/                 # TypeScript types
 │           ├── express.d.ts       # Express extensions
@@ -1058,7 +1054,7 @@ export const ticketService = {
          │            ┌───────────────┼───────────────┐           │
          │            ▼               ▼               ▼           │
          │     ┌──────────┐   ┌──────────────┐  ┌──────────┐     │
-         │     │ Database │   │  Socket.IO   │  │  pg-boss │     │
+         │     │ Database │   │  Socket.IO   │  │  BullMQ  │     │
          │     │ (Drizzle)│   │   (events)   │  │  (jobs)  │     │
          │     └──────────┘   └──────────────┘  └──────────┘     │
          │                                                        │

@@ -6,7 +6,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
 [![Express](https://img.shields.io/badge/Express-5.1-green)](https://expressjs.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://typescriptlang.org)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18-336791)](https://postgresql.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-336791)](https://postgresql.org)
 
 ---
 
@@ -30,17 +30,17 @@ InsightDesk is a modern, full-featured helpdesk and customer support platform de
 │                                                             │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
 │  │   Frontend   │    │   Backend    │    │    Valkey    │   │
-│  │  Next.js 16  │◄──►│  Express 5.1 │◄──►│    Cache     │   │
+│  │  Next.js 16  │◄──►│  Express 5.1 │◄──►│  Cache/Queue │   │
 │  │   :3000      │    │    :3001     │    │    :6379     │   │
 │  └──────────────┘    └──────┬───────┘    └──────────────┘   │
-│                             │                               │
-│                             │ Socket.IO                     │
-│                             │ pg-boss                       │
-│                             ▼                               │
-│                      ┌──────────────┐                       │
-│                      │  PostgreSQL  │                       │
-│                      │      18      │                       │
-│                      │    :5432     │                       │
+│                             │                    │          │
+│                             │ Socket.IO          │ BullMQ   │
+│                             │ Drizzle ORM        │          │
+│                             ▼                    │          │
+│                      ┌──────────────┐            │          │
+│                      │  PostgreSQL  │◄───────────┘          │
+│                      │      18      │  (BullMQ stores       │
+│                      │    :5432     │   jobs in Valkey)     │
 │                      └──────────────┘                       │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -74,7 +74,7 @@ InsightDesk is a modern, full-featured helpdesk and customer support platform de
 | #   | Document                                   | Description                   |
 | --- | ------------------------------------------ | ----------------------------- |
 | 09  | [Real-time](./09-realtime.md)              | Socket.IO chat & live updates |
-| 10  | [Background Jobs](./10-background-jobs.md) | pg-boss patterns & SLA timers |
+| 10  | [Background Jobs](./10-background-jobs.md) | BullMQ patterns & SLA timers  |
 
 ### Quality & Deployment
 | #   | Document                           | Description                    |
@@ -97,84 +97,81 @@ InsightDesk is a modern, full-featured helpdesk and customer support platform de
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/insight-desk.git
+git clone https://github.com/ehsan18t/insight-desk.git
 cd insight-desk
 
-# Copy environment files
-cp .env.example .env
+# One-command setup (copies env, installs deps, starts Docker, pushes DB)
+bun run setup
+
+# Or manually:
+copy .env.development .env
+bun install
+bun run docker:up
+bun run db:push
 ```
 
-### 2. Start with Docker
+### 2. Development Mode
 
 ```bash
-# Start all services (PostgreSQL, Valkey, Backend, Frontend)
-docker compose up -d
+# Start the backend dev server
+bun run dev
 
-# View logs
-docker compose logs -f
+# View Docker logs if needed
+docker compose -f docker-compose.dev.yml logs -f
 
-# Stop everything
-docker compose down
+# Stop Docker services
+bun run docker:down
 ```
 
 ### 3. Access the Application
 
-| Service     | URL                        | Description             |
-| ----------- | -------------------------- | ----------------------- |
-| Frontend    | http://localhost:3000      | Customer & Agent portal |
-| Backend API | http://localhost:3001      | REST API + Socket.IO    |
-| API Docs    | http://localhost:3001/docs | Swagger documentation   |
-
-### 4. Development Mode
-
-```bash
-# Terminal 1 - Start infrastructure
-docker compose up db valkey -d
-
-# Terminal 2 - Backend with hot reload
-cd backend && bun run dev
-
-# Terminal 3 - Frontend with hot reload
-cd frontend && bun run dev
-```
+| Service     | URL                        | Description               |
+| ----------- | -------------------------- | ------------------------- |
+| Backend API | http://localhost:3001      | REST API + Socket.IO      |
+| API Docs    | http://localhost:3001/docs | Swagger documentation     |
+| MinIO UI    | http://localhost:9001      | File storage (minioadmin) |
+| Mailpit     | http://localhost:8025      | Email testing UI          |
 
 ---
 
 ## 📁 Project Structure
 
+### Backend
 ```
 insight-desk/
-├── docker-compose.yml          # All services orchestration
+├── docker-compose.dev.yml       # Development services (Valkey, PostgreSQL, MinIO, Mailpit)
+├── .env.development             # Development environment template
+├── .env.example                 # Environment documentation
+├── biome.json                   # Biome linter/formatter config
+│
+├── src/                         # Express 5.1 API server
+│   ├── index.ts                 # Entry point
+│   ├── modules/                 # Feature modules (tickets, users, etc.)
+│   ├── lib/                     # Shared utilities
+│   │   ├── jobs.ts              # BullMQ job queues & workers
+│   │   ├── cache.ts             # Valkey connection
+│   │   └── ...
+│   └── db/                      # Drizzle schemas & migrations
+│
+└── plan/                        # This documentation
+```
+
+### Frontend
+```
+insight-desk-frontend/
 ├── .env.example                 # Environment template
 ├── .env                         # Local environment (git ignored)
+├── biome.json                   # Biome linter/formatter config
+├── package.json
+├── next.config.ts
+├── tailwind.config.ts
 │
-├── frontend/                    # Next.js 16 application
-│   ├── package.json
-│   ├── next.config.ts
-│   ├── tailwind.config.ts
-│   └── src/
-│       ├── app/                 # App Router pages
-│       ├── components/          # React components
-│       ├── hooks/               # Custom hooks
-│       ├── lib/                 # Utilities
-│       └── stores/              # Zustand stores
-│
-├── backend/                     # Express 5.1 API server
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── src/
-│       ├── index.ts             # Entry point
-│       ├── routes/              # API routes
-│       ├── controllers/         # Request handlers
-│       ├── services/            # Business logic
-│       ├── socket/              # Socket.IO handlers
-│       ├── jobs/                # pg-boss job definitions
-│       ├── db/                  # Drizzle schemas & migrations
-│       └── middleware/          # Auth, validation, etc.
-│
-├── docs-solo/                   # This documentation
-│
-└── shared/                      # Shared types (optional)
+└── src/
+    ├── app/                 # App Router pages
+    ├── components/          # React components
+    ├── hooks/               # Custom hooks
+    ├── lib/                 # Utilities
+    ├── stores/              # Zustand stores
     └── types/
 ```
 
@@ -211,12 +208,13 @@ insight-desk/
 | Runtime   | Bun                  | Faster than Node, built-in tools   |
 | Frontend  | Next.js 16           | App Router, RSC, great DX          |
 | Backend   | Express 5.1          | Mature, separate from frontend     |
-| Database  | PostgreSQL 18        | Rock solid, handles everything     |
+| Database  | PostgreSQL 17        | Rock solid, handles everything     |
 | ORM       | Drizzle              | Type-safe, fast, SQL-like          |
-| Jobs      | pg-boss              | Uses PostgreSQL, no extra infra    |
-| Cache     | Valkey               | Socket.IO adapter, rate limiting   |
+| Jobs      | BullMQ               | Fast Redis-based queues            |
+| Cache     | Valkey               | Socket.IO adapter, BullMQ backend  |
 | Real-time | Socket.IO            | Full-duplex, room support          |
 | Auth      | Better Auth          | Simple, secure, batteries included |
+| Linting   | Biome                | Fast, unified linter + formatter   |
 | Styling   | Tailwind + shadcn/ui | Fast development, accessible       |
 
 ---

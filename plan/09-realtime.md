@@ -1190,7 +1190,7 @@ export function OnlineIndicator({
 
 ## Next Steps
 
-- **10-background-jobs.md** - pg-boss for async tasks
+- **10-background-jobs.md** - BullMQ for async tasks
 - **11-testing.md** - Testing real-time features
 
 ---

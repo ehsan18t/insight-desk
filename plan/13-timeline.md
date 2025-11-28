@@ -1094,52 +1094,48 @@ export function useTypingEmitter(ticketId: string) {
 
 ### Week 7: Background Jobs & SLA
 
-#### Day 1-3: pg-boss Setup
+#### Day 1-3: BullMQ Setup
 
 ```typescript
 // apps/api/src/lib/jobs.ts
-import PgBoss from 'pg-boss';
-import { db } from './db';
+import { Queue, Worker, Job } from 'bullmq';
+import { connection } from './cache';
 
-let boss: PgBoss;
+// Create queues
+export const emailQueue = new Queue('email', { connection });
+export const slaQueue = new Queue('sla-check', { connection });
+export const ticketQueue = new Queue('ticket-actions', { connection });
+export const reportQueue = new Queue('reports', { connection });
 
 export async function initializeJobs() {
-  boss = new PgBoss({
-    db: {
-      host: process.env.DB_HOST,
-      database: process.env.DB_NAME,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-    },
-    retryLimit: 3,
-    retryDelay: 60,
-    retryBackoff: true,
-  });
+  // Email worker
+  const emailWorker = new Worker('email', async (job: Job) => {
+    await emailHandler(job.data);
+  }, { connection, concurrency: 5 });
 
-  await boss.start();
+  // SLA check worker
+  const slaWorker = new Worker('sla-check', async (job: Job) => {
+    await slaCheckHandler(job.data);
+  }, { connection, concurrency: 3 });
 
-  // Register handlers
-  await boss.work('email:send', emailHandler);
-  await boss.work('ticket:sla-check', slaCheckHandler);
-  await boss.work('ticket:auto-close', autoCloseHandler);
-  await boss.work('report:daily', dailyReportHandler);
+  // Ticket actions worker
+  const ticketWorker = new Worker('ticket-actions', async (job: Job) => {
+    await autoCloseHandler(job.data);
+  }, { connection });
 
   // Schedule recurring jobs
-  await boss.schedule('ticket:sla-check', '*/5 * * * *'); // Every 5 min
-  await boss.schedule('ticket:auto-close', '0 * * * *');  // Every hour
-  await boss.schedule('report:daily', '0 9 * * *');       // 9 AM daily
+  await slaQueue.upsertJobScheduler('sla-scan', { pattern: '*/5 * * * *' }, { name: 'scan' });
+  await ticketQueue.upsertJobScheduler('auto-close', { pattern: '0 * * * *' }, { name: 'auto-close' });
+  await reportQueue.upsertJobScheduler('daily-report', { pattern: '0 9 * * *' }, { name: 'daily' });
 
-  console.log('pg-boss started and jobs registered');
-  return boss;
-}
+  console.log('BullMQ started and jobs registered');
 
-export function getJobQueue() {
-  return boss;
+  return { emailQueue, slaQueue, ticketQueue, reportQueue };
 }
 ```
 
 **Checklist:**
-- [ ] pg-boss connected
+- [ ] BullMQ connected to Valkey
 - [ ] Email job handler
 - [ ] SLA check job
 - [ ] Auto-close job
@@ -1159,8 +1155,8 @@ interface EmailJob {
   data: Record<string, unknown>;
 }
 
-export async function emailHandler(job: PgBoss.Job<EmailJob>) {
-  const { to, template, data } = job.data;
+export async function emailHandler(jobData: EmailJob) {
+  const { to, template, data } = jobData;
 
   const templates = {
     'ticket-created': {

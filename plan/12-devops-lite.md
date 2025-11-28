@@ -28,8 +28,7 @@
 # Optional but recommended
 - VS Code with extensions:
   - Docker
-  - ESLint
-  - Prettier
+  - Biome
   - Tailwind CSS IntelliSense
 ```
 
@@ -40,19 +39,16 @@
 git clone https://github.com/your-username/insight-desk.git
 cd insight-desk
 
-# Install dependencies
+# One-command setup (copies env, installs deps, starts Docker, pushes DB)
+bun run setup
+
+# Or manually:
+copy .env.development .env
 bun install
+bun run docker:up
+bun run db:push
 
-# Start infrastructure
-docker-compose up -d
-
-# Run migrations
-bun run db:migrate
-
-# Seed development data
-bun run db:seed
-
-# Start development servers
+# Start development server
 bun run dev
 ```
 
@@ -63,57 +59,81 @@ bun run dev
 ### Development Compose
 
 ```yaml
-# docker-compose.yml
+# docker-compose.dev.yml
 services:
-  postgres:
-    image: postgres:18
-    container_name: insightdesk-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-insightdesk}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-development}
-      POSTGRES_DB: ${POSTGRES_DB:-insightdesk}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-insightdesk}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   valkey:
-    image: valkey/valkey:9.0
+    image: valkey/valkey:8-alpine
     container_name: insightdesk-valkey
-    restart: unless-stopped
-    command: valkey-server --appendonly yes
+    ports:
+      - "6379:6379"
     volumes:
       - valkey_data:/data
-    ports:
-      - "${VALKEY_PORT:-6379}:6379"
+    command: valkey-server --appendonly yes
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  mailpit:
-    image: axllent/mailpit
-    container_name: insightdesk-mailpit
     restart: unless-stopped
+
+  postgresql:
+    image: postgres:17-alpine
+    container_name: insightdesk-postgres
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI
+      - "5432:5432"
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
     environment:
-      MP_SMTP_AUTH_ACCEPT_ANY: 1
-      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+      POSTGRES_USER: insightdesk
+      POSTGRES_PASSWORD: insightdesk_dev
+      POSTGRES_DB: insightdesk
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U insightdesk -d insightdesk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # MinIO for S3-compatible file storage
+  minio:
+    image: minio/minio:latest
+    container_name: insightdesk-minio
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+
+  # Mailpit for email testing (catches all emails)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: insightdesk-mailpit
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
   valkey_data:
+  postgresql_data:
+  minio_data:
 ```
+
+### Development Services
+
+| Service    | Port      | URL / Access                                                      |
+| ---------- | --------- | ----------------------------------------------------------------- |
+| API        | 3001      | http://localhost:3001                                             |
+| PostgreSQL | 5432      | postgres://insightdesk:insightdesk_dev@localhost:5432/insightdesk |
+| Valkey     | 6379      | redis://localhost:6379                                            |
+| MinIO API  | 9000      | http://localhost:9000                                             |
+| MinIO UI   | 9001      | http://localhost:9001 (minioadmin/minioadmin)                     |
+| Mailpit    | 8025/1025 | http://localhost:8025 (Web UI)                                    |
 
 ### Production Compose
 
@@ -168,7 +188,7 @@ services:
       - "traefik.http.services.web.loadbalancer.server.port=3000"
 
   postgres:
-    image: postgres:18
+    image: postgres:17-alpine
     container_name: insightdesk-postgres
     restart: unless-stopped
     environment:
@@ -186,7 +206,7 @@ services:
       retries: 5
 
   valkey:
-    image: valkey/valkey:9.0
+    image: valkey/valkey:8-alpine
     container_name: insightdesk-valkey
     restart: unless-stopped
     command: valkey-server --appendonly yes --requirepass ${VALKEY_PASSWORD}
@@ -670,28 +690,40 @@ docker start insightdesk-api
 echo "Restore complete!"
 ```
 
-### pg-boss Job for Backups
+### BullMQ Job for Backups
 
 ```ts
 // apps/api/src/lib/jobs/workers/backup.ts
-import PgBoss from "pg-boss";
+import { Queue, Worker } from "bullmq";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { createReadStream } from "fs";
+import { connection } from "@/lib/cache";
 
 const execAsync = promisify(exec);
 
-export const backupWorker = {
-  async register(boss: PgBoss) {
-    // Schedule daily backup at 3 AM UTC
-    await boss.schedule("database-backup", "0 3 * * *", {});
+// Create backup queue
+const backupQueue = new Queue("database-backup", { connection });
 
-    await boss.work("database-backup", async () => {
-      await createBackup();
-    });
+// Register scheduled backup job
+export async function initBackupScheduler() {
+  // Schedule daily backup at 3 AM UTC
+  await backupQueue.upsertJobScheduler(
+    "daily-backup",
+    { pattern: "0 3 * * *" },
+    { name: "backup" }
+  );
+}
+
+// Backup worker
+export const backupWorker = new Worker(
+  "database-backup",
+  async () => {
+    await createBackup();
   },
-};
+  { connection }
+);
 
 async function createBackup() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -737,7 +769,7 @@ async function createBackup() {
 // apps/api/src/routes/health.ts
 import { Router } from "express";
 import { db } from "@/db";
-import { getBoss } from "@/lib/jobs/boss";
+import { getQueues } from "@/lib/jobs";
 import { getValkey } from "@/lib/valkey";
 
 const router = Router();
@@ -765,9 +797,8 @@ router.get("/health/ready", async (req, res) => {
     await valkey.ping();
     checks.valkey = true;
 
-    // Check job queue
-    const boss = getBoss();
-    checks.jobs = boss.isConnected;
+    // Check job queue (BullMQ uses Valkey, so if Valkey is up, jobs are ready)
+    checks.jobs = checks.valkey;
 
     const allHealthy = Object.values(checks).every(Boolean);
 
@@ -788,19 +819,23 @@ router.get("/health/ready", async (req, res) => {
 
 // Metrics endpoint (Prometheus format)
 router.get("/metrics", async (req, res) => {
-  const boss = getBoss();
+  const { emailQueue, slaQueue } = getQueues();
 
   // Get job queue metrics
-  const [emailQueue, slaQueue] = await Promise.all([
-    boss.getQueueSize("email"),
-    boss.getQueueSize("sla-check"),
+  const [emailCounts, slaCounts] = await Promise.all([
+    emailQueue.getJobCounts(),
+    slaQueue.getJobCounts(),
   ]);
 
   const metrics = `
 # HELP insightdesk_job_queue_size Number of jobs in queue
 # TYPE insightdesk_job_queue_size gauge
-insightdesk_job_queue_size{queue="email"} ${emailQueue}
-insightdesk_job_queue_size{queue="sla-check"} ${slaQueue}
+insightdesk_job_queue_size{queue="email",status="waiting"} ${emailCounts.waiting}
+insightdesk_job_queue_size{queue="email",status="active"} ${emailCounts.active}
+insightdesk_job_queue_size{queue="email",status="failed"} ${emailCounts.failed}
+insightdesk_job_queue_size{queue="sla-check",status="waiting"} ${slaCounts.waiting}
+insightdesk_job_queue_size{queue="sla-check",status="active"} ${slaCounts.active}
+insightdesk_job_queue_size{queue="sla-check",status="failed"} ${slaCounts.failed}
 
 # HELP insightdesk_uptime_seconds Application uptime in seconds
 # TYPE insightdesk_uptime_seconds counter
@@ -1045,42 +1080,53 @@ fi
 
 ```ts
 // apps/api/src/lib/jobs/workers/maintenance.ts
-import PgBoss from "pg-boss";
+import { Queue, Worker } from "bullmq";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
+import { connection } from "@/lib/cache";
 
-export const maintenanceWorker = {
-  async register(boss: PgBoss) {
-    // Run weekly on Sunday at 4 AM
-    await boss.schedule("database-maintenance", "0 4 * * 0", {});
+// Create maintenance queue
+const maintenanceQueue = new Queue("database-maintenance", { connection });
 
-    await boss.work("database-maintenance", async () => {
-      console.log("Running database maintenance...");
+// Schedule weekly maintenance on Sunday at 4 AM
+export async function initMaintenanceScheduler() {
+  await maintenanceQueue.upsertJobScheduler(
+    "weekly-maintenance",
+    { pattern: "0 4 * * 0" },
+    { name: "maintenance" }
+  );
+}
 
-      // Vacuum and analyze
-      await db.execute(sql`VACUUM ANALYZE`);
+// Maintenance worker
+export const maintenanceWorker = new Worker(
+  "database-maintenance",
+  async () => {
+    console.log("Running database maintenance...");
 
-      // Archive old tickets (> 1 year)
-      const oneYearAgo = new Date();
-      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    // Vacuum and analyze
+    await db.execute(sql`VACUUM ANALYZE`);
 
-      await db.execute(sql`
-        INSERT INTO archived_tickets
-        SELECT * FROM tickets
-        WHERE status = 'closed'
-        AND closed_at < ${oneYearAgo}
-      `);
+    // Archive old tickets (> 1 year)
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-      await db.execute(sql`
-        DELETE FROM tickets
-        WHERE status = 'closed'
-        AND closed_at < ${oneYearAgo}
-      `);
+    await db.execute(sql`
+      INSERT INTO archived_tickets
+      SELECT * FROM tickets
+      WHERE status = 'closed'
+      AND closed_at < ${oneYearAgo}
+    `);
 
-      console.log("Maintenance complete!");
-    });
+    await db.execute(sql`
+      DELETE FROM tickets
+      WHERE status = 'closed'
+      AND closed_at < ${oneYearAgo}
+    `);
+
+    console.log("Maintenance complete!");
   },
-};
+  { connection }
+);
 ```
 
 ---

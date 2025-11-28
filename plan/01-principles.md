@@ -35,8 +35,8 @@ const elastic = new Elastic();    // Search
 // ✅ DO: PostgreSQL handles almost everything
 const db = drizzle(postgres(DATABASE_URL));
 
-// Caching → PostgreSQL with smart queries + Valkey for hot data
-// Queues → pg-boss (uses PostgreSQL)
+// Caching → Valkey for hot data
+// Queues → BullMQ (uses Valkey)
 // Documents → JSONB columns
 // Search → PostgreSQL full-text search (to start)
 ```
@@ -319,17 +319,17 @@ Question: How should I handle background jobs?
 
 Options:
 A) Kubernetes CronJobs + Redis + Celery
-B) BullMQ + Redis
+B) BullMQ + Valkey (Redis-compatible)
 C) pg-boss (uses PostgreSQL)
 D) setTimeout in Node.js
 
 Analysis:
 - A: Way too complex for solo dev
-- B: Adds Redis as hard dependency
-- C: Uses existing PostgreSQL ✓
+- B: Fast, reliable, already have Valkey for caching ✓
+- C: Uses PostgreSQL (but adds load to DB)
 - D: Too simple, no persistence
 
-Decision: C - pg-boss (already have PostgreSQL)
+Decision: B - BullMQ (already have Valkey for caching)
 ```
 
 ### 3. Will I Understand This in 6 Months?

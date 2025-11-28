@@ -1,11 +1,11 @@
 # Background Jobs
 
-> pg-boss patterns for async task processing
+> BullMQ patterns for async task processing with Valkey/Redis
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [pg-boss Setup](#pg-boss-setup)
+2. [BullMQ Setup](#bullmq-setup)
 3. [Job Definitions](#job-definitions)
 4. [Email Jobs](#email-jobs)
 5. [SLA Monitoring](#sla-monitoring)
@@ -17,16 +17,23 @@
 
 ## Overview
 
-### Why pg-boss?
+### Why BullMQ?
 
-| Feature         | pg-boss                 | BullMQ           |
-| --------------- | ----------------------- | ---------------- |
-| Infrastructure  | Uses PostgreSQL         | Requires Redis   |
-| ACID compliance | ✅ Yes                   | ❌ No             |
-| Scheduling      | ✅ Built-in              | ✅ Built-in       |
-| Retries         | ✅ Configurable          | ✅ Configurable   |
-| Priorities      | ✅ Yes                   | ✅ Yes            |
-| Maintenance     | None (uses existing DB) | Redis management |
+| Feature        | BullMQ                 | pg-boss         |
+| -------------- | ---------------------- | --------------- |
+| Infrastructure | Uses Redis/Valkey      | Uses PostgreSQL |
+| Performance    | ⚡ Very fast            | Slower (SQL)    |
+| Scheduling     | ✅ Built-in             | ✅ Built-in      |
+| Retries        | ✅ Exponential backoff  | ✅ Configurable  |
+| Priorities     | ✅ Yes                  | ✅ Yes           |
+| Concurrency    | ✅ Per-worker control   | Limited         |
+| DB Load        | None (separate system) | Adds to DB load |
+
+**Why we chose BullMQ:** Since we're already using Valkey for caching and Socket.IO, using it for job queues too means:
+- No additional load on PostgreSQL
+- Faster job processing
+- Better separation of concerns
+- Unified Redis/Valkey infrastructure
 
 ### Common Job Types for MVP
 
@@ -45,150 +52,218 @@
 │                    Express API Server                           │
 │                                                                 │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐        │
-│  │  Enqueue    │    │   Workers   │    │  Scheduled  │        │
-│  │    Jobs     │    │  (Process)  │    │    Jobs     │        │
+│  │  Enqueue    │    │   Workers   │    │ Schedulers  │        │
+│  │    Jobs     │    │  (Process)  │    │  (Cron)     │        │
 │  └──────┬──────┘    └──────▲──────┘    └──────┬──────┘        │
 │         │                  │                   │               │
 │         ▼                  │                   ▼               │
 │  ┌─────────────────────────┴───────────────────────────┐      │
-│  │                    pg-boss                          │      │
-│  │            (Job Queue in PostgreSQL)                │      │
+│  │                     BullMQ                          │      │
+│  │              (Queues + Workers)                     │      │
 │  └─────────────────────────┬───────────────────────────┘      │
 │                            │                                   │
 └────────────────────────────┼───────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                       PostgreSQL                                │
+│                    Valkey (Redis-compatible)                    │
 │                                                                 │
-│  pgboss.job  │  pgboss.schedule  │  pgboss.archive             │
+│  bull:email:*  │  bull:notifications:*  │  bull:scheduled:*    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## pg-boss Setup
+## BullMQ Setup
 
 ### Installation
 
 ```bash
-bun add pg-boss
+bun add bullmq
 ```
 
 ### Configuration
 
 ```ts
-// apps/api/src/lib/jobs/boss.ts
-import PgBoss from "pg-boss";
+// src/lib/jobs.ts
+import { Queue, Worker, type Job } from "bullmq";
+import { config } from "@/config";
 
-let boss: PgBoss;
-
-export async function initializeJobQueue(): Promise<PgBoss> {
-  boss = new PgBoss({
-    connectionString: process.env.DATABASE_URL,
-
-    // Schema for pg-boss tables
-    schema: "pgboss",
-
-    // How long to keep completed jobs (for debugging)
-    archiveCompletedAfterSeconds: 60 * 60 * 24 * 7, // 7 days
-
-    // How long to keep failed jobs
-    archiveFailedAfterSeconds: 60 * 60 * 24 * 30, // 30 days
-
-    // Retry configuration
-    retryLimit: 3,
-    retryDelay: 30, // 30 seconds between retries
-    retryBackoff: true, // Exponential backoff
-
-    // Maintenance
-    deleteAfterSeconds: 60 * 60 * 24 * 14, // Delete archived after 14 days
-    maintenanceIntervalSeconds: 60 * 5, // Run maintenance every 5 minutes
-
-    // Monitoring
-    monitorStateIntervalSeconds: 30,
-  });
-
-  // Error handling
-  boss.on("error", (error) => {
-    console.error("pg-boss error:", error);
-  });
-
-  boss.on("monitor-states", (states) => {
-    console.log("Job queue states:", states);
-  });
-
-  await boss.start();
-
-  console.log("pg-boss started");
-
-  return boss;
+// Parse Valkey URL for connection
+function parseValkeyUrl(url: string) {
+  const parsed = new URL(url);
+  return {
+    host: parsed.hostname || "localhost",
+    port: Number.parseInt(parsed.port, 10) || 6379,
+    password: parsed.password || undefined,
+  };
 }
 
-export function getBoss(): PgBoss {
-  if (!boss) {
-    throw new Error("pg-boss not initialized");
-  }
-  return boss;
+const connectionConfig = {
+  ...parseValkeyUrl(config.VALKEY_URL),
+  maxRetriesPerRequest: null, // Required for BullMQ workers
+};
+
+// Job data types
+export interface EmailJobData {
+  to: string;
+  subject: string;
+  html: string;
 }
 
-export async function stopJobQueue(): Promise<void> {
-  if (boss) {
-    await boss.stop();
-    console.log("pg-boss stopped");
-  }
+export interface TicketNotificationJobData {
+  ticketId: string;
+  action: "created" | "assigned" | "updated" | "message_added" | "resolved" | "closed";
+  actorId: string;
+  recipientIds: string[];
+}
+
+export interface SLACheckJobData {
+  ticketId: string;
+  slaDeadline: string;
+}
+
+// Queue names
+export const QueueNames = {
+  EMAIL: "email",
+  TICKET_NOTIFICATION: "ticket-notification",
+  SLA_CHECK: "sla-check",
+  SLA_BREACHED: "sla-breached",
+  SCHEDULED: "scheduled",
+} as const;
+
+// Queues (initialized on startup)
+let emailQueue: Queue<EmailJobData>;
+let ticketNotificationQueue: Queue<TicketNotificationJobData>;
+let slaCheckQueue: Queue<SLACheckJobData>;
+let scheduledQueue: Queue;
+
+// Workers
+let emailWorker: Worker<EmailJobData>;
+let ticketNotificationWorker: Worker<TicketNotificationJobData>;
+let slaCheckWorker: Worker<SLACheckJobData>;
+let scheduledWorker: Worker;
+```
+
+### Initialize Queues & Workers
+
+```ts
+export async function initializeJobQueue(): Promise<void> {
+  // Create queues with default options
+  emailQueue = new Queue<EmailJobData>(QueueNames.EMAIL, {
+    connection: connectionConfig,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 1000 },
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 500 },
+    },
+  });
+
+  ticketNotificationQueue = new Queue<TicketNotificationJobData>(
+    QueueNames.TICKET_NOTIFICATION,
+    {
+      connection: connectionConfig,
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: { type: "exponential", delay: 500 },
+        removeOnComplete: { count: 100 },
+      },
+    }
+  );
+
+  slaCheckQueue = new Queue<SLACheckJobData>(QueueNames.SLA_CHECK, {
+    connection: connectionConfig,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: "fixed", delay: 5000 },
+    },
+  });
+
+  scheduledQueue = new Queue(QueueNames.SCHEDULED, {
+    connection: connectionConfig,
+  });
+
+  // Create workers
+  await createWorkers();
+
+  // Schedule recurring jobs
+  await scheduleRecurringJobs();
+
+  console.log("BullMQ job queue initialized");
 }
 ```
 
-### Starting Workers
+### Creating Workers
 
 ```ts
-// apps/api/src/lib/jobs/workers.ts
-import { getBoss } from "./boss";
-import { emailWorker } from "./workers/email";
-import { slaWorker } from "./workers/sla";
-import { ticketWorker } from "./workers/ticket";
-import { reportWorker } from "./workers/report";
+async function createWorkers(): Promise<void> {
+  // Email worker with concurrency
+  emailWorker = new Worker<EmailJobData>(
+    QueueNames.EMAIL,
+    async (job: Job<EmailJobData>) => {
+      console.log(`Processing email job ${job.id}`);
+      await sendEmail(job.data);
+    },
+    {
+      connection: connectionConfig,
+      concurrency: 5, // Process 5 emails at once
+    }
+  );
 
-export async function startWorkers(): Promise<void> {
-  const boss = getBoss();
+  emailWorker.on("completed", (job) => {
+    console.log(`Email job ${job.id} completed`);
+  });
 
-  // Register all workers
-  await Promise.all([
-    emailWorker.register(boss),
-    slaWorker.register(boss),
-    ticketWorker.register(boss),
-    reportWorker.register(boss),
-  ]);
+  emailWorker.on("failed", (job, err) => {
+    console.error(`Email job ${job?.id} failed:`, err);
+  });
 
-  console.log("All workers registered");
+  // Ticket notification worker
+  ticketNotificationWorker = new Worker<TicketNotificationJobData>(
+    QueueNames.TICKET_NOTIFICATION,
+    async (job) => {
+      const { ticketId, action, recipientIds } = job.data;
+      // Send notifications via Socket.IO
+      for (const userId of recipientIds) {
+        sendNotification({ type: "notification", userId, data: { ticketId, action } });
+      }
+    },
+    { connection: connectionConfig, concurrency: 5 }
+  );
+
+  // SLA check worker
+  slaCheckWorker = new Worker<SLACheckJobData>(
+    QueueNames.SLA_CHECK,
+    async (job) => {
+      const { ticketId, slaDeadline } = job.data;
+      const now = new Date();
+      if (now > new Date(slaDeadline)) {
+        await db.update(tickets).set({ slaBreached: true }).where(eq(tickets.id, ticketId));
+        // Queue breach notification
+        await queueSLABreached({ ticketId, organizationId: ticket.organizationId });
+      }
+    },
+    { connection: connectionConfig, concurrency: 3 }
+  );
 }
 ```
 
 ### Express Integration
 
 ```ts
-// apps/api/src/index.ts
+// src/index.ts
 import express from "express";
-import { initializeJobQueue, stopJobQueue } from "@/lib/jobs/boss";
-import { startWorkers } from "@/lib/jobs/workers";
-import { scheduleRecurringJobs } from "@/lib/jobs/schedules";
+import { initializeJobQueue, stopJobQueue } from "@/lib/jobs";
 
 const app = express();
 
-// Initialize job queue and workers
 async function bootstrap() {
-  // Start pg-boss
+  // Initialize BullMQ
   await initializeJobQueue();
 
-  // Register workers
-  await startWorkers();
-
-  // Schedule recurring jobs
-  await scheduleRecurringJobs();
-
   // Start Express server
-  const PORT = process.env.PORT || 4000;
+  const PORT = process.env.PORT || 3001;
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
@@ -300,59 +375,57 @@ export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 
 ```ts
 // apps/api/src/lib/jobs/workers/email.ts
-import PgBoss from "pg-boss";
+import { Worker, Job } from "bullmq";
+import { connection } from "@/lib/cache";
 import { QUEUES } from "../queues";
 import { sendEmail } from "@/lib/email";
 import type { SendEmailJob, WelcomeEmailJob, TicketNotificationJob } from "../types";
 
-export const emailWorker = {
-  async register(boss: PgBoss): Promise<void> {
-    // Generic email sending
-    await boss.work<SendEmailJob>(
-      QUEUES.EMAIL,
-      { teamSize: 5, teamConcurrency: 2 },
-      async (job) => {
-        console.log(`Processing email job: ${job.id}`);
+// Generic email worker
+export const emailWorker = new Worker<SendEmailJob>(
+  QUEUES.EMAIL,
+  async (job: Job<SendEmailJob>) => {
+    console.log(`Processing email job: ${job.id}`);
 
-        await sendEmail({
-          to: job.data.to,
-          subject: job.data.subject,
-          template: job.data.template,
-          data: job.data.data,
-        });
+    await sendEmail({
+      to: job.data.to,
+      subject: job.data.subject,
+      template: job.data.template,
+      data: job.data.data,
+    });
 
-        console.log(`Email sent to ${job.data.to}`);
-      }
-    );
-
-    // Welcome email (specific handler)
-    await boss.work<WelcomeEmailJob>(
-      `${QUEUES.EMAIL}-welcome`,
-      async (job) => {
-        await sendEmail({
-          to: job.data.email,
-          subject: "Welcome to InsightDesk!",
-          template: "welcome",
-          data: {
-            name: job.data.name,
-            userId: job.data.userId,
-          },
-        });
-      }
-    );
-
-    // Ticket notifications
-    await boss.work<TicketNotificationJob>(
-      `${QUEUES.EMAIL}-ticket-notification`,
-      { teamSize: 10, teamConcurrency: 5 },
-      async (job) => {
-        await handleTicketNotification(job.data);
-      }
-    );
-
-    console.log("Email workers registered");
+    console.log(`Email sent to ${job.data.to}`);
   },
-};
+  { connection, concurrency: 5 }
+);
+
+// Welcome email worker
+export const welcomeEmailWorker = new Worker<WelcomeEmailJob>(
+  `${QUEUES.EMAIL}-welcome`,
+  async (job: Job<WelcomeEmailJob>) => {
+    await sendEmail({
+      to: job.data.email,
+      subject: "Welcome to InsightDesk!",
+      template: "welcome",
+      data: {
+        name: job.data.name,
+        userId: job.data.userId,
+      },
+    });
+  },
+  { connection }
+);
+
+// Ticket notification worker
+export const ticketNotificationWorker = new Worker<TicketNotificationJob>(
+  `${QUEUES.EMAIL}-ticket-notification`,
+  async (job: Job<TicketNotificationJob>) => {
+    await handleTicketNotification(job.data);
+  },
+  { connection, concurrency: 10 }
+);
+
+console.log("Email workers registered");
 
 async function handleTicketNotification(data: TicketNotificationJob) {
   // Fetch ticket and recipient details
@@ -489,39 +562,47 @@ export async function sendEmail(options: SendEmailOptions) {
 
 ```ts
 // apps/api/src/lib/jobs/workers/sla.ts
-import PgBoss from "pg-boss";
+import { Queue, Worker, Job } from "bullmq";
+import { connection } from "@/lib/cache";
 import { QUEUES } from "../queues";
 import { db } from "@/db";
 import { tickets, slaConfigs, slaBreaches } from "@/db/schema";
 import { eq, and, lt, isNull } from "drizzle-orm";
 import type { SlaCheckJob, SlaBreach } from "../types";
 
-export const slaWorker = {
-  async register(boss: PgBoss): Promise<void> {
-    // Process SLA checks
-    await boss.work<SlaCheckJob>(
-      QUEUES.SLA_CHECK,
-      { teamSize: 5 },
-      async (job) => {
-        await checkTicketSla(job.data);
-      }
-    );
+// Create SLA queue
+const slaQueue = new Queue(QUEUES.SLA_CHECK, { connection });
 
-    // Schedule recurring SLA check (every 5 minutes)
-    await boss.schedule(
-      `${QUEUES.SLA_CHECK}-scan`,
-      "*/5 * * * *", // Every 5 minutes
-      {}
-    );
-
-    // Worker for scheduled scan
-    await boss.work(`${QUEUES.SLA_CHECK}-scan`, async () => {
-      await scanAllTicketsForSlaBreaches();
-    });
-
-    console.log("SLA workers registered");
+// SLA check worker
+export const slaWorker = new Worker<SlaCheckJob>(
+  QUEUES.SLA_CHECK,
+  async (job: Job<SlaCheckJob>) => {
+    await checkTicketSla(job.data);
   },
-};
+  { connection, concurrency: 5 }
+);
+
+// Schedule recurring SLA check (every 5 minutes)
+export async function initSlaScheduler() {
+  await slaQueue.upsertJobScheduler(
+    "sla-scan",
+    { pattern: "*/5 * * * *" },
+    { name: "scan" }
+  );
+}
+
+// Scan worker for scheduled checks
+export const slaScanWorker = new Worker(
+  QUEUES.SLA_CHECK,
+  async (job: Job) => {
+    if (job.name === "scan") {
+      await scanAllTicketsForSlaBreaches();
+    }
+  },
+  { connection }
+);
+
+console.log("SLA workers registered");
 
 async function checkTicketSla(data: SlaCheckJob) {
   const ticket = await db.query.tickets.findFirst({
@@ -609,8 +690,7 @@ async function scanAllTicketsForSlaBreaches() {
   for (const ticket of atRiskTickets) {
     if (ticket.slaConfig) {
       // Enqueue individual SLA check
-      const boss = getBoss();
-      await boss.send(QUEUES.SLA_CHECK, {
+      await slaQueue.add("check", {
         ticketId: ticket.id,
         checkType: "first_response",
       });
@@ -770,7 +850,8 @@ export async function scheduleRecurringJobs(): Promise<void> {
 
 ```ts
 // apps/api/src/lib/jobs/workers/ticket.ts
-import PgBoss from "pg-boss";
+import { Queue, Worker, Job } from "bullmq";
+import { connection } from "@/lib/cache";
 import { QUEUES } from "../queues";
 import { db } from "@/db";
 import { tickets } from "@/db/schema";
@@ -778,29 +859,32 @@ import { eq, and, lt } from "drizzle-orm";
 
 const AUTO_CLOSE_DAYS = 7; // Close resolved tickets after 7 days
 
-export const ticketWorker = {
-  async register(boss: PgBoss): Promise<void> {
-    // Handle scheduled auto-close
-    await boss.work(
-      QUEUES.TICKET_ACTIONS,
-      async (job) => {
-        if (job.data.action === "auto-close") {
-          await autoCloseResolvedTickets();
-        }
-      }
-    );
+// Create ticket actions queue
+const ticketQueue = new Queue(QUEUES.TICKET_ACTIONS, { connection });
 
-    // Handle individual ticket auto-close
-    await boss.work<AutoCloseTicketJob>(
-      `${QUEUES.TICKET_ACTIONS}-auto-close`,
-      async (job) => {
-        await closeTicket(job.data.ticketId, job.data.reason);
-      }
-    );
-
-    console.log("Ticket workers registered");
+// Ticket actions worker
+export const ticketWorker = new Worker(
+  QUEUES.TICKET_ACTIONS,
+  async (job: Job) => {
+    if (job.name === "auto-close-scan") {
+      await autoCloseResolvedTickets();
+    } else if (job.name === "auto-close") {
+      await closeTicket(job.data.ticketId, job.data.reason);
+    }
   },
-};
+  { connection }
+);
+
+// Schedule daily auto-close scan
+export async function initTicketScheduler() {
+  await ticketQueue.upsertJobScheduler(
+    "auto-close-daily",
+    { pattern: "0 2 * * *" }, // 2 AM UTC
+    { name: "auto-close-scan" }
+  );
+}
+
+console.log("Ticket workers registered");
 
 async function autoCloseResolvedTickets() {
   const cutoffDate = new Date();
@@ -854,45 +938,53 @@ async function closeTicket(ticketId: string, reason: string) {
 
 ```ts
 // apps/api/src/lib/jobs/workers/report.ts
-import PgBoss from "pg-boss";
+import { Queue, Worker, Job } from "bullmq";
+import { connection } from "@/lib/cache";
 import { QUEUES } from "../queues";
 import { db } from "@/db";
 import type { DailyDigestJob, ExportReportJob } from "../types";
 
-export const reportWorker = {
-  async register(boss: PgBoss): Promise<void> {
-    // Handle scheduled reports
-    await boss.work(QUEUES.REPORTS, async (job) => {
-      switch (job.data.type) {
-        case "daily-digest":
-          await generateDailyDigests();
-          break;
-        case "weekly-report":
-          await generateWeeklyReports();
-          break;
-      }
-    });
+// Create reports queue
+const reportQueue = new Queue(QUEUES.REPORTS, { connection });
 
-    // Handle specific digest
-    await boss.work<DailyDigestJob>(
-      `${QUEUES.REPORTS}-daily-digest`,
-      async (job) => {
-        await sendDailyDigest(job.data);
-      }
-    );
-
-    // Handle export requests
-    await boss.work<ExportReportJob>(
-      `${QUEUES.REPORTS}-export`,
-      { teamConcurrency: 2 },
-      async (job) => {
-        await generateExportReport(job.data);
-      }
-    );
-
-    console.log("Report workers registered");
+// Report worker (handles scheduled and direct jobs)
+export const reportWorker = new Worker(
+  QUEUES.REPORTS,
+  async (job: Job) => {
+    switch (job.name) {
+      case "daily-digest-scan":
+        await generateDailyDigests();
+        break;
+      case "weekly-report":
+        await generateWeeklyReports();
+        break;
+      case "daily-digest":
+        await sendDailyDigest(job.data as DailyDigestJob);
+        break;
+      case "export":
+        await generateExportReport(job.data as ExportReportJob);
+        break;
+    }
   },
-};
+  { connection, concurrency: 2 }
+);
+
+// Schedule daily digest at 8 AM
+export async function initReportScheduler() {
+  await reportQueue.upsertJobScheduler(
+    "daily-digest-schedule",
+    { pattern: "0 8 * * *" },
+    { name: "daily-digest-scan" }
+  );
+
+  await reportQueue.upsertJobScheduler(
+    "weekly-report-schedule",
+    { pattern: "0 9 * * 1" }, // Monday 9 AM
+    { name: "weekly-report" }
+  );
+}
+
+console.log("Report workers registered");
 
 async function generateDailyDigests() {
   // Get all organizations with active agents
@@ -900,12 +992,11 @@ async function generateDailyDigests() {
     where: eq(organizations.isActive, true),
   });
 
-  const boss = getBoss();
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
 
   for (const org of organizations) {
-    await boss.send(`${QUEUES.REPORTS}-daily-digest`, {
+    await reportQueue.add("daily-digest", {
       organizationId: org.id,
       date: yesterday.toISOString().split("T")[0],
     });
@@ -977,49 +1068,47 @@ async function generateExportReport(data: ExportReportJob) {
 
 ```ts
 // apps/api/src/lib/jobs/config.ts
-import type { SendOptions } from "pg-boss";
+import type { JobsOptions } from "bullmq";
 
 // Default job options by priority
 export const jobOptions = {
   high: {
-    retryLimit: 5,
-    retryDelay: 30, // 30 seconds
-    retryBackoff: true,
+    attempts: 5,
+    backoff: { type: "exponential", delay: 30000 }, // 30 seconds
     priority: 1,
-  } satisfies SendOptions,
+  } satisfies JobsOptions,
 
   medium: {
-    retryLimit: 3,
-    retryDelay: 60, // 1 minute
-    retryBackoff: true,
+    attempts: 3,
+    backoff: { type: "exponential", delay: 60000 }, // 1 minute
     priority: 5,
-  } satisfies SendOptions,
+  } satisfies JobsOptions,
 
   low: {
-    retryLimit: 2,
-    retryDelay: 300, // 5 minutes
-    retryBackoff: true,
+    attempts: 2,
+    backoff: { type: "exponential", delay: 300000 }, // 5 minutes
     priority: 10,
-  } satisfies SendOptions,
+  } satisfies JobsOptions,
 };
 
 // Custom options for specific job types
-export const emailJobOptions: SendOptions = {
+export const emailJobOptions: JobsOptions = {
   ...jobOptions.high,
-  expireInMinutes: 60, // Expire after 1 hour
+  removeOnComplete: { age: 3600 }, // Keep completed for 1 hour
+  removeOnFail: { age: 86400 }, // Keep failed for 24 hours
 };
 
-export const reportJobOptions: SendOptions = {
+export const reportJobOptions: JobsOptions = {
   ...jobOptions.low,
-  expireInMinutes: 60 * 4, // 4 hours for large reports
+  removeOnComplete: { age: 14400 }, // 4 hours for large reports
 };
 ```
 
-### Error Handler Wrapper
+### Error Handler with Worker Events
 
 ```ts
 // apps/api/src/lib/jobs/error-handler.ts
-import PgBoss from "pg-boss";
+import { Worker, Job } from "bullmq";
 
 interface JobError extends Error {
   jobId?: string;
@@ -1027,33 +1116,40 @@ interface JobError extends Error {
   attempt?: number;
 }
 
-export function createJobHandler<T>(
+// Attach error handling to any worker
+export function attachErrorHandlers(worker: Worker) {
+  worker.on("completed", (job: Job) => {
+    console.log(`[Job ${job.id}] Completed successfully`);
+  });
+
+  worker.on("failed", (job: Job | undefined, error: Error) => {
+    if (job) {
+      console.error(
+        `[Job ${job.id}] Failed on attempt ${job.attemptsMade}:`,
+        error.message
+      );
+    }
+  });
+
+  worker.on("error", (error: Error) => {
+    console.error(`[Worker ${worker.name}] Error:`, error);
+  });
+}
+
+// Helper to create processor with logging
+export function createProcessor<T>(
   handler: (data: T) => Promise<void>
-): PgBoss.WorkHandler<T> {
-  return async (job) => {
+) {
+  return async (job: Job<T>) => {
     const startTime = Date.now();
+    console.log(`[Job ${job.id}] Starting (attempt ${job.attemptsMade + 1})`);
 
     try {
-      console.log(`[Job ${job.id}] Starting (attempt ${job.retrycount + 1})`);
-
       await handler(job.data);
-
-      console.log(
-        `[Job ${job.id}] Completed in ${Date.now() - startTime}ms`
-      );
+      console.log(`[Job ${job.id}] Completed in ${Date.now() - startTime}ms`);
     } catch (error) {
-      const jobError = error as JobError;
-      jobError.jobId = job.id;
-      jobError.queue = job.name;
-      jobError.attempt = job.retrycount + 1;
-
-      console.error(
-        `[Job ${job.id}] Failed on attempt ${job.retrycount + 1}:`,
-        error
-      );
-
-      // Re-throw to trigger retry
-      throw jobError;
+      console.error(`[Job ${job.id}] Failed:`, error);
+      throw error; // Re-throw to trigger retry
     }
   };
 }
@@ -1071,39 +1167,51 @@ await boss.work<SendEmailJob>(
 
 ```ts
 // apps/api/src/lib/jobs/dead-letter.ts
-import { getBoss } from "./boss";
-import { QUEUES } from "./queues";
+import { Worker, Job } from "bullmq";
+import { connection } from "@/lib/cache";
+import { db } from "@/db";
+import { deadLetterJobs } from "@/db/schema";
 
-export async function setupDeadLetterHandling() {
-  const boss = getBoss();
+// Handle permanently failed jobs
+export function setupDeadLetterHandling(worker: Worker) {
+  worker.on("failed", async (job: Job | undefined, error: Error) => {
+    if (!job) return;
 
-  // Monitor failed jobs
-  boss.onComplete(QUEUES.EMAIL, async (job) => {
-    if (job.failed) {
-      console.error(`Email job failed permanently:`, {
+    // Check if this is the final failure (no more retries)
+    const opts = job.opts;
+    const maxAttempts = opts.attempts ?? 1;
+
+    if (job.attemptsMade >= maxAttempts) {
+      console.error(`Job permanently failed:`, {
         id: job.id,
+        name: job.name,
         data: job.data,
-        error: job.output,
+        error: error.message,
       });
 
       // Store in dead letter table for manual review
       await db.insert(deadLetterJobs).values({
-        originalJobId: job.id,
-        queue: QUEUES.EMAIL,
+        originalJobId: job.id ?? "unknown",
+        queue: job.queueName,
         data: job.data,
-        error: job.output,
+        error: error.message,
         failedAt: new Date(),
       });
 
       // Alert admin
-      await alertAdminOfFailedJob(job);
+      await alertAdminOfFailedJob(job, error);
     }
   });
 }
 
-async function alertAdminOfFailedJob(job: any) {
+async function alertAdminOfFailedJob(job: Job, error: Error) {
   // Send to error tracking service (Sentry, etc.)
-  console.error("Job permanently failed:", job);
+  console.error("Job permanently failed:", {
+    queue: job.queueName,
+    name: job.name,
+    id: job.id,
+    error: error.message,
+  });
 
   // Optionally send email to admin
   // Be careful not to create infinite loops!
@@ -1119,7 +1227,7 @@ async function alertAdminOfFailedJob(job: any) {
 ```ts
 // apps/api/src/routes/admin/jobs.ts
 import { Router } from "express";
-import { getBoss } from "@/lib/jobs/boss";
+import { getQueues } from "@/lib/jobs";
 import { requireRole } from "@/middleware/auth";
 
 const router = Router();
@@ -1129,22 +1237,22 @@ router.use(requireRole("admin"));
 
 // Get queue stats
 router.get("/stats", async (req, res) => {
-  const boss = getBoss();
+  const { emailQueue, slaQueue, ticketQueue, reportQueue } = getQueues();
 
-  const stats = await Promise.all([
-    boss.getQueueSize("email"),
-    boss.getQueueSize("sla-check"),
-    boss.getQueueSize("ticket-actions"),
-    boss.getQueueSize("reports"),
+  const [email, sla, ticket, report] = await Promise.all([
+    emailQueue.getJobCounts(),
+    slaQueue.getJobCounts(),
+    ticketQueue.getJobCounts(),
+    reportQueue.getJobCounts(),
   ]);
 
   res.json({
     success: true,
     data: {
-      email: stats[0],
-      slaCheck: stats[1],
-      ticketActions: stats[2],
-      reports: stats[3],
+      email,
+      slaCheck: sla,
+      ticketActions: ticket,
+      reports: report,
     },
   });
 });
@@ -1177,10 +1285,10 @@ router.post("/retry/:jobId", async (req, res) => {
     });
   }
 
-  const boss = getBoss();
+  const { emailQueue } = getQueues(); // Get appropriate queue
 
   // Re-enqueue the job
-  await boss.send(deadJob.queue, deadJob.data);
+  await emailQueue.add("retry", deadJob.data);
 
   // Mark as retried
   await db
@@ -1201,41 +1309,45 @@ export default router;
 
 ```ts
 // apps/api/src/lib/jobs/logger.ts
-import { getBoss } from "./boss";
+import { Worker, Queue } from "bullmq";
 
-export function setupJobLogging() {
-  const boss = getBoss();
-
+export function setupWorkerLogging(worker: Worker) {
   // Log all job events in development
   if (process.env.NODE_ENV === "development") {
-    boss.on("job", (job) => {
-      console.log(`[pg-boss] Job event:`, {
+    worker.on("active", (job) => {
+      console.log(`[BullMQ] Job started:`, {
         id: job.id,
         name: job.name,
-        state: job.state,
+        queue: job.queueName,
+      });
+    });
+
+    worker.on("completed", (job) => {
+      console.log(`[BullMQ] Job completed:`, {
+        id: job.id,
+        name: job.name,
+        duration: Date.now() - job.timestamp,
       });
     });
   }
 
   // Always log errors
-  boss.on("error", (error) => {
-    console.error("[pg-boss] Error:", error);
+  worker.on("error", (error) => {
+    console.error("[BullMQ] Worker error:", error);
   });
 
-  // Log maintenance stats
-  boss.on("maintenance", (data) => {
-    console.log("[pg-boss] Maintenance completed:", data);
+  worker.on("failed", (job, error) => {
+    console.error("[BullMQ] Job failed:", {
+      id: job?.id,
+      name: job?.name,
+      error: error.message,
+    });
   });
+}
 
-  // Log queue states periodically
-  boss.on("monitor-states", (states) => {
-    const summary = Object.entries(states).map(([queue, counts]) => ({
-      queue,
-      ...counts,
-    }));
-
-    console.log("[pg-boss] Queue states:", summary);
-  });
+export async function logQueueStats(queue: Queue) {
+  const counts = await queue.getJobCounts();
+  console.log(`[BullMQ] Queue ${queue.name} stats:`, counts);
 }
 ```
 
@@ -1244,35 +1356,27 @@ export function setupJobLogging() {
 ```ts
 // apps/api/src/routes/health.ts
 import { Router } from "express";
-import { getBoss } from "@/lib/jobs/boss";
+import { getQueues } from "@/lib/jobs";
 
 const router = Router();
 
 router.get("/health", async (req, res) => {
   try {
-    const boss = getBoss();
+    const { emailQueue, slaQueue } = getQueues();
 
-    // Check if pg-boss is connected
-    const isConnected = boss.isConnected;
-
-    if (!isConnected) {
-      return res.status(503).json({
-        status: "unhealthy",
-        jobs: "disconnected",
-      });
-    }
-
-    // Get queue depths
-    const emailQueueSize = await boss.getQueueSize("email");
-    const slaQueueSize = await boss.getQueueSize("sla-check");
+    // Check Valkey connection via queue
+    const [emailCounts, slaCounts] = await Promise.all([
+      emailQueue.getJobCounts(),
+      slaQueue.getJobCounts(),
+    ]);
 
     res.json({
       status: "healthy",
       jobs: {
         connected: true,
         queues: {
-          email: emailQueueSize,
-          slaCheck: slaQueueSize,
+          email: emailCounts,
+          slaCheck: slaCounts,
         },
       },
     });
