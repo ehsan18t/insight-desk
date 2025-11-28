@@ -4,7 +4,7 @@ import { z } from "zod";
 // Export Query Schema
 // ─────────────────────────────────────────────────────────────
 export const exportQuerySchema = z.object({
-  format: z.enum(["csv", "xlsx"]).prefault("csv"),
+  format: z.enum(["csv", "xlsx"]).default("csv"),
   fields: z
     .string()
     .optional()

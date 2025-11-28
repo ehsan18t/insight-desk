@@ -21,8 +21,8 @@ const userSchema = z.object({
 });
 
 const querySchema = z.object({
-  page: z.coerce.number().min(1).prefault(1),
-  limit: z.coerce.number().min(1).max(100).prefault(10),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(10),
 });
 
 const paramsSchema = z.object({

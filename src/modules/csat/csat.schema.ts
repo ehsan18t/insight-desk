@@ -16,8 +16,8 @@ export type SubmitSurveyInput = z.infer<typeof submitSurveySchema>;
 // ─────────────────────────────────────────────────────────────
 
 export const surveyQuerySchema = z.object({
-  page: z.coerce.number().int().positive().prefault(1),
-  limit: z.coerce.number().int().positive().max(100).prefault(20),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
   agentId: z.uuid().optional(),
   rating: z.coerce.number().int().min(1).max(5).optional(),
   dateFrom: z.iso.datetime().optional(),

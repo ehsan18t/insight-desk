@@ -41,11 +41,11 @@ export const updateTagBody = z.object({
 
 export const listTagsQuery = z.object({
   search: z.string().max(50).optional(),
-  limit: z.coerce.number().min(1).max(100).prefault(50),
+  limit: z.coerce.number().min(1).max(100).default(50),
 });
 
 export const popularTagsQuery = z.object({
-  limit: z.coerce.number().min(1).max(20).prefault(10),
+  limit: z.coerce.number().min(1).max(20).default(10),
 });
 
 // ─────────────────────────────────────────────────────────────

@@ -99,10 +99,10 @@ const CreateSavedFilterRequestSchema = z
       .optional()
       .describe("Filter description (up to 500 characters)"),
     criteria: FilterCriteriaSchema.describe("Filter criteria"),
-    isDefault: z.boolean().prefault(false).describe("Set as default filter"),
-    isShared: z.boolean().prefault(false).describe("Share with organization"),
-    sortBy: SortBySchema.prefault("createdAt").describe("Sort field"),
-    sortOrder: SortOrderSchema.prefault("desc").describe("Sort order"),
+    isDefault: z.boolean().default(false).describe("Set as default filter"),
+    isShared: z.boolean().default(false).describe("Share with organization"),
+    sortBy: SortBySchema.default("createdAt").describe("Sort field"),
+    sortOrder: SortOrderSchema.default("desc").describe("Sort order"),
     color: z
       .string()
       .regex(/^#[0-9A-Fa-f]{6}$/)
@@ -140,7 +140,7 @@ const UpdateSavedFilterRequestSchema = z
  */
 const ListSavedFiltersQuerySchema = z
   .object({
-    includeShared: z.boolean().prefault(true).describe("Include filters shared by other users"),
+    includeShared: z.boolean().default(true).describe("Include filters shared by other users"),
   })
   .openapi("ListSavedFiltersQuery");
 

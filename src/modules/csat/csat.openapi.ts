@@ -70,8 +70,8 @@ const SubmitSurveyRequestSchema = z
  */
 const SurveyQuerySchema = z
   .object({
-    page: z.coerce.number().int().positive().prefault(1).describe("Page number"),
-    limit: z.coerce.number().int().positive().max(100).prefault(20).describe("Items per page"),
+    page: z.coerce.number().int().positive().default(1).describe("Page number"),
+    limit: z.coerce.number().int().positive().max(100).default(20).describe("Items per page"),
     agentId: UuidSchema.optional().describe("Filter by assigned agent"),
     rating: z.coerce.number().int().min(1).max(5).optional().describe("Filter by rating"),
     dateFrom: z.iso.datetime().optional().describe("Filter from date (ISO 8601)"),

@@ -44,8 +44,8 @@ export const updateOrganizationSchema = z.object({
 // Organization query params schema
 export const organizationQuerySchema = z.object({
   search: z.string().max(100).optional(),
-  page: z.coerce.number().min(1).prefault(1),
-  limit: z.coerce.number().min(1).max(100).prefault(20),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
 });
 
 // Organization ID param schema
@@ -56,7 +56,7 @@ export const organizationIdParamSchema = z.object({
 // Invite member schema
 export const inviteMemberSchema = z.object({
   email: z.email(),
-  role: z.enum(["customer", "agent", "admin"]).prefault("customer"),
+  role: z.enum(["customer", "agent", "admin"]).default("customer"),
 });
 
 // Accept invitation schema
@@ -67,8 +67,8 @@ export const acceptInvitationSchema = z.object({
 // List invitations schema
 export const listInvitationsSchema = z.object({
   status: z.enum(["pending", "accepted", "expired", "cancelled"]).optional(),
-  page: z.coerce.number().int().positive().prefault(1),
-  limit: z.coerce.number().int().positive().max(100).prefault(20),
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
 });
 
 // Update member role schema

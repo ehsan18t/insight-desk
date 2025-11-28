@@ -73,7 +73,7 @@ const MessageSchema = z
 const CreateMessageRequestSchema = z
   .object({
     content: z.string().min(1).max(50000).describe("Message content (1-50000 characters)"),
-    type: MessageTypeSchema.prefault("reply").describe(
+    type: MessageTypeSchema.default("reply").describe(
       "Message type: reply (visible to customer), internal_note (staff only)",
     ),
     attachments: z
@@ -107,8 +107,8 @@ const UpdateMessageRequestSchema = z
 const MessageQuerySchema = z
   .object({
     type: MessageTypeSchema.optional().describe("Filter by message type"),
-    page: z.coerce.number().min(1).prefault(1).describe("Page number"),
-    limit: z.coerce.number().min(1).max(100).prefault(50).describe("Items per page"),
+    page: z.coerce.number().min(1).default(1).describe("Page number"),
+    limit: z.coerce.number().min(1).max(100).default(50).describe("Items per page"),
   })
   .openapi("MessageQuery");
 
@@ -168,7 +168,7 @@ Retrieve all messages in a ticket thread.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Ticket not found"),
+            error: z.string().default("Ticket not found"),
           }),
         },
       },

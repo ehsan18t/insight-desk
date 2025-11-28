@@ -29,10 +29,10 @@ export const createSavedFilterSchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
   description: z.string().max(500, "Description must be 500 characters or less").optional(),
   criteria: filterCriteriaSchema,
-  isDefault: z.boolean().prefault(false),
-  isShared: z.boolean().prefault(false),
-  sortBy: z.enum(["createdAt", "updatedAt", "priority", "status"]).prefault("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).prefault("desc"),
+  isDefault: z.boolean().default(false),
+  isShared: z.boolean().default(false),
+  sortBy: z.enum(["createdAt", "updatedAt", "priority", "status"]).default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
   color: z
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color")

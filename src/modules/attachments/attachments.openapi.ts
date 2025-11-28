@@ -56,7 +56,7 @@ const UploadAttachmentRequestSchema = z
     file: z.any().describe("File to upload (binary)"),
     ticketId: UuidSchema.optional().describe("Associate with a specific ticket"),
     commentId: UuidSchema.optional().describe("Associate with a specific comment"),
-    folder: AttachmentFolderSchema.prefault("general").describe("Storage folder category"),
+    folder: AttachmentFolderSchema.default("general").describe("Storage folder category"),
   })
   .openapi("UploadAttachmentRequest");
 
@@ -66,13 +66,13 @@ const UploadAttachmentRequestSchema = z
 const ListAttachmentsQuerySchema = z
   .object({
     ticketId: UuidSchema.optional().describe("Filter by ticket ID"),
-    page: z.coerce.number().int().positive().prefault(1).describe("Page number for pagination"),
+    page: z.coerce.number().int().positive().default(1).describe("Page number for pagination"),
     limit: z.coerce
       .number()
       .int()
       .positive()
       .max(100)
-      .prefault(20)
+      .default(20)
       .describe("Number of items per page (1-100)"),
   })
   .openapi("ListAttachmentsQuery");

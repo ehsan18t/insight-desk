@@ -99,8 +99,8 @@ const CreateTicketRequestSchema = z
   .object({
     title: z.string().min(5).max(255).describe("Ticket title (5-255 characters)"),
     description: z.string().min(10).max(10000).describe("Ticket description (10-10000 characters)"),
-    priority: TicketPrioritySchema.prefault("medium").describe("Priority level"),
-    channel: TicketChannelSchema.prefault("web").describe("Creation channel"),
+    priority: TicketPrioritySchema.default("medium").describe("Priority level"),
+    channel: TicketChannelSchema.default("web").describe("Creation channel"),
     tags: z.array(z.string()).max(10).optional().describe("Tag names to attach (max 10)"),
     categoryId: UuidSchema.optional().describe("Category ID"),
   })
@@ -140,13 +140,13 @@ const TicketQuerySchema = z
     customerId: UuidSchema.optional().describe("Filter by customer"),
     search: z.string().max(100).optional().describe("Search in title and description"),
     tags: z.string().optional().describe("Comma-separated tag names"),
-    page: z.coerce.number().min(1).prefault(1).describe("Page number"),
-    limit: z.coerce.number().min(1).max(100).prefault(20).describe("Items per page"),
+    page: z.coerce.number().min(1).default(1).describe("Page number"),
+    limit: z.coerce.number().min(1).max(100).default(20).describe("Items per page"),
     sortBy: z
       .enum(["createdAt", "updatedAt", "priority", "status"])
-      .prefault("createdAt")
+      .default("createdAt")
       .describe("Sort field"),
-    sortOrder: z.enum(["asc", "desc"]).prefault("desc").describe("Sort direction"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc").describe("Sort direction"),
   })
   .openapi("TicketQuery");
 
@@ -231,7 +231,7 @@ const BulkDeleteRequestSchema = z
     ticketIds: z.array(UuidSchema).min(1).max(100).describe("Ticket IDs to delete"),
     permanent: z
       .boolean()
-      .prefault(false)
+      .default(false)
       .describe("true for permanent delete, false for soft close"),
   })
   .openapi("BulkDeleteRequest");
@@ -247,7 +247,7 @@ const MergeTicketsRequestSchema = z
       .min(1)
       .max(10)
       .describe("Tickets to merge from (closed)"),
-    mergeComments: z.boolean().prefault(true).describe("Copy comments to primary ticket"),
+    mergeComments: z.boolean().default(true).describe("Copy comments to primary ticket"),
   })
   .openapi("MergeTicketsRequest");
 
@@ -429,8 +429,8 @@ Retrieve the activity log for a specific ticket.
       id: UuidSchema.describe("Ticket ID"),
     }),
     query: z.object({
-      page: z.coerce.number().min(1).prefault(1),
-      limit: z.coerce.number().min(1).max(100).prefault(50),
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(50),
     }),
   },
   responses: {

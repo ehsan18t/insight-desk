@@ -38,8 +38,8 @@ export const createSlaPolicyBody = z.object({
   priority: z.enum(["low", "medium", "high", "urgent"]),
   firstResponseTime: z.int().min(1).max(10080), // in minutes
   resolutionTime: z.int().min(1).max(43200), // in minutes
-  businessHoursOnly: z.boolean().prefault(true),
-  isDefault: z.boolean().prefault(false),
+  businessHoursOnly: z.boolean().default(true),
+  isDefault: z.boolean().default(false),
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

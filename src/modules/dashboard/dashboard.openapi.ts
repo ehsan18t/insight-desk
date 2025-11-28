@@ -31,16 +31,13 @@ const DashboardStatsQuerySchema = z
  */
 const DashboardTrendsQuerySchema = z
   .object({
-    period: z
-      .enum(["day", "week", "month"])
-      .prefault("week")
-      .describe("Time period for trend data"),
+    period: z.enum(["day", "week", "month"]).default("week").describe("Time period for trend data"),
     periods: z.coerce
       .number()
       .int()
       .min(1)
       .max(52)
-      .prefault(7)
+      .default(7)
       .describe("Number of periods to look back (1-52)"),
   })
   .openapi("DashboardTrendsQuery");

@@ -62,7 +62,7 @@ export const ErrorResponseSchema = z
 export const ValidationErrorSchema = z
   .object({
     success: z.literal(false),
-    error: z.string().prefault("Validation failed"),
+    error: z.string().default("Validation failed"),
     code: z.literal("VALIDATION_ERROR"),
     details: z.array(
       z.object({

@@ -18,8 +18,8 @@ export const cannedResponseIdParam = z.object({
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const listCannedResponsesQuery = z.object({
-  page: z.coerce.number().int().min(1).prefault(1),
-  limit: z.coerce.number().int().min(1).max(100).prefault(50),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
   category: z.string().max(100).optional(),
   search: z.string().max(200).optional(),
 });

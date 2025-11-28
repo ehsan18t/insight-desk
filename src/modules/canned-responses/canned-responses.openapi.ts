@@ -91,13 +91,13 @@ const UpdateCannedResponseRequestSchema = z
  */
 const ListCannedResponsesQuerySchema = z
   .object({
-    page: z.coerce.number().int().min(1).prefault(1).describe("Page number (starting from 1)"),
+    page: z.coerce.number().int().min(1).default(1).describe("Page number (starting from 1)"),
     limit: z.coerce
       .number()
       .int()
       .min(1)
       .max(100)
-      .prefault(50)
+      .default(50)
       .describe("Number of results per page (1-100)"),
     category: z.string().max(100).optional().describe("Filter by category"),
     search: z.string().max(200).optional().describe("Search in title and content"),

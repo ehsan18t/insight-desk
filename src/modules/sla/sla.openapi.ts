@@ -66,9 +66,9 @@ const CreateSlaPolicyRequestSchema = z
       .describe("Target resolution time in minutes (1 min to 30 days)"),
     businessHoursOnly: z
       .boolean()
-      .prefault(true)
+      .default(true)
       .describe("Whether SLA times only count during business hours"),
-    isDefault: z.boolean().prefault(false).describe("Whether this is a default policy"),
+    isDefault: z.boolean().default(false).describe("Whether this is a default policy"),
   })
   .openapi("CreateSlaPolicyRequest");
 

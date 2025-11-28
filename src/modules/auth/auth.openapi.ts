@@ -34,7 +34,7 @@ const SignInRequestSchema = z
     rememberMe: z
       .boolean()
       .optional()
-      .prefault(false)
+      .default(false)
       .describe("Extend session duration for persistent login"),
   })
   .openapi("SignInRequest");
@@ -194,7 +194,7 @@ Register a new user account with email and password.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Email already in use"),
+            error: z.string().default("Email already in use"),
           }),
         },
       },
@@ -251,7 +251,7 @@ Authenticate with email and password credentials.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Invalid credentials"),
+            error: z.string().default("Invalid credentials"),
           }),
         },
       },
@@ -398,7 +398,7 @@ Set a new password using the reset token from the email link.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Invalid or expired reset token"),
+            error: z.string().default("Invalid or expired reset token"),
           }),
         },
       },
@@ -452,7 +452,7 @@ Confirm the user's email address using the verification token.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Invalid or expired verification token"),
+            error: z.string().default("Invalid or expired verification token"),
           }),
         },
       },
@@ -529,7 +529,7 @@ Create a new user account and optionally a new organization in one step.
           schema: z
             .object({
               success: z.literal(true),
-              message: z.string().prefault("Account created successfully"),
+              message: z.string().default("Account created successfully"),
               data: RegisterWithOrgResponseSchema,
             })
             .openapi("RegisterWithOrgResponse"),
@@ -543,7 +543,7 @@ Create a new user account and optionally a new organization in one step.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Email already in use"),
+            error: z.string().default("Email already in use"),
           }),
         },
       },

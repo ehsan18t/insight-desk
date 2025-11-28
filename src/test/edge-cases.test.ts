@@ -85,8 +85,8 @@ describe("UUID Validation Edge Cases", () => {
 
 describe("Pagination Edge Cases", () => {
   const paginationSchema = z.object({
-    page: z.coerce.number().min(1).prefault(1),
-    limit: z.coerce.number().min(1).max(100).prefault(20),
+    page: z.coerce.number().min(1).default(1),
+    limit: z.coerce.number().min(1).max(100).default(20),
   });
 
   it("should accept valid pagination values", () => {

@@ -35,7 +35,7 @@ const ExportFormatSchema = z.enum(["csv", "xlsx"]).openapi({
  */
 const ExportQuerySchema = z
   .object({
-    format: ExportFormatSchema.prefault("csv").describe("Export file format"),
+    format: ExportFormatSchema.default("csv").describe("Export file format"),
     fields: z
       .string()
       .optional()

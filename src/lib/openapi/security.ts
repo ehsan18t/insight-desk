@@ -103,7 +103,7 @@ export const PaginationParams = {
     .number()
     .int()
     .positive()
-    .prefault(1)
+    .default(1)
     .openapi({
       param: {
         name: "page",
@@ -118,7 +118,7 @@ export const PaginationParams = {
     .int()
     .positive()
     .max(100)
-    .prefault(20)
+    .default(20)
     .openapi({
       param: {
         name: "limit",

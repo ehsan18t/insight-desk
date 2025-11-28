@@ -162,7 +162,7 @@ const UpdateOrganizationRequestSchema = z
 const InviteMemberRequestSchema = z
   .object({
     email: EmailSchema.describe("Email address to invite"),
-    role: z.enum(["customer", "agent", "admin"]).prefault("customer").describe("Role to assign"),
+    role: z.enum(["customer", "agent", "admin"]).default("customer").describe("Role to assign"),
   })
   .openapi("InviteMemberRequest");
 
@@ -196,8 +196,8 @@ Retrieve all organizations the current user is a member of.
   request: {
     query: z.object({
       search: z.string().max(100).optional().describe("Search by name"),
-      page: z.coerce.number().min(1).prefault(1),
-      limit: z.coerce.number().min(1).max(100).prefault(20),
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(20),
     }),
   },
   responses: {
@@ -262,7 +262,7 @@ Create a new organization with the current user as owner.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Slug is already taken"),
+            error: z.string().default("Slug is already taken"),
           }),
         },
       },
@@ -371,8 +371,8 @@ Retrieve all members of an organization.
     }),
     query: z.object({
       search: z.string().max(100).optional().describe("Search by name or email"),
-      page: z.coerce.number().min(1).prefault(1),
-      limit: z.coerce.number().min(1).max(100).prefault(20),
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(20),
     }),
   },
   responses: {
@@ -436,7 +436,7 @@ Send an invitation to join the organization.
             .object({
               success: z.literal(true),
               data: InvitationSchema,
-              message: z.string().prefault("Invitation sent"),
+              message: z.string().default("Invitation sent"),
             })
             .openapi("InviteMemberResponse"),
         },
@@ -451,7 +451,7 @@ Send an invitation to join the organization.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("User is already a member of this organization"),
+            error: z.string().default("User is already a member of this organization"),
           }),
         },
       },
@@ -569,8 +569,8 @@ Retrieve all invitations for an organization.
         .enum(["pending", "accepted", "expired", "cancelled"])
         .optional()
         .describe("Filter by status"),
-      page: z.coerce.number().min(1).prefault(1),
-      limit: z.coerce.number().min(1).max(100).prefault(20),
+      page: z.coerce.number().min(1).default(1),
+      limit: z.coerce.number().min(1).max(100).default(20),
     }),
   },
   responses: {
@@ -664,7 +664,7 @@ Resend a pending invitation with a new expiration date.
           schema: z
             .object({
               success: z.literal(true),
-              message: z.string().prefault("Invitation resent"),
+              message: z.string().default("Invitation resent"),
               expiresAt: TimestampSchema.describe("New expiration date"),
             })
             .openapi("ResendInvitationResponse"),
@@ -720,7 +720,7 @@ Get details about an invitation using its token.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Invitation not found or expired"),
+            error: z.string().default("Invitation not found or expired"),
           }),
         },
       },
@@ -766,7 +766,7 @@ Accept an invitation to join an organization.
           schema: z
             .object({
               success: z.literal(true),
-              message: z.string().prefault("Invitation accepted"),
+              message: z.string().default("Invitation accepted"),
               organizationId: UuidSchema,
               role: UserRoleSchema,
             })
@@ -780,7 +780,7 @@ Accept an invitation to join an organization.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Invalid or expired invitation token"),
+            error: z.string().default("Invalid or expired invitation token"),
           }),
         },
       },
@@ -792,7 +792,7 @@ Accept an invitation to join an organization.
         "application/json": {
           schema: z.object({
             success: z.literal(false),
-            error: z.string().prefault("Invitation was sent to a different email"),
+            error: z.string().default("Invitation was sent to a different email"),
           }),
         },
       },
@@ -838,7 +838,7 @@ Deactivate an organization, preventing access.
             .object({
               success: z.literal(true),
               data: OrganizationSummarySchema,
-              message: z.string().prefault("Organization deactivated"),
+              message: z.string().default("Organization deactivated"),
             })
             .openapi("DeactivateOrganizationResponse"),
         },
@@ -882,7 +882,7 @@ Reactivate a previously deactivated organization.
             .object({
               success: z.literal(true),
               data: OrganizationSummarySchema,
-              message: z.string().prefault("Organization reactivated"),
+              message: z.string().default("Organization reactivated"),
             })
             .openapi("ReactivateOrganizationResponse"),
         },

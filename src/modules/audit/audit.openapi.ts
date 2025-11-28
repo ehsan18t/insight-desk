@@ -87,16 +87,16 @@ const AuditLogSchema = z
  */
 const AuditLogQuerySchema = z
   .object({
-    page: z.coerce.number().int().min(1).prefault(1).describe("Page number"),
-    limit: z.coerce.number().int().min(1).max(100).prefault(50).describe("Items per page"),
+    page: z.coerce.number().int().min(1).default(1).describe("Page number"),
+    limit: z.coerce.number().int().min(1).max(100).default(50).describe("Items per page"),
     action: AuditActionSchema.optional().describe("Filter by action type"),
     userId: UuidSchema.optional().describe("Filter by user ID"),
     resourceType: z.string().optional().describe("Filter by resource type"),
     resourceId: z.string().optional().describe("Filter by resource ID"),
     from: z.iso.datetime().optional().describe("Start date (ISO 8601)"),
     to: z.iso.datetime().optional().describe("End date (ISO 8601)"),
-    sortBy: z.enum(["createdAt", "action", "userId"]).prefault("createdAt").describe("Sort field"),
-    sortOrder: z.enum(["asc", "desc"]).prefault("desc").describe("Sort direction"),
+    sortBy: z.enum(["createdAt", "action", "userId"]).default("createdAt").describe("Sort field"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc").describe("Sort direction"),
   })
   .openapi("AuditLogQuery");
 
@@ -105,7 +105,7 @@ const AuditLogQuerySchema = z
  */
 const ExportAuditLogsQuerySchema = z
   .object({
-    format: z.enum(["json", "csv"]).prefault("json").describe("Export format"),
+    format: z.enum(["json", "csv"]).default("json").describe("Export format"),
     action: AuditActionSchema.optional().describe("Filter by action type"),
     userId: UuidSchema.optional().describe("Filter by user ID"),
     from: z.iso.datetime().optional().describe("Start date (ISO 8601)"),

@@ -118,7 +118,7 @@ const ListTagsQuerySchema = z
       .number()
       .min(1)
       .max(100)
-      .prefault(50)
+      .default(50)
       .describe("Maximum number of results (1-100)"),
   })
   .openapi("ListTagsQuery");
@@ -132,7 +132,7 @@ const PopularTagsQuerySchema = z
       .number()
       .min(1)
       .max(20)
-      .prefault(10)
+      .default(10)
       .describe("Number of popular tags to return (1-20)"),
   })
   .openapi("PopularTagsQuery");

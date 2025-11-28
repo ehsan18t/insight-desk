@@ -15,8 +15,8 @@ export const createTicketSchema = z.object({
     .string()
     .min(10, "Description must be at least 10 characters")
     .max(10000, "Description cannot exceed 10000 characters"),
-  priority: z.enum(ticketPriorityValues).prefault("medium"),
-  channel: z.enum(ticketChannelValues).prefault("web"),
+  priority: z.enum(ticketPriorityValues).default("medium"),
+  channel: z.enum(ticketChannelValues).default("web"),
   tags: z.array(z.string()).max(10).optional(),
   categoryId: z.uuid().optional(),
 });
@@ -55,10 +55,10 @@ export const ticketQuerySchema = z.object({
     .string()
     .transform((s) => s.split(",").filter(Boolean))
     .optional(),
-  page: z.coerce.number().min(1).prefault(1),
-  limit: z.coerce.number().min(1).max(100).prefault(20),
-  sortBy: z.enum(["createdAt", "updatedAt", "priority", "status"]).prefault("createdAt"),
-  sortOrder: z.enum(["asc", "desc"]).prefault("desc"),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
+  sortBy: z.enum(["createdAt", "updatedAt", "priority", "status"]).default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 
 // Ticket ID param schema
@@ -68,8 +68,8 @@ export const ticketIdParamSchema = z.object({
 
 // Activities query params schema
 export const activitiesQuerySchema = z.object({
-  page: z.coerce.number().min(1).prefault(1),
-  limit: z.coerce.number().min(1).max(100).prefault(50),
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(50),
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ export const bulkUpdateSchema = z.object({
 // Bulk delete schema
 export const bulkDeleteSchema = z.object({
   ticketIds: z.array(z.uuid()).min(1).max(100),
-  permanent: z.boolean().prefault(false), // false = soft close, true = permanent delete
+  permanent: z.boolean().default(false), // false = soft close, true = permanent delete
 });
 
 // Bulk assign schema
@@ -109,7 +109,7 @@ export const bulkAssignSchema = z.object({
 export const mergeTicketsSchema = z.object({
   primaryTicketId: z.uuid(),
   secondaryTicketIds: z.array(z.uuid()).min(1).max(10),
-  mergeComments: z.boolean().prefault(true), // Copy comments from secondary to primary
+  mergeComments: z.boolean().default(true), // Copy comments from secondary to primary
 });
 
 // Types
