@@ -7,7 +7,11 @@ import {
   activitiesQuerySchema,
   type ActivitiesQuery,
   assignTicketSchema,
+  bulkAssignSchema,
+  bulkDeleteSchema,
+  bulkUpdateSchema,
   createTicketSchema,
+  mergeTicketsSchema,
   type TicketQuery,
   ticketIdParamSchema,
   ticketQuerySchema,
@@ -244,6 +248,111 @@ router.delete(
       await ticketsService.delete(req.params.id, req.user!.id, req.userRole!);
 
       res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// BULK OPERATIONS (admin/agent only)
+// ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/tickets/bulk/update - Bulk update tickets
+// ─────────────────────────────────────────────────────────────
+router.post(
+  "/bulk/update",
+  requireRole("admin", "owner", "agent"),
+  validateRequest({ body: bulkUpdateSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await ticketsService.bulkUpdate(
+        req.body,
+        req.user!.id,
+        req.organizationId!,
+      );
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/tickets/bulk/assign - Bulk assign tickets
+// ─────────────────────────────────────────────────────────────
+router.post(
+  "/bulk/assign",
+  requireRole("admin", "owner", "agent"),
+  validateRequest({ body: bulkAssignSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await ticketsService.bulkAssign(
+        req.body,
+        req.user!.id,
+        req.organizationId!,
+      );
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/tickets/bulk/delete - Bulk delete tickets
+// ─────────────────────────────────────────────────────────────
+router.post(
+  "/bulk/delete",
+  requireRole("admin", "owner"),
+  validateRequest({ body: bulkDeleteSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await ticketsService.bulkDelete(
+        req.body.ticketIds,
+        req.user!.id,
+        req.userRole!,
+        req.organizationId!,
+      );
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────
+// POST /api/tickets/merge - Merge tickets
+// ─────────────────────────────────────────────────────────────
+router.post(
+  "/merge",
+  requireRole("admin", "owner", "agent"),
+  validateRequest({ body: mergeTicketsSchema }),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await ticketsService.merge(
+        req.body,
+        req.user!.id,
+        req.organizationId!,
+      );
+
+      res.json({
+        success: true,
+        data: result,
+      });
     } catch (error) {
       next(error);
     }

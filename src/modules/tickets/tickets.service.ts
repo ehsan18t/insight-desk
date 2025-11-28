@@ -14,7 +14,15 @@ import {
 } from "@/db/schema/index";
 import { createLogger } from "@/lib/logger";
 import { ForbiddenError, NotFoundError } from "@/middleware/error-handler";
-import type { CreateTicketInput, TicketQuery, UpdateTicketInput } from "./tickets.schema";
+import type {
+  BulkAssignInput,
+  BulkDeleteInput,
+  BulkUpdateInput,
+  CreateTicketInput,
+  MergeTicketsInput,
+  TicketQuery,
+  UpdateTicketInput,
+} from "./tickets.schema";
 
 const logger = createLogger("tickets");
 
@@ -543,6 +551,383 @@ export const ticketsService = {
         total,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // Bulk Operations
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Bulk update multiple tickets
+   */
+  async bulkUpdate(
+    organizationId: string,
+    input: BulkUpdateInput,
+    userId: string,
+  ): Promise<{ updated: number; errors: string[] }> {
+    const result = { updated: 0, errors: [] as string[] };
+    const { ticketIds, updates } = input;
+    const now = new Date();
+
+    // Verify all tickets belong to the organization
+    const existingTickets = await db
+      .select({ id: tickets.id, status: tickets.status, priority: tickets.priority, tags: tickets.tags })
+      .from(tickets)
+      .where(
+        and(
+          eq(tickets.organizationId, organizationId),
+          inArray(tickets.id, ticketIds),
+        ),
+      );
+
+    const existingIds = new Set(existingTickets.map((t) => t.id));
+    const notFoundIds = ticketIds.filter((id) => !existingIds.has(id));
+
+    for (const id of notFoundIds) {
+      result.errors.push(`Ticket ${id} not found`);
+    }
+
+    // Build update object
+    const updateData: Partial<Ticket> & { updatedAt: Date } = { updatedAt: now };
+
+    if (updates.status) updateData.status = updates.status;
+    if (updates.priority) updateData.priority = updates.priority;
+    if (updates.assigneeId !== undefined) updateData.assigneeId = updates.assigneeId;
+    if (updates.categoryId !== undefined) updateData.categoryId = updates.categoryId;
+
+    // Process each ticket
+    for (const ticket of existingTickets) {
+      try {
+        // Handle tag updates
+        let newTags = ticket.tags || [];
+        if (updates.addTags && updates.addTags.length > 0) {
+          newTags = [...new Set([...newTags, ...updates.addTags])];
+        }
+        if (updates.removeTags && updates.removeTags.length > 0) {
+          newTags = newTags.filter((t) => !updates.removeTags!.includes(t));
+        }
+
+        // Update ticket
+        await db
+          .update(tickets)
+          .set({ ...updateData, tags: newTags })
+          .where(eq(tickets.id, ticket.id));
+
+        // Log activity
+        const metadata: Record<string, unknown> = {};
+        if (updates.status && updates.status !== ticket.status) {
+          metadata.fromStatus = ticket.status;
+          metadata.toStatus = updates.status;
+        }
+        if (updates.priority && updates.priority !== ticket.priority) {
+          metadata.fromPriority = ticket.priority;
+          metadata.toPriority = updates.priority;
+        }
+        if (updates.assigneeId !== undefined) {
+          metadata.assigneeId = updates.assigneeId;
+        }
+        if (updates.addTags?.length || updates.removeTags?.length) {
+          metadata.addedTags = updates.addTags;
+          metadata.removedTags = updates.removeTags;
+        }
+
+        await db.insert(ticketActivities).values({
+          ticketId: ticket.id,
+          userId,
+          action: "bulk_updated",
+          metadata,
+        });
+
+        result.updated++;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        result.errors.push(`Ticket ${ticket.id}: ${errorMessage}`);
+      }
+    }
+
+    logger.info(
+      { organizationId, ticketCount: ticketIds.length, updated: result.updated, userId },
+      "Bulk update completed",
+    );
+
+    return result;
+  },
+
+  /**
+   * Bulk delete/close tickets
+   */
+  async bulkDelete(
+    organizationId: string,
+    input: BulkDeleteInput,
+    userId: string,
+  ): Promise<{ deleted: number; errors: string[] }> {
+    const result = { deleted: 0, errors: [] as string[] };
+    const { ticketIds, permanent } = input;
+    const now = new Date();
+
+    // Verify all tickets belong to the organization
+    const existingTickets = await db
+      .select({ id: tickets.id, status: tickets.status })
+      .from(tickets)
+      .where(
+        and(
+          eq(tickets.organizationId, organizationId),
+          inArray(tickets.id, ticketIds),
+        ),
+      );
+
+    const existingIds = new Set(existingTickets.map((t) => t.id));
+    const notFoundIds = ticketIds.filter((id) => !existingIds.has(id));
+
+    for (const id of notFoundIds) {
+      result.errors.push(`Ticket ${id} not found`);
+    }
+
+    for (const ticket of existingTickets) {
+      try {
+        if (permanent) {
+          // Permanent delete - also deletes messages and activities due to cascade
+          await db.delete(tickets).where(eq(tickets.id, ticket.id));
+        } else {
+          // Soft delete - just close the ticket
+          await db
+            .update(tickets)
+            .set({
+              status: "closed",
+              closedAt: now,
+              updatedAt: now,
+            })
+            .where(eq(tickets.id, ticket.id));
+
+          await db.insert(ticketActivities).values({
+            ticketId: ticket.id,
+            userId,
+            action: "status_changed",
+            metadata: {
+              fromStatus: ticket.status,
+              toStatus: "closed",
+              reason: "Bulk closed",
+            },
+          });
+        }
+
+        result.deleted++;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        result.errors.push(`Ticket ${ticket.id}: ${errorMessage}`);
+      }
+    }
+
+    logger.info(
+      { organizationId, ticketCount: ticketIds.length, deleted: result.deleted, permanent, userId },
+      "Bulk delete completed",
+    );
+
+    return result;
+  },
+
+  /**
+   * Bulk assign tickets to an agent
+   */
+  async bulkAssign(
+    organizationId: string,
+    input: BulkAssignInput,
+    userId: string,
+  ): Promise<{ assigned: number; errors: string[] }> {
+    const result = { assigned: 0, errors: [] as string[] };
+    const { ticketIds, assigneeId } = input;
+    const now = new Date();
+
+    // Verify assignee belongs to organization if not null
+    if (assigneeId) {
+      const assignee = await db.query.users.findFirst({
+        where: eq(users.id, assigneeId),
+      });
+
+      if (!assignee) {
+        return { assigned: 0, errors: ["Assignee not found"] };
+      }
+    }
+
+    // Verify all tickets belong to the organization
+    const existingTickets = await db
+      .select({ id: tickets.id, assigneeId: tickets.assigneeId })
+      .from(tickets)
+      .where(
+        and(
+          eq(tickets.organizationId, organizationId),
+          inArray(tickets.id, ticketIds),
+        ),
+      );
+
+    const existingIds = new Set(existingTickets.map((t) => t.id));
+    const notFoundIds = ticketIds.filter((id) => !existingIds.has(id));
+
+    for (const id of notFoundIds) {
+      result.errors.push(`Ticket ${id} not found`);
+    }
+
+    for (const ticket of existingTickets) {
+      try {
+        // Skip if already assigned to the same person
+        if (ticket.assigneeId === assigneeId) {
+          continue;
+        }
+
+        await db
+          .update(tickets)
+          .set({ assigneeId, updatedAt: now })
+          .where(eq(tickets.id, ticket.id));
+
+        await db.insert(ticketActivities).values({
+          ticketId: ticket.id,
+          userId,
+          action: assigneeId ? "assigned" : "unassigned",
+          metadata: {
+            previousAssignee: ticket.assigneeId,
+            assigneeId,
+          },
+        });
+
+        result.assigned++;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        result.errors.push(`Ticket ${ticket.id}: ${errorMessage}`);
+      }
+    }
+
+    logger.info(
+      { organizationId, ticketCount: ticketIds.length, assigned: result.assigned, assigneeId, userId },
+      "Bulk assign completed",
+    );
+
+    return result;
+  },
+
+  /**
+   * Merge multiple tickets into one
+   */
+  async mergeTickets(
+    organizationId: string,
+    input: MergeTicketsInput,
+    userId: string,
+  ): Promise<{ merged: boolean; messagesCopied: number; errors: string[] }> {
+    const { primaryTicketId, secondaryTicketIds, mergeComments } = input;
+    const errors: string[] = [];
+    let messagesCopied = 0;
+
+    // Verify primary ticket exists and belongs to org
+    const primaryTicket = await db.query.tickets.findFirst({
+      where: and(
+        eq(tickets.id, primaryTicketId),
+        eq(tickets.organizationId, organizationId),
+      ),
+    });
+
+    if (!primaryTicket) {
+      return { merged: false, messagesCopied: 0, errors: ["Primary ticket not found"] };
+    }
+
+    // Verify secondary tickets
+    const secondaryTickets = await db
+      .select()
+      .from(tickets)
+      .where(
+        and(
+          eq(tickets.organizationId, organizationId),
+          inArray(tickets.id, secondaryTicketIds),
+        ),
+      );
+
+    const foundIds = new Set(secondaryTickets.map((t) => t.id));
+    for (const id of secondaryTicketIds) {
+      if (!foundIds.has(id)) {
+        errors.push(`Secondary ticket ${id} not found`);
+      }
+    }
+
+    if (secondaryTickets.length === 0) {
+      return { merged: false, messagesCopied: 0, errors };
+    }
+
+    const now = new Date();
+
+    // Merge each secondary ticket
+    for (const secondary of secondaryTickets) {
+      try {
+        // Copy messages if requested
+        if (mergeComments) {
+          const messages = await db
+            .select()
+            .from(ticketMessages)
+            .where(eq(ticketMessages.ticketId, secondary.id));
+
+          for (const message of messages) {
+            await db.insert(ticketMessages).values({
+              ticketId: primaryTicketId,
+              senderId: message.senderId,
+              content: `[Merged from #${secondary.ticketNumber}] ${message.content}`,
+              type: message.type,
+              attachments: message.attachments,
+              createdAt: message.createdAt,
+            });
+            messagesCopied++;
+          }
+        }
+
+        // Close the secondary ticket
+        await db
+          .update(tickets)
+          .set({
+            status: "closed",
+            closedAt: now,
+            updatedAt: now,
+          })
+          .where(eq(tickets.id, secondary.id));
+
+        // Log activity on secondary ticket
+        await db.insert(ticketActivities).values({
+          ticketId: secondary.id,
+          userId,
+          action: "merged",
+          metadata: {
+            mergedInto: primaryTicketId,
+            primaryTicketNumber: primaryTicket.ticketNumber,
+          },
+        });
+
+        // Log activity on primary ticket
+        await db.insert(ticketActivities).values({
+          ticketId: primaryTicketId,
+          userId,
+          action: "merged",
+          metadata: {
+            mergedFrom: secondary.id,
+            secondaryTicketNumber: secondary.ticketNumber,
+          },
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        errors.push(`Failed to merge ticket ${secondary.id}: ${errorMessage}`);
+      }
+    }
+
+    logger.info(
+      {
+        organizationId,
+        primaryTicketId,
+        secondaryCount: secondaryTicketIds.length,
+        messagesCopied,
+        userId,
+      },
+      "Ticket merge completed",
+    );
+
+    return {
+      merged: errors.length < secondaryTicketIds.length,
+      messagesCopied,
+      errors,
     };
   },
 };

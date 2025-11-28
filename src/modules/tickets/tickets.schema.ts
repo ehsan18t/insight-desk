@@ -72,9 +72,52 @@ export const activitiesQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(50),
 });
 
+// ─────────────────────────────────────────────────────────────
+// Bulk Operation Schemas
+// ─────────────────────────────────────────────────────────────
+
+// Bulk update schema
+export const bulkUpdateSchema = z.object({
+  ticketIds: z.array(z.string().uuid()).min(1).max(100),
+  updates: z.object({
+    status: z.enum(ticketStatusValues).optional(),
+    priority: z.enum(ticketPriorityValues).optional(),
+    assigneeId: z.string().uuid().nullable().optional(),
+    categoryId: z.string().uuid().nullable().optional(),
+    addTags: z.array(z.string()).max(10).optional(),
+    removeTags: z.array(z.string()).max(10).optional(),
+  }).refine(
+    (data) => Object.values(data).some((v) => v !== undefined),
+    { message: "At least one update field must be provided" },
+  ),
+});
+
+// Bulk delete schema
+export const bulkDeleteSchema = z.object({
+  ticketIds: z.array(z.string().uuid()).min(1).max(100),
+  permanent: z.boolean().default(false), // false = soft close, true = permanent delete
+});
+
+// Bulk assign schema
+export const bulkAssignSchema = z.object({
+  ticketIds: z.array(z.string().uuid()).min(1).max(100),
+  assigneeId: z.string().uuid().nullable(),
+});
+
+// Merge tickets schema
+export const mergeTicketsSchema = z.object({
+  primaryTicketId: z.string().uuid(),
+  secondaryTicketIds: z.array(z.string().uuid()).min(1).max(10),
+  mergeComments: z.boolean().default(true), // Copy comments from secondary to primary
+});
+
 // Types
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 export type AssignTicketInput = z.infer<typeof assignTicketSchema>;
 export type TicketQuery = z.infer<typeof ticketQuerySchema>;
 export type ActivitiesQuery = z.infer<typeof activitiesQuerySchema>;
+export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
+export type BulkDeleteInput = z.infer<typeof bulkDeleteSchema>;
+export type BulkAssignInput = z.infer<typeof bulkAssignSchema>;
+export type MergeTicketsInput = z.infer<typeof mergeTicketsSchema>;
