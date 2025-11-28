@@ -14,6 +14,7 @@ import { authRouter } from "./modules/auth";
 import { cannedResponsesRouter } from "./modules/canned-responses";
 import { categoriesRouter } from "./modules/categories";
 import { dashboardRouter } from "./modules/dashboard";
+import { jobsRouter } from "./modules/jobs";
 import { organizationsRouter } from "./modules/organizations";
 import { slaRouter } from "./modules/sla";
 import { tagsRouter } from "./modules/tags";
@@ -106,6 +107,7 @@ export function createApp(): Express {
   app.use("/api/sla-policies", slaRouter);
   app.use("/api/canned-responses", cannedResponsesRouter);
   app.use("/api/dashboard", dashboardRouter);
+  app.use("/api/jobs", jobsRouter);
 
   // Placeholder route for testing
   app.get("/api", (_req, res) => {
