@@ -11,6 +11,8 @@ import { rateLimit } from './middleware/rate-limit';
 // Import routes
 import { authRouter } from './modules/auth';
 import { ticketsRouter } from './modules/tickets';
+import { usersRouter } from './modules/users';
+import { organizationsRouter } from './modules/organizations';
 
 export function createApp(): Express {
   const app = express();
@@ -90,8 +92,8 @@ export function createApp(): Express {
   // ─────────────────────────────────────────────────────────────
   app.use('/api/auth', authRouter);
   app.use('/api/tickets', ticketsRouter);
-  // app.use('/api/users', usersRouter);
-  // app.use('/api/organizations', organizationsRouter);
+  app.use('/api/users', usersRouter);
+  app.use('/api/organizations', organizationsRouter);
 
   // Placeholder route for testing
   app.get('/api', (_req, res) => {

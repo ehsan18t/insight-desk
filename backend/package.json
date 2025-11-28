@@ -11,7 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "bun src/db/seed.ts",
+    "db:seed": "bun src/seed.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "test": "bun test"
@@ -43,7 +43,7 @@
     "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/nodemailer": "^6.4.21",
-    "drizzle-kit": "^0.30.6",
+    "drizzle-kit": "^0.31.7",
     "typescript": "^5.9.3",
     "@typescript-eslint/eslint-plugin": "^8.48.0",
     "@typescript-eslint/parser": "^8.48.0",

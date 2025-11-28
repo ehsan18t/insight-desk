@@ -11,11 +11,15 @@ import {
 import { validateRequest } from '../../middleware/validate';
 import { authenticate, requireRole } from '../auth/auth.middleware';
 import { ForbiddenError } from '../../middleware/error-handler';
+import { messagesRouter } from '../messages';
 
 const router = Router();
 
 // All ticket routes require authentication
 router.use(authenticate);
+
+// Mount messages router as nested routes
+router.use('/:id/messages', messagesRouter);
 
 // ─────────────────────────────────────────────────────────────
 // GET /api/tickets - List tickets

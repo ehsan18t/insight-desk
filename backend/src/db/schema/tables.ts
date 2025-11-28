@@ -244,6 +244,7 @@ export interface ActivityMetadata {
   removedTags?: string[];
   slaDeadline?: string;
   reason?: string;
+  messageType?: string;
 }
 
 export const ticketActivities = pgTable(
