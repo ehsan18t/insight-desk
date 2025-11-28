@@ -31,8 +31,15 @@ const envSchema = z.object({
   GITHUB_CLIENT_ID: z.string().optional(),
   GITHUB_CLIENT_SECRET: z.string().optional(),
 
-  // Email
-  RESEND_API_KEY: z.string().optional(),
+  // Email (SMTP)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_SECURE: z
+    .string()
+    .optional()
+    .transform((v) => v === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().default('InsightDesk <noreply@example.com>'),
 
   // Logging

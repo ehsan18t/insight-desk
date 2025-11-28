@@ -1,6 +1,6 @@
 import { createServer } from 'http';
 import { Server as SocketServer } from 'socket.io';
-import { createAdapter } from '@socket.io/valkey-adapter';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { createApp } from './app';
 import { config } from './config';
 import { logger } from './lib/logger';

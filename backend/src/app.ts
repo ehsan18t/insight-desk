@@ -8,11 +8,9 @@ import { httpLogger } from './lib/logger';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { rateLimit } from './middleware/rate-limit';
 
-// Import routes (will be added later)
-// import { authRouter } from './modules/auth/auth.routes';
-// import { ticketsRouter } from './modules/tickets/tickets.routes';
-// import { usersRouter } from './modules/users/users.routes';
-// import { organizationsRouter } from './modules/organizations/organizations.routes';
+// Import routes
+import { authRouter } from './modules/auth';
+import { ticketsRouter } from './modules/tickets';
 
 export function createApp(): Express {
   const app = express();
@@ -79,7 +77,7 @@ export function createApp(): Express {
   // ─────────────────────────────────────────────────────────────
   // Health check
   // ─────────────────────────────────────────────────────────────
-  app.get('/health', (req, res) => {
+  app.get('/health', (_req, res) => {
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
@@ -88,15 +86,15 @@ export function createApp(): Express {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // API Routes (will be added as modules are built)
+  // API Routes
   // ─────────────────────────────────────────────────────────────
-  // app.use('/api/auth', authRouter);
-  // app.use('/api/tickets', ticketsRouter);
+  app.use('/api/auth', authRouter);
+  app.use('/api/tickets', ticketsRouter);
   // app.use('/api/users', usersRouter);
   // app.use('/api/organizations', organizationsRouter);
 
   // Placeholder route for testing
-  app.get('/api', (req, res) => {
+  app.get('/api', (_req, res) => {
     res.json({
       success: true,
       message: 'InsightDesk API v0.1.0',

@@ -1,5 +1,6 @@
-import type { Request, Response, NextFunction } from 'express';
-import { ZodError, type ZodSchema } from 'zod';
+import type { Request, Response, NextFunction, ParamsDictionary } from 'express-serve-static-core';
+import type { ParsedQs } from 'qs';
+import { ZodError, type ZodSchema, type ZodIssue } from 'zod';
 
 // Validation error response type
 interface ValidationError {
@@ -16,7 +17,7 @@ export function validate(schema: ZodSchema, source: 'body' | 'query' | 'params' 
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const errors: ValidationError[] = error.errors.map((e) => ({
+        const errors: ValidationError[] = error.issues.map((e: ZodIssue) => ({
           field: e.path.join('.'),
           message: e.message,
         }));
@@ -45,15 +46,15 @@ export function validateRequest(schemas: {
         req.body = schemas.body.parse(req.body);
       }
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query);
+        req.query = schemas.query.parse(req.query) as ParsedQs;
       }
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params);
+        req.params = schemas.params.parse(req.params) as ParamsDictionary;
       }
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        const errors: ValidationError[] = error.errors.map((e) => ({
+        const errors: ValidationError[] = error.issues.map((e: ZodIssue) => ({
           field: e.path.join('.'),
           message: e.message,
         }));

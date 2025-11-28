@@ -3,8 +3,7 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth } from './auth.config';
 import { authenticate } from './auth.middleware';
 import { db } from '../../db';
-import { users, userOrganizations } from '../../db/schema';
-import { organizations } from '../../db/schema/organizations';
+import { users, userOrganizations, organizations } from '../../db/schema/index';
 import { eq } from 'drizzle-orm';
 import { createLogger } from '../../lib/logger';
 import { authRateLimit } from '../../middleware/rate-limit';
@@ -64,7 +63,7 @@ router.get('/me', authenticate, async (req, res) => {
       name: user.name,
       avatarUrl: user.avatarUrl,
       emailVerified: user.emailVerified,
-      organizations: user.organizations.map((m) => ({
+      organizations: user.organizations.map((m: { organization: { id: string; name: string; slug: string }; role: string; joinedAt: Date }) => ({
         id: m.organization.id,
         name: m.organization.name,
         slug: m.organization.slug,

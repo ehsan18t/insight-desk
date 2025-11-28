@@ -18,15 +18,14 @@
     "declarationMap": true,
     "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/db/*": ["src/db/*"],
-      "@/modules/*": ["src/modules/*"],
-      "@/middleware/*": ["src/middleware/*"],
-      "@/lib/*": ["src/lib/*"],
-      "@/config/*": ["src/config/*"],
-      "@/types/*": ["src/types/*"]
+      "@/*": ["./src/*"],
+      "@/db/*": ["./src/db/*"],
+      "@/modules/*": ["./src/modules/*"],
+      "@/middleware/*": ["./src/middleware/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/config/*": ["./src/config/*"],
+      "@/types/*": ["./src/types/*"]
     }
   },
   "include": ["src/**/*.ts"],

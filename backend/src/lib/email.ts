@@ -1,13 +1,40 @@
-import { Resend } from 'resend';
+import nodemailer, { type Transporter } from 'nodemailer';
 import { config } from '../config';
 import { createLogger } from './logger';
 
 const logger = createLogger('email');
 
-// Initialize Resend client (only if API key is provided)
-const resend = config.RESEND_API_KEY
-  ? new Resend(config.RESEND_API_KEY)
-  : null;
+// Initialize nodemailer transporter
+let transporter: Transporter | null = null;
+
+// Create transporter based on environment
+function getTransporter(): Transporter | null {
+  if (transporter) return transporter;
+
+  // For development, use ethereal (fake SMTP) or console logging
+  if (config.NODE_ENV === 'development' && !config.SMTP_HOST) {
+    logger.warn('SMTP not configured - emails will be logged only');
+    return null;
+  }
+
+  if (config.SMTP_HOST && config.SMTP_PORT) {
+    transporter = nodemailer.createTransport({
+      host: config.SMTP_HOST,
+      port: config.SMTP_PORT,
+      secure: config.SMTP_SECURE,
+      auth:
+        config.SMTP_USER && config.SMTP_PASS
+          ? {
+              user: config.SMTP_USER,
+              pass: config.SMTP_PASS,
+            }
+          : undefined,
+    });
+    return transporter;
+  }
+
+  return null;
+}
 
 // Email templates
 export type EmailTemplate =
@@ -27,26 +54,26 @@ interface EmailData {
 
 // Send email function
 export async function sendEmail(data: EmailData): Promise<boolean> {
-  if (!resend) {
-    logger.warn('Email not sent - RESEND_API_KEY not configured');
+  const transport = getTransporter();
+
+  if (!transport) {
+    logger.warn('Email not sent - SMTP not configured');
     logger.debug({ to: data.to, subject: data.subject }, 'Would send email');
     return false;
   }
 
   try {
-    const result = await resend.emails.send({
+    const result = await transport.sendMail({
       from: config.EMAIL_FROM,
       to: data.to,
       subject: data.subject,
       html: data.html,
     });
 
-    if (result.error) {
-      logger.error({ error: result.error }, 'Failed to send email');
-      return false;
-    }
-
-    logger.info({ to: data.to, subject: data.subject }, 'Email sent');
+    logger.info(
+      { to: data.to, subject: data.subject, messageId: result.messageId },
+      'Email sent'
+    );
     return true;
   } catch (error) {
     logger.error({ error }, 'Email send error');

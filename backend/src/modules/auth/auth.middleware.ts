@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { auth } from './auth.config';
 import { db } from '../../db';
-import { userOrganizations, type UserRole } from '../../db/schema/users';
+import { userOrganizations, type UserRole } from '../../db/schema/index';
 import { eq, and } from 'drizzle-orm';
 import { UnauthorizedError, ForbiddenError } from '../../middleware/error-handler';
 
@@ -30,13 +30,13 @@ declare global {
 // Authenticate request using Better Auth session
 export async function authenticate(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ) {
   try {
     // Get session from Better Auth
     const session = await auth.api.getSession({
-      headers: req.headers as Headers,
+      headers: req.headers as unknown as Headers,
     });
 
     if (!session?.user) {
@@ -70,7 +70,7 @@ export async function authenticate(
 
 // Require specific role(s) - must be called after authenticate
 export function requireRole(...allowedRoles: UserRole[]) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new UnauthorizedError('Authentication required'));
     }
@@ -118,12 +118,12 @@ export const requireOwner = [authenticate, requireRole('owner')];
 // Optional auth - doesn't fail if not authenticated
 export async function optionalAuth(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ) {
   try {
     const session = await auth.api.getSession({
-      headers: req.headers as Headers,
+      headers: req.headers as unknown as Headers,
     });
 
     if (session?.user) {
