@@ -21,9 +21,18 @@
 2. **Run linter**: `bun run lint`
 3. **Run formatter**: `bun run format`
 4. **Run tests**: `bun run test`
-5. **Commit changes** with a descriptive message to maintain proper git history
+5. **Commit in small, logical chunks** - each commit should represent ONE logical change
 
 **Never skip these steps. Every task must pass all checks before moving on.**
+
+### 🔄 Commit Strategy (ENFORCED)
+
+- **Break work into small, atomic commits** - don't bundle unrelated changes
+- Each commit should be self-contained and pass all checks independently
+- Use descriptive commit messages following conventional commits format
+- Example: `feat(tickets): add bulk status update endpoint`
+- If a feature requires multiple files, commit related changes together but separate from other features
+- **Never make one giant commit at the end** - commit progressively as you complete each part
 
 ---
 
@@ -131,6 +140,40 @@
 
 ---
 
+## 📖 OpenAPI Documentation (MANDATORY)
+
+**Every API route change MUST include OpenAPI documentation updates.**
+
+### When to Update
+- Adding a new endpoint → Add route registration in `[module].openapi.ts`
+- Modifying request/response schema → Update corresponding OpenAPI schemas
+- Changing endpoint path or method → Update the route registration
+- Adding/removing query parameters → Update the request schema
+- Changing authentication requirements → Update security settings
+
+### How to Update
+1. Each module has a `[module].openapi.ts` file (e.g., `tickets.openapi.ts`)
+2. Register schemas using `registry.register()` with `.openapi()` metadata
+3. Register routes using `registry.registerPath()` with full request/response definitions
+4. Import the openapi file in the module's `index.ts`: `import "./[module].openapi";`
+
+### Documentation Requirements
+- Include `summary` and `description` for every endpoint
+- Document all request parameters (path, query, body)
+- Document all possible response codes (200, 201, 400, 401, 403, 404, 500)
+- Use reusable response schemas from `src/lib/openapi/responses.ts`
+- Add meaningful examples where helpful
+
+### Verification
+- Start dev server: `bun dev`
+- Check Swagger UI at: `http://localhost:3001/api-docs`
+- Verify new/updated endpoints appear correctly
+- Test the "Try it out" functionality
+
+**API changes without documentation updates will be rejected.**
+
+---
+
 ## ⚡ Performance Rules
 
 - Always use **pagination** for list endpoints
@@ -185,7 +228,8 @@
 - [ ] Create Zod schema with validation
 - [ ] Create service with business logic
 - [ ] Create routes with proper middleware
-- [ ] Create index.ts with exports
+- [ ] **Create/update OpenAPI documentation** in `[module].openapi.ts`
+- [ ] Create index.ts with exports (include openapi import)
 - [ ] Register route in app.ts
 - [ ] Write SUCCESS test cases
 - [ ] Write FAILURE/edge case tests
@@ -196,7 +240,8 @@
 - [ ] Run linter: `bun run lint`
 - [ ] Run formatter: `bun run format`
 - [ ] Run tests: `bun run test`
-- [ ] Commit with descriptive message
+- [ ] **Verify Swagger UI** shows new endpoints correctly
+- [ ] **Commit each logical change separately** (not one big commit)
 
 ---
 
@@ -223,6 +268,8 @@ bun run db:studio     # Drizzle Studio
 - `src/middleware/error-handler.ts` - Error classes and handler
 - `src/middleware/validate.ts` - Zod validation middleware
 - `src/modules/auth/auth.middleware.ts` - Authentication middleware
+- `src/lib/openapi/` - OpenAPI configuration (registry, responses, security)
+- `src/modules/*/[module].openapi.ts` - Module-specific API documentation
 
 ---
 
