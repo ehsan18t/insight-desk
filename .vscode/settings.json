@@ -1,6 +1,10 @@
 {
   "cSpell.words": [
+    "appendonly",
     "bullmq",
+    "healthcheck",
+    "insightdesk",
+    "isready",
     "signups",
     "Valkey"
   ],

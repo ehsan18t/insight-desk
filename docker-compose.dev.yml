@@ -1,0 +1,67 @@
+services:
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: insightdesk-valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    command: valkey-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  postgresql:
+    image: postgres:17-alpine
+    container_name: insightdesk-postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: insightdesk
+      POSTGRES_PASSWORD: insightdesk_dev
+      POSTGRES_DB: insightdesk
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U insightdesk -d insightdesk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Optional: MinIO for S3-compatible file storage
+  minio:
+    image: minio/minio:latest
+    container_name: insightdesk-minio
+    ports:
+      - "9000:9000"   # API
+      - "9001:9001"   # Console
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Optional: Mailpit for email testing (catches all emails)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: insightdesk-mailpit
+    ports:
+      - "8025:8025"   # Web UI
+      - "1025:1025"   # SMTP
+    restart: unless-stopped
+
+volumes:
+  valkey_data:
+  postgresql_data:
+  minio_data:
