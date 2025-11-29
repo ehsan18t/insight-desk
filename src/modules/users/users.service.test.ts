@@ -86,12 +86,54 @@ describe("usersService", () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // listByOrganization - Skipped due to complex query chain mocking
-  // Note: This function is tested via integration tests
+  // listByOrganization
   // ─────────────────────────────────────────────────────────────
-  describe.skip("listByOrganization", () => {
+  describe("listByOrganization", () => {
     it("should return paginated list of users in organization", async () => {
-      // Complex query chain - tested via integration tests
+      const mockUsers = [
+        createMockUserWithRole({ id: "user-1", name: "User 1" }),
+        createMockUserWithRole({ id: "user-2", name: "User 2" }),
+      ];
+
+      // Mock for baseQuery (first db.select call - stored, then orderBy called on it)
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              innerJoin: () => ({
+                where: () => ({
+                  orderBy: () => ({
+                    limit: () => ({
+                      offset: vi.fn().mockResolvedValue(mockUsers),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }) as never,
+      );
+
+      // Mock for count query (second db.select call - awaited immediately)
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              innerJoin: () => ({
+                where: vi.fn().mockResolvedValue([{ total: 2 }]),
+              }),
+            }),
+          }) as never,
+      );
+
+      const result = await usersService.listByOrganization("org-123", {
+        page: 1,
+        limit: 20,
+      });
+
+      expect(result.data).toHaveLength(2);
+      expect(result.pagination.total).toBe(2);
+      expect(result.pagination.page).toBe(1);
+      expect(result.pagination.totalPages).toBe(1);
     });
   });
 

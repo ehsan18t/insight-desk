@@ -29,20 +29,91 @@ describe("dashboardService", () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // getStats - Skipped due to complex SQL/Promise.all pattern
+  // getStats
   // ─────────────────────────────────────────────────────────────
-  describe.skip("getStats", () => {
+  describe("getStats", () => {
     it("should return dashboard statistics", async () => {
-      // Complex SQL with multiple parallel queries - tested via integration tests
+      // Mock status counts query
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              where: () => ({
+                groupBy: vi.fn().mockResolvedValue([
+                  { status: "open", count: 10 },
+                  { status: "pending", count: 5 },
+                  { status: "resolved", count: 20 },
+                  { status: "closed", count: 15 },
+                ]),
+              }),
+            }),
+          }) as never,
+      );
+
+      // Mock performance metrics query
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              where: vi.fn().mockResolvedValue([
+                {
+                  avgFirstResponse: 30,
+                  avgResolution: 120,
+                  totalWithSla: 50,
+                  slaBreached: 5,
+                },
+              ]),
+            }),
+          }) as never,
+      );
+
+      // Mock agent counts query
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              innerJoin: () => ({
+                where: vi.fn().mockResolvedValue([{ total: 10, active: 8 }]),
+              }),
+            }),
+          }) as never,
+      );
+
+      const result = await dashboardService.getStats("org-1");
+
+      expect(result.tickets.total).toBe(50);
+      expect(result.tickets.open).toBe(10);
+      expect(result.agents.total).toBe(10);
+      expect(result.performance.slaComplianceRate).toBe(90);
     });
   });
 
   // ─────────────────────────────────────────────────────────────
-  // getTrends - Skipped due to complex date_trunc SQL
+  // getTrends
   // ─────────────────────────────────────────────────────────────
-  describe.skip("getTrends", () => {
+  describe("getTrends", () => {
     it("should return weekly trends by default", async () => {
-      // Complex date_trunc SQL pattern - tested via integration tests
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              where: () => ({
+                groupBy: () => ({
+                  orderBy: vi.fn().mockResolvedValue([
+                    { periodDate: "2024-01-01", created: 5, resolved: 3, closed: 2 },
+                    { periodDate: "2024-01-08", created: 8, resolved: 6, closed: 1 },
+                  ]),
+                }),
+              }),
+            }),
+          }) as never,
+      );
+
+      const result = await dashboardService.getTrends("org-1");
+
+      expect(result.period).toBe("week");
+      expect(result.data).toHaveLength(2);
+      expect(result.data[0].created).toBe(5);
     });
   });
 
@@ -98,11 +169,50 @@ describe("dashboardService", () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // getAgentPerformance - Skipped due to complex join chain
+  // getAgentPerformance
   // ─────────────────────────────────────────────────────────────
-  describe.skip("getAgentPerformance", () => {
+  describe("getAgentPerformance", () => {
     it("should return top 10 agents by performance", async () => {
-      // Complex innerJoin chain - tested via integration tests
+      const mockAgents = [
+        {
+          agentId: "agent-1",
+          agentName: "Agent 1",
+          ticketsAssigned: 20,
+          ticketsResolved: 18,
+          avgResponseTime: 60,
+        },
+        {
+          agentId: "agent-2",
+          agentName: "Agent 2",
+          ticketsAssigned: 15,
+          ticketsResolved: 14,
+          avgResponseTime: 45,
+        },
+      ];
+
+      // Chain: select().from().innerJoin().where().groupBy().orderBy().limit()
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              innerJoin: () => ({
+                where: () => ({
+                  groupBy: () => ({
+                    orderBy: () => ({
+                      limit: vi.fn().mockResolvedValue(mockAgents),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }) as never,
+      );
+
+      const result = await dashboardService.getAgentPerformance("org-1");
+
+      expect(result).toHaveLength(2);
+      expect(result[0].agentName).toBe("Agent 1");
+      expect(result[0].ticketsResolved).toBe(18);
     });
   });
 });

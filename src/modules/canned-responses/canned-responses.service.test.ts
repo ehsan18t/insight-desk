@@ -48,12 +48,42 @@ describe("cannedResponsesService", () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // list - Skipped due to complex Promise.all query chain
-  // Note: This function is tested via integration tests
+  // list
   // ─────────────────────────────────────────────────────────────
-  describe.skip("list", () => {
+  describe("list", () => {
     it("should return paginated list of canned responses", async () => {
-      // Complex Promise.all query chain - tested via integration tests
+      const mockResponses = [mockCannedResponse];
+
+      // Mock the Promise.all with two parallel queries
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              where: () => ({
+                orderBy: () => ({
+                  limit: () => ({
+                    offset: vi.fn().mockResolvedValue(mockResponses),
+                  }),
+                }),
+              }),
+            }),
+          }) as never,
+      );
+
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              where: vi.fn().mockResolvedValue([{ total: 1 }]),
+            }),
+          }) as never,
+      );
+
+      const result = await cannedResponsesService.list("org-1");
+
+      expect(result.data).toHaveLength(1);
+      expect(result.pagination.total).toBe(1);
+      expect(result.pagination.page).toBe(1);
     });
   });
 
@@ -137,11 +167,30 @@ describe("cannedResponsesService", () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // getCategories - Skipped due to complex selectDistinct chain
+  // getCategories
   // ─────────────────────────────────────────────────────────────
-  describe.skip("getCategories", () => {
+  describe("getCategories", () => {
     it("should return unique categories for organization", async () => {
-      // Complex selectDistinct query chain - tested via integration tests
+      vi.mocked(db.selectDistinct).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              where: vi
+                .fn()
+                .mockResolvedValue([
+                  { category: "greetings" },
+                  { category: "closings" },
+                  { category: "support" },
+                ]),
+            }),
+          }) as never,
+      );
+
+      const result = await cannedResponsesService.getCategories("org-1");
+
+      expect(result).toHaveLength(3);
+      expect(result).toContain("greetings");
+      expect(result).toContain("closings");
     });
   });
 

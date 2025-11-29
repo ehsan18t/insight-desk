@@ -47,11 +47,30 @@ describe("slaService", () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // list - Skipped due to complex query chain
+  // list
   // ─────────────────────────────────────────────────────────────
-  describe.skip("list", () => {
+  describe("list", () => {
     it("should return list of SLA policies for organization", async () => {
-      // Complex query chain - tested via integration tests
+      const mockPolicies = [
+        { ...mockSlaPolicy, priority: "low" as const },
+        { ...mockSlaPolicy, id: "sla-2", priority: "high" as const },
+      ];
+
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              where: () => ({
+                orderBy: vi.fn().mockResolvedValue(mockPolicies),
+              }),
+            }),
+          }) as never,
+      );
+
+      const result = await slaService.list("org-1");
+
+      expect(result).toHaveLength(2);
+      expect(result[0].priority).toBe("low");
     });
   });
 
@@ -458,11 +477,32 @@ describe("slaService", () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // initializeDefaults - Skipped due to complex multiple calls
+  // initializeDefaults
   // ─────────────────────────────────────────────────────────────
-  describe.skip("initializeDefaults", () => {
+  describe("initializeDefaults", () => {
     it("should create default policies for all priorities", async () => {
-      // Complex multiple call pattern - tested via integration tests
+      // Mock getByPriority returning null (no existing policies)
+      vi.mocked(db.select).mockImplementation(
+        () =>
+          ({
+            from: () => ({
+              where: () => ({
+                limit: vi.fn().mockResolvedValue([]),
+              }),
+            }),
+          }) as never,
+      );
+
+      // Mock insert for each priority - create uses .values().returning()
+      vi.mocked(db.insert).mockReturnValue({
+        values: () => ({
+          returning: vi.fn().mockResolvedValue([mockSlaPolicy]),
+        }),
+      } as never);
+
+      const result = await slaService.initializeDefaults("org-1");
+
+      expect(result).toHaveLength(4); // 4 priorities: low, medium, high, urgent
     });
   });
 });

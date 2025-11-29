@@ -178,16 +178,16 @@ The API will be available at **http://localhost:3001**
 | `bun run db:seed`     | Seed demo data         |
 
 ### Quality
-| Command                  | Description                          |
-| ------------------------ | ------------------------------------ |
-| `bun run test`           | Run unit tests (default)             |
-| `bun run test:unit`      | Run unit tests only                  |
-| `bun run test:integration` | Run integration tests (RLS/tenant) |
-| `bun run test:all`       | Run all tests                        |
-| `bun run test:setup`     | Setup test database for integration  |
-| `bun run test:coverage`  | Run tests with coverage              |
-| `bun run typecheck`      | TypeScript check                     |
-| `bun run check`          | Lint & format check                  |
+| Command                    | Description                         |
+| -------------------------- | ----------------------------------- |
+| `bun run test`             | Run unit tests (default)            |
+| `bun run test:unit`        | Run unit tests only                 |
+| `bun run test:integration` | Run integration tests (RLS/tenant)  |
+| `bun run test:all`         | Run all tests                       |
+| `bun run test:setup`       | Setup test database for integration |
+| `bun run test:coverage`    | Run tests with coverage             |
+| `bun run typecheck`        | TypeScript check                    |
+| `bun run check`            | Lint & format check                 |
 
 ---
 
