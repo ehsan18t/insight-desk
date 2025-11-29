@@ -42,3 +42,12 @@ export async function checkDatabaseConnection(): Promise<boolean> {
 export async function closeDatabaseConnection(): Promise<void> {
   await client.end();
 }
+
+// Export tenant-aware utilities
+export {
+  createTenantDb,
+  withTenant,
+  withTenantRead,
+  type TenantContext,
+  type TenantDb,
+} from "./with-tenant";
