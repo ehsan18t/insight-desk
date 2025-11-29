@@ -1108,6 +1108,169 @@ db.query.tickets.findMany({
 
 ---
 
+## 🔐 Row-Level Security (RLS)
+
+### Overview
+
+InsightDesk uses PostgreSQL Row-Level Security (RLS) for database-level multi-tenant isolation. This provides a defense-in-depth approach where data isolation is enforced at the database level, not just in application code.
+
+### Why RLS?
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Application-level filtering** | Simple, works with any DB | Risk of accidental data leaks |
+| **Database-per-tenant** | Complete isolation | Operational complexity, no cross-tenant joins |
+| **Schema-per-tenant** | Good isolation | Migration complexity |
+| **Row-Level Security** ✅ | DB-enforced isolation, single DB | Requires PostgreSQL, slight performance overhead |
+
+### Implementation
+
+#### 1. RLS Roles (`src/db/schema/rls.ts`)
+
+```typescript
+// Application role - used by web app connections
+export const appUser = pgRole("app_user");
+
+// Service role - bypasses RLS for background jobs
+export const serviceRole = pgRole("service_role", { bypassRLS: true });
+
+// Context helpers for policy conditions
+export const currentOrgId = sql`current_setting('app.current_org_id', true)::uuid`;
+export const currentUserId = sql`current_setting('app.current_user_id', true)::uuid`;
+```
+
+#### 2. Policy Factory Functions
+
+```typescript
+// Standard tenant isolation (for tables with organization_id column)
+export function createTenantPolicies(tableName: string) {
+  return [
+    pgPolicy(`${tableName}_tenant_select`, {
+      for: "select",
+      to: appUser,
+      using: sql`organization_id = ${currentOrgId}`,
+    }),
+    pgPolicy(`${tableName}_tenant_insert`, {
+      for: "insert",
+      to: appUser,
+      withCheck: sql`organization_id = ${currentOrgId}`,
+    }),
+    // ... update and delete policies
+  ];
+}
+```
+
+#### 3. Schema Integration
+
+```typescript
+// In tables.ts
+export const tickets = pgTable("tickets", {
+  id: uuid("id").primaryKey().default(uuidv7Default),
+  organizationId: uuid("organization_id").notNull().references(() => organizations.id),
+  // ... other columns
+}, (table) => [
+  index("tickets_org_idx").on(table.organizationId),
+  // RLS policies
+  ...createTenantPolicies("tickets"),
+]).enableRLS();
+```
+
+### Tables with RLS
+
+| Table | RLS Enabled | Policy Type |
+|-------|-------------|-------------|
+| organizations | ✅ | Self-access (id = current_org_id) |
+| userOrganizations | ✅ | Org + user's own memberships |
+| tickets | ✅ | Standard tenant |
+| ticketMessages | ✅ | Via ticket subquery |
+| ticketActivities | ✅ | Via ticket subquery |
+| categories | ✅ | Standard tenant |
+| tags | ✅ | Standard tenant |
+| slaPolicies | ✅ | Standard tenant |
+| cannedResponses | ✅ | Standard tenant |
+| attachments | ✅ | Standard tenant (org_id) |
+| organizationInvitations | ✅ | Standard tenant (org_id) |
+| savedFilters | ✅ | Standard tenant |
+| csatSurveys | ✅ | Standard tenant |
+| organizationSubscriptions | ✅ | Standard tenant |
+| subscriptionUsage | ✅ | Standard tenant |
+| auditLogs | ✅ | Standard tenant |
+
+### Global Tables (No RLS)
+
+| Table | Reason |
+|-------|--------|
+| users | Global user accounts |
+| sessions | Auth sessions (better-auth) |
+| accounts | OAuth accounts |
+| verifications | Email tokens |
+| subscriptionPlans | Global catalog |
+
+### Using Tenant Context
+
+#### Web App Requests
+
+```typescript
+import { withTenant } from "@/db";
+
+// In route handler
+app.get("/api/tickets", authenticate, async (req, res, next) => {
+  const tickets = await withTenant(
+    { organizationId: req.organizationId, userId: req.user.id },
+    async (tx) => {
+      return await tx.query.tickets.findMany();
+      // RLS automatically filters to current tenant!
+    }
+  );
+  res.json({ success: true, data: tickets });
+});
+```
+
+#### Background Jobs
+
+```typescript
+import { adminDb } from "@/db/admin-db";
+
+// Background jobs use adminDb which bypasses RLS
+async function checkSLAViolations() {
+  // Returns tickets from ALL organizations
+  const overdueTickets = await adminDb
+    .select()
+    .from(tickets)
+    .where(lt(tickets.slaDeadline, new Date()));
+  
+  // Process each ticket...
+}
+```
+
+### Migration Setup
+
+After modifying schema with RLS:
+
+```bash
+# Generate migration
+bun run db:generate
+
+# Apply migration
+bun run db:migrate
+
+# Grant permissions to app_user role
+psql -d insight_desk -c "
+  GRANT USAGE ON SCHEMA public TO app_user;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+  GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_user;
+"
+```
+
+### Security Considerations
+
+1. **Defense in Depth**: RLS is a safety net, not a replacement for application-level checks
+2. **Superuser Bypass**: PostgreSQL superuser bypasses RLS - use dedicated app roles in production
+3. **SET LOCAL Scope**: Always use `SET LOCAL` (not `SET`) to scope context to transaction
+4. **Audit**: Log all cross-tenant operations performed via adminDb
+
+---
+
 ## Next Steps
 
 → Continue to [05-core-features.md](./05-core-features.md) to define the MVP features.
