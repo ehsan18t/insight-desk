@@ -28,7 +28,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
-    "docs:generate": "bun run scripts/generate-openapi.ts"
+    "docs:generate": "bun run scripts/generate-openapi.ts",
+    "db:setup-roles": "bun run scripts/setup-database-roles.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.1.0",
