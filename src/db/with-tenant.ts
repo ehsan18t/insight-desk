@@ -47,11 +47,18 @@ type TransactionCallback<T> = (tx: TenantTransaction) => Promise<T>;
  * Sets the tenant context for RLS policies using SET LOCAL.
  * SET LOCAL ensures the settings only apply to the current transaction.
  *
+ * Also sets the role to 'app_user' so RLS policies are enforced.
+ * The 'app_user' role does not have BYPASSRLS, so RLS policies apply.
+ *
  * @param ctx - The tenant context containing organizationId and optional userId
  * @returns SQL statement to set tenant context
  */
 function buildSetTenantContextSQL(ctx: TenantContext): SQL {
   const statements: string[] = [];
+
+  // Set role to app_user to enforce RLS (superuser bypasses RLS)
+  // SET LOCAL ROLE ensures the role change is scoped to this transaction
+  statements.push("SET LOCAL ROLE app_user");
 
   // Always set organization context
   statements.push(`SET LOCAL app.current_org_id = '${ctx.organizationId}'`);
