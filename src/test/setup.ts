@@ -40,10 +40,9 @@ loadTestEnv();
 // ─────────────────────────────────────────────────────────────
 
 // Mock email service
-vi.mock("@/utils/email", () => ({
-  sendEmail: vi.fn().mockResolvedValue({ success: true, messageId: "test-id" }),
-  sendTicketNotification: vi.fn().mockResolvedValue({ success: true }),
-  sendWelcomeEmail: vi.fn().mockResolvedValue({ success: true }),
+vi.mock("@/lib/email", () => ({
+  sendEmail: vi.fn().mockResolvedValue(true),
+  sendTemplateEmail: vi.fn().mockResolvedValue(true),
 }));
 
 // Mock cache - use in-memory implementation

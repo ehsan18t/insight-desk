@@ -7,6 +7,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Organization } from "@/db/schema";
 import { type OrganizationMember, organizationsService } from "./organizations.service";
 
+// Mock email service
+vi.mock("@/lib/email", () => ({
+  sendTemplateEmail: vi.fn().mockResolvedValue(true),
+  sendEmail: vi.fn().mockResolvedValue(true),
+}));
+
 // Mock the database
 vi.mock("@/db", () => ({
   db: {
@@ -338,6 +344,15 @@ describe("organizationsService", () => {
     it("should create invitation for non-existent user", async () => {
       vi.mocked(db.query.users.findFirst).mockResolvedValue(undefined);
       vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(undefined);
+      // Mock organization and inviter lookups for email template
+      vi.mocked(db.query.organizations.findFirst).mockResolvedValue(createMockOrganization());
+      vi.mocked(db.query.users.findFirst)
+        .mockResolvedValueOnce(undefined) // First call: check if user exists
+        .mockResolvedValueOnce({
+          id: "inviter-123",
+          name: "Test Inviter",
+          email: "inviter@test.com",
+        } as never); // Second call: get inviter details
       vi.mocked(db.insert).mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([
