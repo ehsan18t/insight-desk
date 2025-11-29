@@ -5,6 +5,7 @@
  * Each factory returns the created entity with all fields.
  */
 
+import { uuidv7 } from "uuidv7";
 import { nanoid } from "nanoid";
 import { db } from "@/db";
 import {
@@ -27,8 +28,12 @@ import {
 // ID Generators
 // ─────────────────────────────────────────────────────────────
 
+/**
+ * Generate a UUIDv7 for test entities.
+ * Uses UUIDv7 for consistency with production database schema.
+ */
 export function generateId(): string {
-  return nanoid();
+  return uuidv7();
 }
 
 export function generateEmail(prefix = "user"): string {

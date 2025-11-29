@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { uuidv7 } from "uuidv7";
 import { config } from "@/config";
 import { db } from "@/db";
 import * as schema from "@/db/schema/index";
@@ -95,7 +96,7 @@ export const auth = betterAuth({
   advanced: {
     cookiePrefix: "insightdesk",
     database: {
-      generateId: () => crypto.randomUUID(),
+      generateId: () => uuidv7(),
     },
   },
 });
