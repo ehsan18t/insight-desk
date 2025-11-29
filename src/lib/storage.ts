@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync } from "node:fs";
 import { readFile, unlink, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -53,11 +53,26 @@ class LocalStorageProvider implements StorageProvider {
   private basePath: string;
 
   constructor() {
-    this.basePath = config.STORAGE_LOCAL_PATH;
+    this.basePath = resolve(config.STORAGE_LOCAL_PATH);
     // Ensure base directory exists
     if (!existsSync(this.basePath)) {
       mkdirSync(this.basePath, { recursive: true });
     }
+  }
+
+  /**
+   * SECURITY: Validate path doesn't escape base directory (path traversal protection)
+   */
+  private validatePath(relativePath: string): string {
+    const fullPath = resolve(this.basePath, relativePath);
+    if (!fullPath.startsWith(this.basePath)) {
+      logger.warn(
+        { relativePath, fullPath, basePath: this.basePath },
+        "Path traversal attempt detected",
+      );
+      throw new Error("Invalid file path");
+    }
+    return fullPath;
   }
 
   async upload(buffer: Buffer, options: UploadOptions): Promise<StoredFile> {
@@ -88,12 +103,12 @@ class LocalStorageProvider implements StorageProvider {
   }
 
   async download(path: string): Promise<Buffer> {
-    const fullPath = join(this.basePath, path);
+    const fullPath = this.validatePath(path);
     return readFile(fullPath);
   }
 
   async delete(path: string): Promise<void> {
-    const fullPath = join(this.basePath, path);
+    const fullPath = this.validatePath(path);
     if (existsSync(fullPath)) {
       await unlink(fullPath);
     }
@@ -104,12 +119,12 @@ class LocalStorageProvider implements StorageProvider {
   }
 
   async exists(path: string): Promise<boolean> {
-    const fullPath = join(this.basePath, path);
+    const fullPath = this.validatePath(path);
     return existsSync(fullPath);
   }
 
   getFullPath(path: string): string {
-    return join(this.basePath, path);
+    return this.validatePath(path);
   }
 }
 
@@ -249,9 +264,68 @@ export function getStorageProvider(): StorageProvider {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Magic Byte Signatures for File Type Verification
+// ─────────────────────────────────────────────────────────────
+// SECURITY: Verify file content matches claimed MIME type to prevent extension spoofing
+const FILE_SIGNATURES: Record<string, { bytes: number[]; offset?: number }[]> = {
+  // Images
+  "image/jpeg": [{ bytes: [0xff, 0xd8, 0xff] }],
+  "image/png": [{ bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] }],
+  "image/gif": [{ bytes: [0x47, 0x49, 0x46, 0x38] }], // GIF87a or GIF89a
+  "image/webp": [
+    { bytes: [0x52, 0x49, 0x46, 0x46], offset: 0 },
+    { bytes: [0x57, 0x45, 0x42, 0x50], offset: 8 },
+  ],
+  "image/bmp": [{ bytes: [0x42, 0x4d] }],
+  "image/svg+xml": [{ bytes: [0x3c, 0x3f, 0x78, 0x6d, 0x6c] }, { bytes: [0x3c, 0x73, 0x76, 0x67] }], // <?xml or <svg
+
+  // Documents
+  "application/pdf": [{ bytes: [0x25, 0x50, 0x44, 0x46] }], // %PDF
+  "application/msword": [{ bytes: [0xd0, 0xcf, 0x11, 0xe0] }], // OLE compound doc
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+    { bytes: [0x50, 0x4b, 0x03, 0x04] },
+  ], // ZIP/DOCX
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+    { bytes: [0x50, 0x4b, 0x03, 0x04] },
+  ], // ZIP/XLSX
+
+  // Text (no magic bytes - verify content is valid UTF-8)
+  "text/plain": [],
+  "text/csv": [],
+};
+
+/**
+ * SECURITY: Verify file magic bytes match the claimed MIME type
+ * Prevents extension spoofing attacks (e.g., .exe renamed to .jpg)
+ */
+function verifyMagicBytes(buffer: Buffer, mimetype: string): boolean {
+  const signatures = FILE_SIGNATURES[mimetype];
+
+  // If no signature defined, skip magic byte check (allow through)
+  // This handles text files and unknown types
+  if (!signatures || signatures.length === 0) {
+    return true;
+  }
+
+  // Check if buffer matches any of the signatures for this MIME type
+  return signatures.some((sig) => {
+    const offset = sig.offset ?? 0;
+    if (buffer.length < offset + sig.bytes.length) {
+      return false;
+    }
+    return sig.bytes.every((byte, index) => buffer[offset + index] === byte);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
 // File Validation
 // ─────────────────────────────────────────────────────────────
-export function validateFile(file: { size: number; mimetype: string; originalname: string }): {
+export function validateFile(file: {
+  size: number;
+  mimetype: string;
+  originalname: string;
+  buffer?: Buffer;
+}): {
   valid: boolean;
   error?: string;
 } {
@@ -263,7 +337,7 @@ export function validateFile(file: { size: number; mimetype: string; originalnam
     };
   }
 
-  // Check file type
+  // Check file type by extension/mimetype
   const allowedTypes = config.ALLOWED_FILE_TYPES.split(",").map((t) => t.trim());
   const isAllowed = allowedTypes.some((type) => {
     if (type.endsWith("/*")) {
@@ -283,6 +357,19 @@ export function validateFile(file: { size: number; mimetype: string; originalnam
     return {
       valid: false,
       error: `File type not allowed. Allowed types: ${config.ALLOWED_FILE_TYPES}`,
+    };
+  }
+
+  // SECURITY: Verify magic bytes if buffer is provided
+  // Prevents extension spoofing attacks
+  if (file.buffer && !verifyMagicBytes(file.buffer, file.mimetype)) {
+    logger.warn(
+      { mimetype: file.mimetype, filename: file.originalname },
+      "File magic bytes do not match claimed MIME type",
+    );
+    return {
+      valid: false,
+      error: "File content does not match file type. Possible file spoofing detected.",
     };
   }
 

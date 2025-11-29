@@ -118,7 +118,9 @@ async function getTrends(
   const periodsCount = options.periods || 7;
 
   // Calculate date truncation based on period
-  const dateTrunc = period === "day" ? "day" : period === "week" ? "week" : "month";
+  // SECURITY: Explicit whitelist to prevent SQL injection - only these values are allowed
+  const ALLOWED_TRUNCATIONS = { day: "day", week: "week", month: "month" } as const;
+  const dateTrunc = ALLOWED_TRUNCATIONS[period] ?? "week";
 
   // Calculate start date
   const now = new Date();

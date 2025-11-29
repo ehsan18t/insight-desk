@@ -34,6 +34,11 @@ export function createApp(): Express {
   const app = express();
 
   // ─────────────────────────────────────────────────────────────
+  // Trust proxy (for proper IP extraction behind reverse proxies)
+  // ─────────────────────────────────────────────────────────────
+  app.set("trust proxy", 1);
+
+  // ─────────────────────────────────────────────────────────────
   // Security middleware
   // ─────────────────────────────────────────────────────────────
   app.use(

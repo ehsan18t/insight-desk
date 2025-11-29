@@ -49,11 +49,12 @@ router.post(
         });
       }
 
-      // Validate file
+      // Validate file (including magic byte verification for security)
       const validation = storage.validate({
         size: file.size,
         mimetype: file.mimetype,
         originalname: file.originalname,
+        buffer: file.buffer, // Pass buffer for magic byte verification
       });
 
       if (!validation.valid) {
