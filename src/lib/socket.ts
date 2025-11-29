@@ -8,6 +8,14 @@ import { userOrganizations } from "@/db/schema";
 import { auth } from "@/modules/auth/auth.config";
 import { valkey } from "./cache";
 import { logger } from "./logger";
+import {
+  clearUserTyping,
+  getOnlineUsers,
+  getTicketSessionState,
+  setUserOffline,
+  setUserOnline,
+  setUserTyping,
+} from "./presence";
 
 // Socket with user data
 interface AuthenticatedSocket extends Socket {
@@ -115,7 +123,7 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
   });
 
   // Connection handler
-  io.on("connection", (socket: AuthenticatedSocket) => {
+  io.on("connection", async (socket: AuthenticatedSocket) => {
     logger.info(`Socket connected: ${socket.id} (user: ${socket.user?.id})`);
 
     // Join user-specific room for notifications
@@ -123,37 +131,80 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
       socket.join(`user:${socket.user.id}`);
     }
 
-    // Join organization room for real-time updates
-    if (socket.organizationId) {
+    // Join organization room for real-time updates and set presence
+    if (socket.organizationId && socket.user) {
       socket.join(`org:${socket.organizationId}`);
-      logger.info(`User ${socket.user?.id} joined organization room: ${socket.organizationId}`);
+      logger.info(`User ${socket.user.id} joined organization room: ${socket.organizationId}`);
+
+      // Set user as online in Valkey
+      await setUserOnline(socket.organizationId, socket.user.id);
+
+      // Notify other users in the organization
+      socket.to(`org:${socket.organizationId}`).emit("user:online", {
+        userId: socket.user.id,
+        userName: socket.user.name,
+      });
+
+      // Send current online users to the connecting user (state recovery)
+      const onlineUsers = await getOnlineUsers(socket.organizationId);
+      socket.emit("presence:sync", { onlineUsers });
     }
 
     // Handle joining a specific ticket room
     socket.on("ticket:join", async (ticketId: string) => {
-      if (!socket.organizationId) {
+      if (!socket.organizationId || !socket.user) {
         socket.emit("error", { message: "Organization context required" });
         return;
       }
 
       // Join ticket-specific room
       socket.join(`ticket:${ticketId}`);
-      logger.info(`User ${socket.user?.id} joined ticket room: ${ticketId}`);
+      logger.info(`User ${socket.user.id} joined ticket room: ${ticketId}`);
+
+      // Send session state recovery for this ticket
+      const sessionState = await getTicketSessionState(socket.organizationId, ticketId);
+      socket.emit("ticket:state", {
+        ticketId,
+        typingUsers: sessionState.typingUsers,
+      });
     });
 
     // Handle leaving a ticket room
-    socket.on("ticket:leave", (ticketId: string) => {
+    socket.on("ticket:leave", async (ticketId: string) => {
       socket.leave(`ticket:${ticketId}`);
       logger.info(`User ${socket.user?.id} left ticket room: ${ticketId}`);
+
+      // Clear typing status when leaving
+      if (socket.user) {
+        await clearUserTyping(ticketId, socket.user.id);
+      }
     });
 
-    // Handle typing indicator
-    socket.on("ticket:typing", (data: { ticketId: string; isTyping: boolean }) => {
+    // Handle typing indicator - now persisted to Valkey
+    socket.on("ticket:typing", async (data: { ticketId: string; isTyping: boolean }) => {
+      if (!socket.user) return;
+
+      if (data.isTyping) {
+        // Set typing in Valkey with auto-expiration
+        await setUserTyping(data.ticketId, socket.user.id, socket.user.name);
+      } else {
+        // Clear typing status
+        await clearUserTyping(data.ticketId, socket.user.id);
+      }
+
+      // Broadcast to ticket room (real-time notification)
       socket.to(`ticket:${data.ticketId}`).emit("ticket:typing", {
-        userId: socket.user?.id,
-        userName: socket.user?.name,
+        userId: socket.user.id,
+        userName: socket.user.name,
         isTyping: data.isTyping,
       });
+    });
+
+    // Handle presence heartbeat
+    socket.on("presence:ping", async () => {
+      if (socket.organizationId && socket.user) {
+        await setUserOnline(socket.organizationId, socket.user.id);
+      }
     });
 
     // Handle switching organizations
@@ -173,8 +224,12 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
         return;
       }
 
-      // Leave old organization room
+      // Set offline in old organization
       if (socket.organizationId) {
+        await setUserOffline(socket.organizationId, socket.user.id);
+        socket.to(`org:${socket.organizationId}`).emit("user:offline", {
+          userId: socket.user.id,
+        });
         socket.leave(`org:${socket.organizationId}`);
       }
 
@@ -182,12 +237,42 @@ export async function initializeSocketIO(httpServer: HttpServer): Promise<Socket
       socket.join(`org:${organizationId}`);
       socket.organizationId = organizationId;
 
+      // Set online in new organization
+      await setUserOnline(organizationId, socket.user.id);
+      socket.to(`org:${organizationId}`).emit("user:online", {
+        userId: socket.user.id,
+        userName: socket.user.name,
+      });
+
+      // Send presence state for new organization
+      const onlineUsers = await getOnlineUsers(organizationId);
+      socket.emit("presence:sync", { onlineUsers });
+
       logger.info(`User ${socket.user.id} switched to organization: ${organizationId}`);
     });
 
     // Disconnect handler
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       logger.info(`Socket disconnected: ${socket.id}`);
+
+      if (socket.organizationId && socket.user) {
+        // Check if user has other active connections in this org
+        const io = getIO();
+        const sockets = await io.in(`user:${socket.user.id}`).fetchSockets();
+        const hasOtherConnections = sockets.some(
+          (s) =>
+            s.id !== socket.id &&
+            (s as unknown as AuthenticatedSocket).organizationId === socket.organizationId,
+        );
+
+        if (!hasOtherConnections) {
+          // No other connections, set user as offline
+          await setUserOffline(socket.organizationId, socket.user.id);
+          io.to(`org:${socket.organizationId}`).emit("user:offline", {
+            userId: socket.user.id,
+          });
+        }
+      }
     });
   });
 
