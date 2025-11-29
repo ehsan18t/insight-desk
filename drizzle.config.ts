@@ -9,4 +9,7 @@ export default defineConfig({
   },
   verbose: true,
   strict: true,
+  entities: {
+    roles: true, // Enable RLS role management
+  },
 });
