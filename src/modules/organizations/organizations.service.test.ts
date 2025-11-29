@@ -13,6 +13,17 @@ vi.mock("@/lib/email", () => ({
   sendEmail: vi.fn().mockResolvedValue(true),
 }));
 
+// Mock subscriptions service
+vi.mock("@/modules/subscriptions", () => ({
+  subscriptionsService: {
+    createForOrganization: vi.fn().mockResolvedValue({
+      id: "sub-123",
+      organizationId: "org-123",
+      plan: "free",
+    }),
+  },
+}));
+
 // Mock the database
 vi.mock("@/db", () => ({
   db: {

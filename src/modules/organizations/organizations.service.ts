@@ -11,6 +11,7 @@ import {
   users,
 } from "@/db/schema";
 import { sendTemplateEmail } from "@/lib/email";
+import { createLogger } from "@/lib/logger";
 import { subscriptionsService } from "@/modules/subscriptions";
 import type {
   CreateOrganizationInput,
@@ -20,6 +21,8 @@ import type {
   UpdateMemberRoleInput,
   UpdateOrganizationInput,
 } from "./organizations.schema";
+
+const logger = createLogger("organizations");
 
 // Organization with member count
 export interface OrganizationWithStats extends Organization {
@@ -78,7 +81,7 @@ export const organizationsService = {
       await subscriptionsService.createForOrganization(result.id);
     } catch {
       // Log but don't fail org creation if subscription setup fails
-      console.warn(`Failed to create subscription for org ${result.id}`);
+      logger.warn({ organizationId: result.id }, "Failed to create subscription for organization");
     }
 
     return result;
