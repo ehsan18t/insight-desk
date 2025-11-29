@@ -4,7 +4,7 @@
  */
 
 import { and, eq, lt, sql } from "drizzle-orm";
-import { db } from "@/db";
+import { adminDb } from "@/db/admin-db";
 import { ticketActivities, tickets } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 
@@ -48,7 +48,7 @@ export async function autoCloseStaleTickets(
     const pendingCutoff = new Date(now.getTime() - pendingDays * 24 * 60 * 60 * 1000);
 
     // Find resolved tickets older than the cutoff
-    const staleResolvedTickets = await db
+    const staleResolvedTickets = await adminDb
       .select({
         id: tickets.id,
         status: tickets.status,
@@ -58,7 +58,7 @@ export async function autoCloseStaleTickets(
       .where(and(eq(tickets.status, "resolved"), lt(tickets.updatedAt, resolvedCutoff)));
 
     // Find pending tickets with no activity older than the cutoff
-    const stalePendingTickets = await db
+    const stalePendingTickets = await adminDb
       .select({
         id: tickets.id,
         status: tickets.status,
@@ -73,7 +73,7 @@ export async function autoCloseStaleTickets(
     for (const ticket of ticketsToClose) {
       try {
         // Update ticket to closed
-        await db
+        await adminDb
           .update(tickets)
           .set({
             status: "closed",
@@ -83,7 +83,7 @@ export async function autoCloseStaleTickets(
           .where(eq(tickets.id, ticket.id));
 
         // Log activity
-        await db.insert(ticketActivities).values({
+        await adminDb.insert(ticketActivities).values({
           ticketId: ticket.id,
           userId: null, // System action
           action: "status_changed",
@@ -133,7 +133,7 @@ export async function getAutoClosePreview(
   const resolvedCutoff = new Date(now.getTime() - resolvedDays * 24 * 60 * 60 * 1000);
   const pendingCutoff = new Date(now.getTime() - pendingDays * 24 * 60 * 60 * 1000);
 
-  const resolvedCount = await db
+  const resolvedCount = await adminDb
     .select({ count: sql<number>`count(*)` })
     .from(tickets)
     .where(
@@ -144,7 +144,7 @@ export async function getAutoClosePreview(
       ),
     );
 
-  const pendingCount = await db
+  const pendingCount = await adminDb
     .select({ count: sql<number>`count(*)` })
     .from(tickets)
     .where(

@@ -4,7 +4,7 @@
  */
 
 import { and, lte } from "drizzle-orm";
-import { db } from "@/db";
+import { adminDb } from "@/db/admin-db";
 import { organizationSubscriptions } from "@/db/schema";
 import { createLogger } from "@/lib/logger";
 import { subscriptionsService } from "@/modules/subscriptions";
@@ -26,7 +26,7 @@ export async function resetExpiredSubscriptionUsage(): Promise<{
 
   try {
     // Find subscriptions where current period has ended
-    const expiredSubscriptions = await db
+    const expiredSubscriptions = await adminDb
       .select({
         id: organizationSubscriptions.id,
         organizationId: organizationSubscriptions.organizationId,
@@ -45,7 +45,7 @@ export async function resetExpiredSubscriptionUsage(): Promise<{
       try {
         // If subscription should cancel at period end
         if (subscription.cancelAtPeriodEnd) {
-          await db
+          await adminDb
             .update(organizationSubscriptions)
             .set({
               status: "canceled",
@@ -93,7 +93,7 @@ export async function getExpiringSubscriptions(
   const now = new Date();
   const threshold = new Date(now.getTime() + withinHours * 60 * 60 * 1000);
 
-  const expiring = await db
+  const expiring = await adminDb
     .select({
       organizationId: organizationSubscriptions.organizationId,
       currentPeriodEnd: organizationSubscriptions.currentPeriodEnd,

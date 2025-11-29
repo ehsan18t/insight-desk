@@ -4,7 +4,7 @@
  */
 
 import { and, eq, isNotNull, or } from "drizzle-orm";
-import { db } from "@/db";
+import { adminDb } from "@/db/admin-db";
 import { organizations, ticketActivities, tickets, users } from "@/db/schema";
 import { sendTemplateEmail } from "@/lib/email";
 import { createLogger } from "@/lib/logger";
@@ -33,7 +33,7 @@ export async function checkSlaBreaches(): Promise<SlaBreachResult> {
     const now = new Date();
 
     // Get all tickets that are open/pending, have SLA deadlines, and haven't already been marked as breached
-    const ticketsToCheck = await db
+    const ticketsToCheck = await adminDb
       .select({
         id: tickets.id,
         ticketNumber: tickets.ticketNumber,
@@ -64,10 +64,10 @@ export async function checkSlaBreaches(): Promise<SlaBreachResult> {
           result.breached++;
 
           // Mark ticket as breached
-          await db.update(tickets).set({ slaBreached: true }).where(eq(tickets.id, ticket.id));
+          await adminDb.update(tickets).set({ slaBreached: true }).where(eq(tickets.id, ticket.id));
 
           // Log activity for breach
-          await db.insert(ticketActivities).values({
+          await adminDb.insert(ticketActivities).values({
             ticketId: ticket.id,
             userId: undefined, // System action
             action: "sla_breached",
@@ -127,7 +127,7 @@ export async function getSlaStats(organizationId: string): Promise<{
   const warningThreshold = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
 
   // Get active tickets with SLA deadlines
-  const ticketsWithSla = await db
+  const ticketsWithSla = await adminDb
     .select({
       id: tickets.id,
       slaDeadline: tickets.slaDeadline,
@@ -188,11 +188,11 @@ async function sendSlaNotification(
   try {
     // Fetch organization and assignee details
     const [organization, assignee] = await Promise.all([
-      db.query.organizations.findFirst({
+      adminDb.query.organizations.findFirst({
         where: eq(organizations.id, ticket.orgId),
       }),
       ticket.assigneeId
-        ? db.query.users.findFirst({
+        ? adminDb.query.users.findFirst({
             where: eq(users.id, ticket.assigneeId),
           })
         : null,
