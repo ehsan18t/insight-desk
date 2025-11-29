@@ -38,7 +38,7 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().default("InsightDesk <noreply@example.com>"),
 
   // Logging
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  LOG_LEVEL: z.enum(["silent", "debug", "info", "warn", "error"]).default("info"),
 
   // Rate limiting
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(60000),
