@@ -1,8 +1,12 @@
 // Database Schema Index
-// Re-export all tables, relations, enums, and types
+// Re-export all tables, relations, enums, types, and RLS configuration
 
 // Relations
 export * from "./relations";
+
+// RLS Configuration (roles and policies)
+export * from "./rls";
+
 // Re-export types from tables
 export type {
   ActivityMetadata,

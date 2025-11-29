@@ -14,6 +14,15 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import {
+  createActivityPolicies,
+  createAttachmentPolicies,
+  createInvitationPolicies,
+  createMessagePolicies,
+  createOrgSelfPolicy,
+  createTenantPolicies,
+  createUserOrgPolicies,
+} from "./rls";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PG18 HELPERS
@@ -128,8 +137,12 @@ export const organizations = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [uniqueIndex("org_slug_idx").on(table.slug)],
-);
+  (table) => [
+    uniqueIndex("org_slug_idx").on(table.slug),
+    // RLS: Organizations can only access their own record
+    ...createOrgSelfPolicy("organizations"),
+  ],
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // USER ORGANIZATIONS (Many-to-Many with role)
@@ -152,8 +165,10 @@ export const userOrganizations = pgTable(
     uniqueIndex("user_org_unique").on(table.userId, table.organizationId),
     index("user_orgs_user_idx").on(table.userId),
     index("user_orgs_org_idx").on(table.organizationId),
+    // RLS: Users can see their own memberships + tenant access
+    ...createUserOrgPolicies(),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TICKETS
@@ -204,8 +219,10 @@ export const tickets = pgTable(
     index("tickets_sla_active_idx")
       .on(table.slaDeadline, table.slaBreached)
       .where(sql`status IN ('open', 'pending') AND sla_breached = false`),
+    // RLS: Tenant isolation for tickets
+    ...createTenantPolicies("tickets"),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TICKET MESSAGES
@@ -238,8 +255,10 @@ export const ticketMessages = pgTable(
   (table) => [
     index("messages_ticket_created_idx").on(table.ticketId, table.createdAt),
     index("messages_email_id_idx").on(table.emailMessageId),
+    // RLS: Messages inherit tenant isolation from parent ticket
+    ...createMessagePolicies(),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TICKET ACTIVITIES (Audit Log)
@@ -277,8 +296,12 @@ export const ticketActivities = pgTable(
     metadata: jsonb("metadata").$type<ActivityMetadata>().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("activities_ticket_idx").on(table.ticketId, table.createdAt)],
-);
+  (table) => [
+    index("activities_ticket_idx").on(table.ticketId, table.createdAt),
+    // RLS: Activities inherit tenant isolation from parent ticket
+    ...createActivityPolicies(),
+  ],
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CATEGORIES
@@ -303,8 +326,10 @@ export const categories = pgTable(
     index("categories_org_idx").on(table.organizationId),
     index("categories_parent_idx").on(table.parentId),
     uniqueIndex("categories_org_name_unique").on(table.organizationId, table.name),
+    // RLS: Tenant isolation for categories
+    ...createTenantPolicies("categories"),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TAGS
@@ -325,8 +350,10 @@ export const tags = pgTable(
   (table) => [
     index("tags_org_idx").on(table.organizationId),
     uniqueIndex("tags_org_name_unique").on(table.organizationId, table.name),
+    // RLS: Tenant isolation for tags
+    ...createTenantPolicies("tags"),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SLA POLICIES
@@ -348,8 +375,12 @@ export const slaPolicies = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("sla_org_priority_idx").on(table.organizationId, table.priority)],
-);
+  (table) => [
+    index("sla_org_priority_idx").on(table.organizationId, table.priority),
+    // RLS: Tenant isolation for SLA policies
+    ...createTenantPolicies("sla_policies"),
+  ],
+).enableRLS();
 
 export const DEFAULT_SLA_TIMES = {
   low: { firstResponseTime: 24 * 60, resolutionTime: 72 * 60 },
@@ -380,8 +411,10 @@ export const cannedResponses = pgTable(
   (table) => [
     index("canned_org_idx").on(table.organizationId),
     index("canned_shortcut_idx").on(table.organizationId, table.shortcut),
+    // RLS: Tenant isolation for canned responses
+    ...createTenantPolicies("canned_responses"),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BETTER AUTH: SESSIONS
@@ -488,8 +521,10 @@ export const attachments = pgTable(
     index("attachments_message_idx").on(table.messageId),
     index("attachments_uploaded_by_idx").on(table.uploadedById),
     index("attachments_folder_idx").on(table.orgId, table.folder),
+    // RLS: Tenant isolation for attachments (uses org_id)
+    ...createAttachmentPolicies(),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ORGANIZATION INVITATIONS
@@ -530,8 +565,10 @@ export const organizationInvitations = pgTable(
     index("invitations_pending_idx")
       .on(table.orgId, table.email)
       .where(sql`status = 'pending'`),
+    // RLS: Tenant isolation for invitations (uses org_id)
+    ...createInvitationPolicies(),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SAVED FILTERS
@@ -583,8 +620,10 @@ export const savedFilters = pgTable(
     index("saved_filters_default_idx")
       .on(table.organizationId, table.userId)
       .where(sql`is_default = true`),
+    // RLS: Tenant isolation for saved filters
+    ...createTenantPolicies("saved_filters"),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CSAT SURVEYS
@@ -625,8 +664,10 @@ export const csatSurveys = pgTable(
     index("csat_rating_idx").on(table.rating),
     // Index for querying responded vs pending surveys
     index("csat_responded_idx").on(table.respondedAt),
+    // RLS: Tenant isolation for CSAT surveys
+    ...createTenantPolicies("csat_surveys"),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SUBSCRIPTION SYSTEM ENUMS
@@ -764,8 +805,10 @@ export const organizationSubscriptions = pgTable(
     index("subscription_plan_idx").on(table.planId),
     index("subscription_status_idx").on(table.status),
     index("subscription_period_end_idx").on(table.currentPeriodEnd),
+    // RLS: Tenant isolation for organization subscriptions
+    ...createTenantPolicies("organization_subscriptions"),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SUBSCRIPTION USAGE TRACKING
@@ -807,8 +850,10 @@ export const subscriptionUsage = pgTable(
       table.periodStart,
       table.periodEnd,
     ),
+    // RLS: Tenant isolation for subscription usage
+    ...createTenantPolicies("subscription_usage"),
   ],
-);
+).enableRLS();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIT LOGS
@@ -881,5 +926,7 @@ export const auditLogs = pgTable(
     index("audit_created_at_idx").on(table.createdAt),
     // Composite index for filtering by org + action type (common dashboard query)
     index("audit_org_action_idx").on(table.organizationId, table.action),
+    // RLS: Tenant isolation for audit logs
+    ...createTenantPolicies("audit_logs"),
   ],
-);
+).enableRLS();
