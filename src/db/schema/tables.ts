@@ -20,11 +20,15 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * UUIDv7 default for new tables (PostgreSQL 18+)
+ * UUIDv7 default for all tables (PostgreSQL 18+)
  * UUIDv7 provides time-sorted IDs with better index locality and insert performance.
- * Use this for NEW tables only - do not change existing tables.
+ * All tables use UUIDv7 for consistent time-ordered primary keys.
  *
- * Usage: id: uuid("id").primaryKey().default(uuidv7Default)
+ * Benefits:
+ * - Time-sortable (naturally ordered by creation time)
+ * - Better B-tree index locality
+ * - Improved insert performance for large tables
+ * - Timestamp embedded in UUID (extractable if needed)
  */
 export const uuidv7Default = sql`uuidv7()`;
 
@@ -38,7 +42,14 @@ export const ticketStatusEnum = pgEnum("ticket_status", ["open", "pending", "res
 
 export const ticketPriorityEnum = pgEnum("ticket_priority", ["low", "medium", "high", "urgent"]);
 
-export const ticketChannelEnum = pgEnum("ticket_channel", ["web", "email", "chat", "api"]);
+export const ticketChannelEnum = pgEnum("ticket_channel", [
+  "web",
+  "email",
+  "chat",
+  "api",
+  "phone", // Future: phone support integration
+  "sms", // Future: SMS/text support
+]);
 
 export const messageTypeEnum = pgEnum("message_type", ["reply", "internal_note", "system"]);
 
@@ -54,6 +65,11 @@ export const activityActionEnum = pgEnum("activity_action", [
   "closed",
   "reopened",
   "sla_breached",
+  // Extended actions for comprehensive tracking
+  "merged", // Ticket merged into another
+  "split", // Ticket split into multiple
+  "category_changed", // Category reassignment
+  "channel_changed", // Channel changed (e.g., email -> chat)
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -63,7 +79,7 @@ export const activityActionEnum = pgEnum("activity_action", [
 export const users = pgTable(
   "users",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     email: text("email").notNull().unique(),
     name: text("name").notNull(),
     avatarUrl: text("avatar_url"),
@@ -103,7 +119,7 @@ export interface OrganizationSettings {
 export const organizations = pgTable(
   "organizations",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     settings: jsonb("settings").$type<OrganizationSettings>().default({}),
@@ -122,7 +138,7 @@ export const organizations = pgTable(
 export const userOrganizations = pgTable(
   "user_organizations",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -146,7 +162,8 @@ export const userOrganizations = pgTable(
 export const tickets = pgTable(
   "tickets",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
+    // CHECK constraint ensures ticket_number is always positive
     ticketNumber: integer("ticket_number").notNull(),
     title: text("title").notNull(),
     description: text("description").notNull(),
@@ -205,7 +222,7 @@ export interface Attachment {
 export const ticketMessages = pgTable(
   "ticket_messages",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     ticketId: uuid("ticket_id")
       .notNull()
       .references(() => tickets.id, { onDelete: "cascade" }),
@@ -251,7 +268,7 @@ export interface ActivityMetadata {
 export const ticketActivities = pgTable(
   "ticket_activities",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     ticketId: uuid("ticket_id")
       .notNull()
       .references(() => tickets.id, { onDelete: "cascade" }),
@@ -270,13 +287,13 @@ export const ticketActivities = pgTable(
 export const categories = pgTable(
   "categories",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     description: text("description"),
-    color: text("color"),
+    color: text("color").default("#6B7280"), // Default gray color for better UX,
     parentId: uuid("parent_id"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -296,12 +313,12 @@ export const categories = pgTable(
 export const tags = pgTable(
   "tags",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    color: text("color"),
+    color: text("color").default("#3B82F6"), // Default blue color for better UX,
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -318,7 +335,7 @@ export const tags = pgTable(
 export const slaPolicies = pgTable(
   "sla_policies",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -348,7 +365,7 @@ export const DEFAULT_SLA_TIMES = {
 export const cannedResponses = pgTable(
   "canned_responses",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -373,7 +390,7 @@ export const cannedResponses = pgTable(
 export const sessions = pgTable(
   "sessions",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -398,7 +415,7 @@ export const sessions = pgTable(
 export const accounts = pgTable(
   "accounts",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -431,7 +448,7 @@ export const accounts = pgTable(
 export const verifications = pgTable(
   "verifications",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     identifier: text("identifier").notNull(),
     value: text("value").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
@@ -448,7 +465,7 @@ export const verifications = pgTable(
 export const attachments = pgTable(
   "attachments",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -470,6 +487,7 @@ export const attachments = pgTable(
     index("attachments_ticket_idx").on(table.ticketId),
     index("attachments_message_idx").on(table.messageId),
     index("attachments_uploaded_by_idx").on(table.uploadedById),
+    index("attachments_folder_idx").on(table.orgId, table.folder),
   ],
 );
 
@@ -487,7 +505,7 @@ export const inviteStatusEnum = pgEnum("invite_status", [
 export const organizationInvitations = pgTable(
   "organization_invitations",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     orgId: uuid("org_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -537,7 +555,7 @@ export interface SavedFilterCriteria {
 export const savedFilters = pgTable(
   "saved_filters",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -561,6 +579,10 @@ export const savedFilters = pgTable(
     index("saved_filters_org_idx").on(table.organizationId),
     index("saved_filters_user_idx").on(table.userId),
     index("saved_filters_shared_idx").on(table.isShared),
+    // Partial index for default filters lookup - common query pattern
+    index("saved_filters_default_idx")
+      .on(table.organizationId, table.userId)
+      .where(sql`is_default = true`),
   ],
 );
 
@@ -571,7 +593,7 @@ export const savedFilters = pgTable(
 export const csatSurveys = pgTable(
   "csat_surveys",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -662,7 +684,7 @@ export interface PlanFeatures {
 export const subscriptionPlans = pgTable(
   "subscription_plans",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     description: text("description"),
@@ -707,7 +729,7 @@ export const subscriptionPlans = pgTable(
 export const organizationSubscriptions = pgTable(
   "organization_subscriptions",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" })
@@ -752,7 +774,7 @@ export const organizationSubscriptions = pgTable(
 export const subscriptionUsage = pgTable(
   "subscription_usage",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -798,6 +820,8 @@ export const auditActionEnum = pgEnum("audit_action", [
   "user_logout",
   "user_password_changed",
   "user_email_changed",
+  "two_factor_enabled", // Future: 2FA support
+  "two_factor_disabled", // Future: 2FA support
   // Organization actions
   "organization_created",
   "organization_updated",
@@ -817,8 +841,10 @@ export const auditActionEnum = pgEnum("audit_action", [
   "sla_policy_created",
   "sla_policy_updated",
   "sla_policy_deleted",
-  // Data export
+  // Data operations
   "data_exported",
+  "data_imported", // Future: bulk import
+  "bulk_update", // Future: bulk ticket updates
   // API access
   "api_key_created",
   "api_key_revoked",
@@ -827,7 +853,7 @@ export const auditActionEnum = pgEnum("audit_action", [
 export const auditLogs = pgTable(
   "audit_logs",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").primaryKey().default(uuidv7Default),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -853,5 +879,7 @@ export const auditLogs = pgTable(
     index("audit_action_idx").on(table.action),
     index("audit_resource_idx").on(table.resourceType, table.resourceId),
     index("audit_created_at_idx").on(table.createdAt),
+    // Composite index for filtering by org + action type (common dashboard query)
+    index("audit_org_action_idx").on(table.organizationId, table.action),
   ],
 );
