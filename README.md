@@ -178,11 +178,58 @@ The API will be available at **http://localhost:3001**
 | `bun run db:seed`     | Seed demo data         |
 
 ### Quality
-| Command             | Description         |
-| ------------------- | ------------------- |
-| `bun run test`      | Run tests           |
-| `bun run typecheck` | TypeScript check    |
-| `bun run check`     | Lint & format check |
+| Command                  | Description                          |
+| ------------------------ | ------------------------------------ |
+| `bun run test`           | Run unit tests (default)             |
+| `bun run test:unit`      | Run unit tests only                  |
+| `bun run test:integration` | Run integration tests (RLS/tenant) |
+| `bun run test:all`       | Run all tests                        |
+| `bun run test:setup`     | Setup test database for integration  |
+| `bun run test:coverage`  | Run tests with coverage              |
+| `bun run typecheck`      | TypeScript check                     |
+| `bun run check`          | Lint & format check                  |
+
+---
+
+## 🧪 Testing Guide
+
+InsightDesk has two types of tests:
+
+### Unit Tests (Default)
+Unit tests mock the database and run quickly. They test business logic in isolation.
+
+```bash
+bun run test          # Run unit tests
+bun run test:unit     # Same as above (explicit)
+bun run test:watch    # Watch mode
+bun run test:coverage # With coverage report
+```
+
+### Integration Tests
+Integration tests verify Row-Level Security (RLS) tenant isolation against a real PostgreSQL database.
+
+**First-time setup:**
+```bash
+# 1. Start Docker services
+bun run docker:up
+
+# 2. Push schema to main database
+bun run db:push
+
+# 3. Setup test database with RLS
+bun run test:setup
+```
+
+**Run integration tests:**
+```bash
+bun run test:integration   # Run tenant isolation tests
+bun run test:all           # Run ALL tests (unit + integration)
+```
+
+### Test Environment
+- Unit tests use mocked database connections
+- Integration tests use `insightdesk_test` database (separate from dev)
+- Test config is in `.env.test`
 
 ---
 
