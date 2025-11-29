@@ -16,6 +16,19 @@ import {
 } from "drizzle-orm/pg-core";
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PG18 HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * UUIDv7 default for new tables (PostgreSQL 18+)
+ * UUIDv7 provides time-sorted IDs with better index locality and insert performance.
+ * Use this for NEW tables only - do not change existing tables.
+ *
+ * Usage: id: uuid("id").primaryKey().default(uuidv7Default)
+ */
+export const uuidv7Default = sql`uuidv7()`;
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ENUMS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -167,6 +180,13 @@ export const tickets = pgTable(
       "gin",
       sql`to_tsvector('english', ${table.title} || ' ' || ${table.description})`,
     ),
+    // PG18: Additional indexes for dashboard and reporting queries
+    index("tickets_org_priority_idx").on(table.organizationId, table.priority),
+    index("tickets_org_created_idx").on(table.organizationId, table.createdAt),
+    // Partial index for SLA breach checks on active tickets only
+    index("tickets_sla_active_idx")
+      .on(table.slaDeadline, table.slaBreached)
+      .where(sql`status IN ('open', 'pending') AND sla_breached = false`),
   ],
 );
 
@@ -488,6 +508,10 @@ export const organizationInvitations = pgTable(
     index("invitations_email_idx").on(table.email),
     index("invitations_token_idx").on(table.token),
     index("invitations_status_idx").on(table.status),
+    // Partial index for pending invitations - most common lookup pattern
+    index("invitations_pending_idx")
+      .on(table.orgId, table.email)
+      .where(sql`status = 'pending'`),
   ],
 );
 
@@ -577,6 +601,8 @@ export const csatSurveys = pgTable(
     index("csat_agent_idx").on(table.agentId),
     index("csat_token_idx").on(table.token),
     index("csat_rating_idx").on(table.rating),
+    // Index for querying responded vs pending surveys
+    index("csat_responded_idx").on(table.respondedAt),
   ],
 );
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   DEFAULT_SLA_TIMES,
@@ -180,11 +180,10 @@ export const ticketsService = {
     }
 
     if (query.search) {
+      // Use PostgreSQL full-text search with the GIN index (tickets_search_idx)
+      // This is 10-100x faster than ILIKE on large datasets
       conditions.push(
-        or(
-          ilike(tickets.title, `%${query.search}%`),
-          ilike(tickets.description, `%${query.search}%`),
-        )!,
+        sql`to_tsvector('english', ${tickets.title} || ' ' || ${tickets.description}) @@ plainto_tsquery('english', ${query.search})`,
       );
     }
 
@@ -736,39 +735,46 @@ export const ticketsService = {
       result.errors.push(`Ticket ${id} not found`);
     }
 
-    for (const ticket of existingTickets) {
-      try {
-        if (permanent) {
-          // Permanent delete - also deletes messages and activities due to cascade
-          await db.delete(tickets).where(eq(tickets.id, ticket.id));
-        } else {
-          // Soft delete - just close the ticket
-          await db
-            .update(tickets)
-            .set({
-              status: "closed",
-              closedAt: now,
-              updatedAt: now,
-            })
-            .where(eq(tickets.id, ticket.id));
+    if (existingTickets.length === 0) {
+      return result;
+    }
 
-          await db.insert(ticketActivities).values({
-            ticketId: ticket.id,
-            userId,
-            action: "status_changed",
-            metadata: {
-              fromStatus: ticket.status,
-              toStatus: "closed",
-              reason: "Bulk closed",
-            },
-          });
-        }
+    const validTicketIds = existingTickets.map((t) => t.id);
 
-        result.deleted++;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        result.errors.push(`Ticket ${ticket.id}: ${errorMessage}`);
+    try {
+      if (permanent) {
+        // Batch permanent delete - cascades handle messages and activities
+        await db.delete(tickets).where(inArray(tickets.id, validTicketIds));
+        result.deleted = validTicketIds.length;
+      } else {
+        // Batch soft delete - close all tickets at once
+        await db
+          .update(tickets)
+          .set({
+            status: "closed",
+            closedAt: now,
+            updatedAt: now,
+          })
+          .where(inArray(tickets.id, validTicketIds));
+
+        // Batch insert activity logs
+        const activityLogs = existingTickets.map((ticket) => ({
+          ticketId: ticket.id,
+          userId,
+          action: "status_changed" as const,
+          metadata: {
+            fromStatus: ticket.status,
+            toStatus: "closed",
+            reason: "Bulk closed",
+          },
+        }));
+
+        await db.insert(ticketActivities).values(activityLogs);
+        result.deleted = validTicketIds.length;
       }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push(`Bulk operation failed: ${errorMessage}`);
     }
 
     logger.info(
@@ -815,33 +821,38 @@ export const ticketsService = {
       result.errors.push(`Ticket ${id} not found`);
     }
 
-    for (const ticket of existingTickets) {
-      try {
-        // Skip if already assigned to the same person
-        if (ticket.assigneeId === assigneeId) {
-          continue;
-        }
+    // Filter tickets that need assignment change
+    const ticketsToUpdate = existingTickets.filter((t) => t.assigneeId !== assigneeId);
 
-        await db
-          .update(tickets)
-          .set({ assigneeId, updatedAt: now })
-          .where(eq(tickets.id, ticket.id));
+    if (ticketsToUpdate.length === 0) {
+      return result;
+    }
 
-        await db.insert(ticketActivities).values({
-          ticketId: ticket.id,
-          userId,
-          action: assigneeId ? "assigned" : "unassigned",
-          metadata: {
-            previousAssignee: ticket.assigneeId ?? undefined,
-            assigneeId: assigneeId ?? undefined,
-          },
-        });
+    const ticketIdsToUpdate = ticketsToUpdate.map((t) => t.id);
 
-        result.assigned++;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        result.errors.push(`Ticket ${ticket.id}: ${errorMessage}`);
-      }
+    try {
+      // Batch update all tickets at once
+      await db
+        .update(tickets)
+        .set({ assigneeId, updatedAt: now })
+        .where(inArray(tickets.id, ticketIdsToUpdate));
+
+      // Batch insert activity logs
+      const activityLogs = ticketsToUpdate.map((ticket) => ({
+        ticketId: ticket.id,
+        userId,
+        action: (assigneeId ? "assigned" : "unassigned") as "assigned" | "unassigned",
+        metadata: {
+          previousAssignee: ticket.assigneeId ?? undefined,
+          assigneeId: assigneeId ?? undefined,
+        },
+      }));
+
+      await db.insert(ticketActivities).values(activityLogs);
+      result.assigned = ticketsToUpdate.length;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      result.errors.push(`Bulk assignment failed: ${errorMessage}`);
     }
 
     logger.info(

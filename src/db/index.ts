@@ -10,10 +10,12 @@ if (!databaseUrl) {
 }
 
 // Create postgres connection
+// PG18: Benefits from improved hash joins, GROUP BY performance, and AIO
 const client = postgres(databaseUrl, {
   max: 10, // Maximum connections
   idle_timeout: 20, // Close idle connections after 20s
   connect_timeout: 10, // Connection timeout
+  prepare: true, // Enable prepared statements for repeated query performance
 });
 
 // Create drizzle instance with schema
