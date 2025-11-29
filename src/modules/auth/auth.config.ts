@@ -94,7 +94,9 @@ export const auth = betterAuth({
   // Advanced options
   advanced: {
     cookiePrefix: "insightdesk",
-    generateId: () => crypto.randomUUID(),
+    database: {
+      generateId: () => crypto.randomUUID(),
+    },
   },
 });
 
