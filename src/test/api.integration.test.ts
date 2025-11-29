@@ -124,10 +124,16 @@ describe("404 Handler", () => {
 // Rate Limiting Tests
 // ─────────────────────────────────────────────────────────────
 
+// Helper to generate unique IP for test isolation
+function uniqueIp(): string {
+  return `192.168.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+}
+
 describe("Rate Limiting", () => {
   it("should include rate limit headers", async () => {
     const app = createTestApp();
-    const response = await request(app).get("/api/protected");
+    const testIp = uniqueIp();
+    const response = await request(app).get("/api/protected").set("X-Forwarded-For", testIp);
 
     expect(response.headers["x-ratelimit-limit"]).toBeDefined();
     expect(response.headers["x-ratelimit-remaining"]).toBeDefined();
@@ -136,18 +142,33 @@ describe("Rate Limiting", () => {
 
   it("should decrement remaining count with each request", async () => {
     const app = createTestApp();
+    const testIp = uniqueIp();
 
-    const response1 = await request(app).get("/api/protected");
+    const response1 = await request(app).get("/api/protected").set("X-Forwarded-For", testIp);
     const remaining1 = Number.parseInt(response1.headers["x-ratelimit-remaining"], 10);
 
-    const response2 = await request(app).get("/api/protected");
+    const response2 = await request(app).get("/api/protected").set("X-Forwarded-For", testIp);
     const remaining2 = Number.parseInt(response2.headers["x-ratelimit-remaining"], 10);
 
     expect(remaining2).toBeLessThan(remaining1);
   });
 
-  // Note: Full rate limit blocking tests are in rate-limit.test.ts
-  // The integration here verifies headers are properly set
+  it("should block requests after rate limit exceeded", async () => {
+    const app = createTestApp();
+    const testIp = uniqueIp();
+
+    // Make 5 requests (the limit set in createTestApp)
+    for (let i = 0; i < 5; i++) {
+      await request(app).get("/api/protected").set("X-Forwarded-For", testIp);
+    }
+
+    // 6th request should be blocked
+    const response = await request(app).get("/api/protected").set("X-Forwarded-For", testIp);
+
+    expect(response.status).toBe(429);
+    expect(response.body.success).toBe(false);
+    expect(response.body.error).toContain("Too many requests");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────
