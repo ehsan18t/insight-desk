@@ -35,7 +35,7 @@
     "test:containers:down": "docker compose -f docker-compose.test.yml down",
     "test:containers:logs": "docker compose -f docker-compose.test.yml logs -f",
     "docs:generate": "tsx scripts/generate-openapi.ts",
-    "db:setup-roles": "tsx scripts/setup-database-roles.ts"
+    "db:setup:prod": "tsx scripts/setup-production-db.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.1.0",
@@ -67,12 +67,13 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
-    "@types/node": "^22.19.1",
     "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.5",
+    "@types/node": "^22.19.1",
     "@types/nodemailer": "^6.4.21",
+    "@types/pg": "^8.15.6",
     "@types/supertest": "^6.0.3",
     "@types/swagger-ui-express": "^4.1.8",
     "@vitest/coverage-v8": "^4.0.14",
