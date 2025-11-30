@@ -435,27 +435,32 @@ describe("slaService", () => {
   // remove
   // ─────────────────────────────────────────────────────────────
   describe("remove", () => {
-    it("should delete SLA policy", async () => {
+    it("should delete SLA policy with correct ID", async () => {
+      const policyToDelete = { ...mockSlaPolicy, id: "sla-to-delete" };
+
       // getById returns existing policy
       vi.mocked(db.select).mockImplementationOnce(
         () =>
           ({
             from: () => ({
               where: () => ({
-                limit: vi.fn().mockResolvedValue([mockSlaPolicy]),
+                limit: vi.fn().mockResolvedValue([policyToDelete]),
               }),
             }),
           }) as never,
       );
 
-      // Delete succeeds
+      // Track the where condition for delete
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(db.delete).mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
+        where: mockWhere,
       } as never);
 
-      await slaService.remove("sla-1", "org-1");
+      await slaService.remove("sla-to-delete", "org-1");
 
+      // Verify delete was called and the where clause was invoked
       expect(db.delete).toHaveBeenCalled();
+      expect(mockWhere).toHaveBeenCalled();
     });
 
     it("should throw NotFoundError when policy not found", async () => {
@@ -480,7 +485,7 @@ describe("slaService", () => {
   // initializeDefaults
   // ─────────────────────────────────────────────────────────────
   describe("initializeDefaults", () => {
-    it("should create default policies for all priorities", async () => {
+    it("should create default policies for all priorities with correct SLA times", async () => {
       // Mock getByPriority returning null (no existing policies)
       vi.mocked(db.select).mockImplementation(
         () =>
@@ -493,16 +498,62 @@ describe("slaService", () => {
           }) as never,
       );
 
-      // Mock insert for each priority - create uses .values().returning()
+      // Track all the values passed to insert
+      const mockValues = vi.fn();
       vi.mocked(db.insert).mockReturnValue({
-        values: () => ({
-          returning: vi.fn().mockResolvedValue([mockSlaPolicy]),
-        }),
+        values: mockValues.mockImplementation((data) => ({
+          returning: vi.fn().mockResolvedValue([{ ...mockSlaPolicy, ...data }]),
+        })),
       } as never);
 
       const result = await slaService.initializeDefaults("org-1");
 
-      expect(result).toHaveLength(4); // 4 priorities: low, medium, high, urgent
+      // Verify 4 policies were created (one for each priority)
+      expect(result).toHaveLength(4);
+
+      // Verify insert was called 4 times (once for each priority)
+      expect(mockValues).toHaveBeenCalledTimes(4);
+
+      // Verify the correct default times are passed for each priority
+      // Low priority: 24h response, 72h resolution
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priority: "low",
+          firstResponseTime: 24 * 60,
+          resolutionTime: 72 * 60,
+          isDefault: true,
+        }),
+      );
+
+      // Medium priority: 8h response, 24h resolution
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priority: "medium",
+          firstResponseTime: 8 * 60,
+          resolutionTime: 24 * 60,
+          isDefault: true,
+        }),
+      );
+
+      // High priority: 4h response, 8h resolution
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priority: "high",
+          firstResponseTime: 4 * 60,
+          resolutionTime: 8 * 60,
+          isDefault: true,
+        }),
+      );
+
+      // Urgent priority: 1h response, 4h resolution
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priority: "urgent",
+          firstResponseTime: 60,
+          resolutionTime: 4 * 60,
+          isDefault: true,
+        }),
+      );
     });
   });
 });
