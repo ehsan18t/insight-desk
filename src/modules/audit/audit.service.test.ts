@@ -189,9 +189,11 @@ describe("auditService", () => {
     });
 
     it("should filter by action type", async () => {
+      const loginLog = { ...mockAuditLogWithUser, action: "user_login" as const };
+
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
-          where: vi.fn().mockResolvedValue([{ total: 5 }]),
+          where: vi.fn().mockResolvedValue([{ total: 1 }]),
         }),
       } as never);
 
@@ -201,7 +203,7 @@ describe("auditService", () => {
             where: () => ({
               orderBy: () => ({
                 limit: () => ({
-                  offset: vi.fn().mockResolvedValue([mockAuditLogWithUser]),
+                  offset: vi.fn().mockResolvedValue([loginLog]),
                 }),
               }),
             }),
@@ -217,13 +219,19 @@ describe("auditService", () => {
         sortOrder: "desc",
       });
 
+      // Verify the returned log matches the filter and pagination is correct
+      expect(result.logs).toHaveLength(1);
       expect(result.logs[0].action).toBe("user_login");
+      expect(result.pagination.total).toBe(1);
     });
 
     it("should filter by user ID", async () => {
+      const user123Log = { ...mockAuditLogWithUser, userId: "user-123" };
+      const secondLog = { ...user123Log, id: "audit-456" };
+
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
-          where: vi.fn().mockResolvedValue([{ total: 10 }]),
+          where: vi.fn().mockResolvedValue([{ total: 2 }]),
         }),
       } as never);
 
@@ -233,7 +241,7 @@ describe("auditService", () => {
             where: () => ({
               orderBy: () => ({
                 limit: () => ({
-                  offset: vi.fn().mockResolvedValue([mockAuditLogWithUser]),
+                  offset: vi.fn().mockResolvedValue([user123Log, secondLog]),
                 }),
               }),
             }),
@@ -249,13 +257,26 @@ describe("auditService", () => {
         sortOrder: "desc",
       });
 
-      expect(result.logs[0].userId).toBe("user-123");
+      // Verify all returned logs belong to the filtered user
+      expect(result.logs).toHaveLength(2);
+      expect(result.logs.every((log) => log.userId === "user-123")).toBe(true);
+      expect(result.pagination.total).toBe(2);
     });
 
     it("should filter by date range", async () => {
+      const jan15Log = {
+        ...mockAuditLogWithUser,
+        createdAt: new Date("2024-01-15T10:00:00Z"),
+      };
+      const jan20Log = {
+        ...mockAuditLogWithUser,
+        id: "audit-456",
+        createdAt: new Date("2024-01-20T10:00:00Z"),
+      };
+
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
-          where: vi.fn().mockResolvedValue([{ total: 20 }]),
+          where: vi.fn().mockResolvedValue([{ total: 2 }]),
         }),
       } as never);
 
@@ -265,7 +286,7 @@ describe("auditService", () => {
             where: () => ({
               orderBy: () => ({
                 limit: () => ({
-                  offset: vi.fn().mockResolvedValue([mockAuditLogWithUser]),
+                  offset: vi.fn().mockResolvedValue([jan20Log, jan15Log]),
                 }),
               }),
             }),
@@ -282,13 +303,24 @@ describe("auditService", () => {
         sortOrder: "desc",
       });
 
-      expect(result.logs).toHaveLength(1);
+      // Verify returned logs are within date range
+      expect(result.logs).toHaveLength(2);
+      const dateFrom = new Date("2024-01-01T00:00:00Z");
+      const dateTo = new Date("2024-01-31T23:59:59Z");
+      expect(result.logs.every((log) => log.createdAt >= dateFrom && log.createdAt <= dateTo)).toBe(true);
+      expect(result.pagination.total).toBe(2);
     });
 
     it("should filter by resource type and ID", async () => {
+      const userResourceLog = {
+        ...mockAuditLogWithUser,
+        resourceType: "user",
+        resourceId: "user-123",
+      };
+
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
-          where: vi.fn().mockResolvedValue([{ total: 3 }]),
+          where: vi.fn().mockResolvedValue([{ total: 1 }]),
         }),
       } as never);
 
@@ -298,7 +330,7 @@ describe("auditService", () => {
             where: () => ({
               orderBy: () => ({
                 limit: () => ({
-                  offset: vi.fn().mockResolvedValue([mockAuditLogWithUser]),
+                  offset: vi.fn().mockResolvedValue([userResourceLog]),
                 }),
               }),
             }),
@@ -315,23 +347,31 @@ describe("auditService", () => {
         sortOrder: "desc",
       });
 
+      // Verify returned log matches both resourceType and resourceId filters
+      expect(result.logs).toHaveLength(1);
       expect(result.logs[0].resourceType).toBe("user");
+      expect(result.logs[0].resourceId).toBe("user-123");
+      expect(result.pagination.total).toBe(1);
     });
 
     it("should sort by action ascending", async () => {
+      const settingsLog = { ...mockAuditLogWithUser, id: "audit-1", action: "settings_updated" as const };
+      const loginLog = { ...mockAuditLogWithUser, id: "audit-2", action: "user_login" as const };
+
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
-          where: vi.fn().mockResolvedValue([{ total: 10 }]),
+          where: vi.fn().mockResolvedValue([{ total: 2 }]),
         }),
       } as never);
 
+      // When sorted ascending by action, "settings_updated" comes before "user_login"
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
           leftJoin: () => ({
             where: () => ({
               orderBy: () => ({
                 limit: () => ({
-                  offset: vi.fn().mockResolvedValue([mockAuditLogWithUser]),
+                  offset: vi.fn().mockResolvedValue([settingsLog, loginLog]),
                 }),
               }),
             }),
@@ -346,7 +386,10 @@ describe("auditService", () => {
         sortOrder: "asc",
       });
 
-      expect(result.logs).toHaveLength(1);
+      // Verify logs are in ascending order by action
+      expect(result.logs).toHaveLength(2);
+      expect(result.logs[0].action).toBe("settings_updated");
+      expect(result.logs[1].action).toBe("user_login");
     });
 
     it("should return empty logs when none exist", async () => {
