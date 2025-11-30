@@ -5,10 +5,10 @@
  * Uses a fixed seed number for reproducible test data.
  *
  * Usage:
- *   bun run test:seed
+ *   npm run test:seed
  *
  * Or set TEST_DB_SEED=true before running tests:
- *   TEST_DB_SEED=true bun run test
+ *   TEST_DB_SEED=true npm run test
  */
 
 import { checkDatabaseConnection, closeDatabaseConnection } from "@/db";

@@ -7,11 +7,11 @@
  * - RLS roles (app_user, service_role)
  * - RLS policies for tenant isolation
  *
- * Usage: bun run test:setup
+ * Usage: npm run test:setup
  *
  * Prerequisites:
- * - Docker containers running (bun run docker:up)
- * - Main database schema already pushed (bun run db:push)
+ * - Docker containers running (npm run docker:up)
+ * - Main database schema already pushed (npm run db:push)
  */
 
 import { exec } from "node:child_process";
@@ -410,7 +410,7 @@ async function main(): Promise<void> {
   const dockerRunning = await checkDockerRunning();
   if (!dockerRunning) {
     console.error(`\n❌ Docker container '${POSTGRES_CONTAINER}' is not running.`);
-    console.error("   Run: bun run docker:up");
+    console.error("   Run: npm run docker:up");
     process.exit(1);
   }
   console.log("   ✅ Docker container running");
@@ -419,7 +419,7 @@ async function main(): Promise<void> {
   const mainExists = await databaseExists(MAIN_DB);
   if (!mainExists) {
     console.error(`\n❌ Main database '${MAIN_DB}' does not exist.`);
-    console.error("   Run: bun run db:push");
+    console.error("   Run: npm run db:push");
     process.exit(1);
   }
   console.log(`   ✅ Main database '${MAIN_DB}' exists`);
@@ -436,8 +436,8 @@ async function main(): Promise<void> {
     console.log("║           ✅ Test Database Setup Complete!               ║");
     console.log("╚══════════════════════════════════════════════════════════╝");
     console.log("\nYou can now run integration tests:");
-    console.log("  bun run test:integration    # Run tenant isolation tests");
-    console.log("  bun run test:all            # Run all tests including integration");
+    console.log("  npm run test:integration    # Run tenant isolation tests");
+    console.log("  npm run test:all            # Run all tests including integration");
     console.log("");
   } catch (error) {
     console.error("\n❌ Setup failed:", error);

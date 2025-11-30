@@ -1,5 +1,10 @@
 # Dependencies
 node_modules/
+
+# Lock files (keep one based on your package manager)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 bun.lockb
 
 # Build output

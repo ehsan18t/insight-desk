@@ -6,7 +6,7 @@
  * manual seeding for other tables.
  *
  * Usage:
- *   bun run db:seed
+ *   npm run db:seed
  */
 
 import { checkDatabaseConnection, closeDatabaseConnection } from "./db";

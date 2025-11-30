@@ -11,7 +11,7 @@
  * - service_role or superuser for setup (bypasses RLS)
  *
  * Note: These are integration tests that require a real database.
- * Skip with: SKIP_INTEGRATION_TESTS=true bun run test
+ * Skip with: SKIP_INTEGRATION_TESTS=true npm run test
  */
 
 import { count, eq } from "drizzle-orm";
@@ -42,7 +42,7 @@ import {
 
 // Skip if SKIP_INTEGRATION_TESTS is set
 // Note: Always skip by default since this test requires a real test database with RLS enabled
-// To run these tests: SKIP_INTEGRATION_TESTS=false bun test tenant-isolation
+// To run these tests: SKIP_INTEGRATION_TESTS=false npm run test tenant-isolation
 const skipIntegrationTests = process.env.SKIP_INTEGRATION_TESTS !== "false";
 
 // ─────────────────────────────────────────────────────────────

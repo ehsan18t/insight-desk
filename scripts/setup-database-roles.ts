@@ -4,7 +4,7 @@
  * This script sets up the PostgreSQL roles required for Row-Level Security (RLS).
  * Run this once after creating the database and before running migrations.
  *
- * Usage: bun run scripts/setup-database-roles.ts
+ * Usage: npm run db:setup-roles
  */
 
 import { exec } from "node:child_process";
@@ -46,7 +46,7 @@ async function main() {
     console.log("\nRoles created:");
     console.log("  - app_user: For tenant-scoped queries (respects RLS)");
     console.log("  - service_role: For admin/background jobs (bypasses RLS)");
-    console.log("\nYou can now run migrations: bun run db:migrate");
+    console.log("\nYou can now run migrations: npm run db:migrate");
   } catch (error: unknown) {
     const execError = error as { stderr?: string; message: string };
     console.error("❌ Failed to setup database roles:");

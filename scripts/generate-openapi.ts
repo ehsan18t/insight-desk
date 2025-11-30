@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 /**
  * Generate static OpenAPI documentation files
  *
@@ -6,8 +6,8 @@
  * for static hosting or sharing with external tools.
  *
  * Usage:
- *   bun run docs:generate
- *   bun scripts/generate-openapi.ts
+ *   npm run docs:generate
+ *   npx tsx scripts/generate-openapi.ts
  */
 
 import { mkdir, writeFile } from "node:fs/promises";
