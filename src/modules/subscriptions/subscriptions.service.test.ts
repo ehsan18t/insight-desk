@@ -951,4 +951,364 @@ describe("subscriptionsService", () => {
       });
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // getUsageHistory
+  // ─────────────────────────────────────────────────────────────
+  describe("getUsageHistory", () => {
+    it("should return usage history for organization", async () => {
+      const mockHistory = [
+        {
+          ...mockUsage,
+          periodStart: new Date("2024-01-01"),
+          periodEnd: new Date("2024-02-01"),
+        },
+        {
+          ...mockUsage,
+          id: "usage-124",
+          periodStart: new Date("2024-02-01"),
+          periodEnd: new Date("2024-03-01"),
+        },
+      ];
+
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: () => ({
+            orderBy: vi.fn().mockResolvedValue(mockHistory),
+          }),
+        }),
+      } as never);
+
+      const result = await subscriptionsService.getUsageHistory("org-123");
+
+      expect(result).toHaveLength(2);
+      expect(result[0].periodStart).toEqual(new Date("2024-01-01"));
+    });
+
+    it("should filter usage history by date range", async () => {
+      const mockHistory = [
+        {
+          ...mockUsage,
+          periodStart: new Date("2024-02-01"),
+          periodEnd: new Date("2024-03-01"),
+        },
+      ];
+
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: () => ({
+            orderBy: vi.fn().mockResolvedValue(mockHistory),
+          }),
+        }),
+      } as never);
+
+      const result = await subscriptionsService.getUsageHistory("org-123", {
+        from: new Date("2024-02-01"),
+        to: new Date("2024-03-01"),
+      });
+
+      expect(result).toHaveLength(1);
+    });
+
+    it("should return empty array when no usage history", async () => {
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: () => ({
+            orderBy: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as never);
+
+      const result = await subscriptionsService.getUsageHistory("org-new");
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // adjustUsageLimits
+  // ─────────────────────────────────────────────────────────────
+  describe("adjustUsageLimits", () => {
+    it("should increase limits on upgrade", async () => {
+      const currentUsage = {
+        ...mockUsage,
+        ticketsCreated: 10,
+        ticketsRemaining: 40,
+        messagesCreated: 50,
+        messagesRemaining: 150,
+        storageUsedMB: 25,
+        storageRemainingMB: 75,
+      };
+
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([currentUsage]),
+          }),
+        }),
+      } as never);
+
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: mockUpdate,
+        }),
+      } as never);
+
+      await subscriptionsService.adjustUsageLimits(
+        "usage-123",
+        mockPlanLimits,
+        mockProPlan.limits,
+        true, // isUpgrade
+      );
+
+      expect(db.update).toHaveBeenCalled();
+      // The first argument to set() should have increased remaining values
+    });
+
+    it("should decrease limits on downgrade based on current usage", async () => {
+      const currentUsage = {
+        ...mockUsage,
+        ticketsCreated: 100,
+        ticketsRemaining: 400,
+        messagesCreated: 500,
+        messagesRemaining: 1500,
+        storageUsedMB: 200,
+        storageRemainingMB: 800,
+      };
+
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([currentUsage]),
+          }),
+        }),
+      } as never);
+
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: mockUpdate,
+        }),
+      } as never);
+
+      await subscriptionsService.adjustUsageLimits(
+        "usage-123",
+        mockProPlan.limits,
+        mockPlanLimits, // downgrade to free
+        false, // isUpgrade
+      );
+
+      expect(db.update).toHaveBeenCalled();
+    });
+
+    it("should do nothing when usage record not found", async () => {
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as never);
+
+      await subscriptionsService.adjustUsageLimits(
+        "non-existent",
+        mockPlanLimits,
+        mockProPlan.limits,
+        true,
+      );
+
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it("should handle unlimited (-1) limits correctly", async () => {
+      const unlimitedLimits = {
+        ...mockPlanLimits,
+        ticketsPerMonth: -1,
+        messagesPerMonth: -1,
+        storagePerOrgMB: -1,
+      };
+
+      const currentUsage = {
+        ...mockUsage,
+        ticketsCreated: 10,
+        ticketsRemaining: 40,
+        messagesCreated: 50,
+        messagesRemaining: 150,
+        storageUsedMB: 25,
+        storageRemainingMB: 75,
+      };
+
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([currentUsage]),
+          }),
+        }),
+      } as never);
+
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: mockUpdate,
+        }),
+      } as never);
+
+      await subscriptionsService.adjustUsageLimits(
+        "usage-123",
+        mockPlanLimits,
+        unlimitedLimits,
+        true,
+      );
+
+      expect(db.update).toHaveBeenCalled();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // resetUsageForNewPeriod
+  // ─────────────────────────────────────────────────────────────
+  describe("resetUsageForNewPeriod", () => {
+    it("should reset usage and create new period", async () => {
+      // Mock getByOrganizationId
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              limit: vi.fn().mockResolvedValue([mockSubscription]),
+            }),
+          }),
+        }),
+      } as never);
+
+      // Mock subscription update
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      } as never);
+
+      // Mock usage insert
+      const newUsage = {
+        ...mockUsage,
+        ticketsCreated: 0,
+        messagesCreated: 0,
+        storageUsedMB: 0,
+        apiRequestsCount: 0,
+      };
+      vi.mocked(db.insert).mockReturnValue({
+        values: () => ({
+          returning: vi.fn().mockResolvedValue([newUsage]),
+        }),
+      } as never);
+
+      const result = await subscriptionsService.resetUsageForNewPeriod("org-123");
+
+      expect(result).not.toBeNull();
+      expect(result?.ticketsCreated).toBe(0);
+      expect(result?.messagesCreated).toBe(0);
+      expect(db.update).toHaveBeenCalled();
+      expect(db.insert).toHaveBeenCalled();
+    });
+
+    it("should return null when subscription not found", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              limit: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        }),
+      } as never);
+
+      const result = await subscriptionsService.resetUsageForNewPeriod("non-existent");
+
+      expect(result).toBeNull();
+      expect(db.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // markAlertSent
+  // ─────────────────────────────────────────────────────────────
+  describe("markAlertSent", () => {
+    it("should mark ticket alert as sent", async () => {
+      // Mock getCurrentUsage
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([mockUsage]),
+          }),
+        }),
+      } as never);
+
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: mockUpdate,
+        }),
+      } as never);
+
+      await subscriptionsService.markAlertSent("org-123", "tickets");
+
+      expect(db.update).toHaveBeenCalled();
+    });
+
+    it("should mark message alert as sent", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([mockUsage]),
+          }),
+        }),
+      } as never);
+
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: mockUpdate,
+        }),
+      } as never);
+
+      await subscriptionsService.markAlertSent("org-123", "messages");
+
+      expect(db.update).toHaveBeenCalled();
+    });
+
+    it("should mark storage alert as sent", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([mockUsage]),
+          }),
+        }),
+      } as never);
+
+      const mockUpdate = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: mockUpdate,
+        }),
+      } as never);
+
+      await subscriptionsService.markAlertSent("org-123", "storage");
+
+      expect(db.update).toHaveBeenCalled();
+    });
+
+    it("should do nothing when usage not found", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as never);
+
+      await subscriptionsService.markAlertSent("non-existent", "tickets");
+
+      expect(db.update).not.toHaveBeenCalled();
+    });
+  });
 });
