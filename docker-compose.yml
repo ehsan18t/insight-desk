@@ -20,7 +20,7 @@ services:
 
   # Valkey (Redis alternative) for caching and Socket.IO adapter
   valkey:
-    image: valkey/valkey:9.0-alpine
+    image: valkey/valkey:9
     container_name: insightdesk-valkey
     ports:
       - "${VALKEY_PORT:-6379}:6379"

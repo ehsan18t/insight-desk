@@ -8,7 +8,7 @@
 
 services:
   valkey-test:
-    image: valkey/valkey:9-alpine
+    image: valkey/valkey:9
     container_name: insightdesk-valkey-test
     ports:
       - "6380:6379"
@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
 
   postgresql-test:
-    image: postgres:18-alpine
+    image: postgres:18
     container_name: insightdesk-postgres-test
     ports:
       - "5433:5432"

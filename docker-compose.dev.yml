@@ -1,6 +1,6 @@
 services:
   valkey:
-    image: valkey/valkey:9-alpine
+    image: valkey/valkey:9
     container_name: insightdesk-valkey
     ports:
       - "6379:6379"
@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   postgresql:
-    image: postgres:18-alpine
+    image: postgres:18
     container_name: insightdesk-postgres
     ports:
       - "5432:5432"
