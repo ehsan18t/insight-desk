@@ -15,6 +15,21 @@
 
 ---
 
+## 📦 Package Manager (BUN ONLY)
+
+**This project uses Bun exclusively. NEVER use npm, yarn, or pnpm.**
+
+- Use `bun install` to install dependencies (NOT `npm install`)
+- Use `bun add <package>` to add new dependencies (NOT `npm install <package>`)
+- Use `bun run <script>` to run scripts (NOT `npm run <script>`)
+- Use `bunx <command>` to execute binaries (NOT `npx <command>`)
+- Dependencies are managed via `package.json` and `bun.lock` (NOT `package-lock.json` or `yarn.lock`)
+- If you see `npm` or `yarn` commands in documentation, mentally replace with `bun`
+
+**Never suggest or generate npm/yarn/pnpm commands. Always use Bun equivalents.**
+
+---
+
 ## ✅ After Every Task (MANDATORY)
 
 1. **Run TypeScript check**: `bunx tsc --noEmit`
@@ -319,13 +334,13 @@ describe.skipIf(skipIntegrationTests())("Feature Integration", () => {
 ### Running Integration Tests
 ```bash
 # Setup (first time or after schema changes)
-npm run test:setup
+bun run test:setup
 
 # Run integration tests
-npm run test:integration
+bun run test:integration
 
 # Run all tests
-npm run test:all
+bun run test:all
 ```
 
 ### Integration Test Checklist
@@ -482,20 +497,20 @@ npm run test:all
 ## 🛠️ Commands Reference
 
 ```bash
-bun run dev           # Development server
-bun run test          # Run tests
-bun run lint          # Lint code
-bun run format        # Format code
-bunx tsc --noEmit     # TypeScript check
-npm run db:generate   # Generate migrations
-npm run db:migrate    # Run migrations
-npm run db:studio     # Drizzle Studio
-npm run db:seed       # Seed development database
-npm run db:reset      # Reset and reseed database
-npm run test:seed     # Seed test database
-npm run test:setup    # Setup integration test environment
-npm run test:integration # Run integration tests
-npm run docs:generate # Generate static OpenAPI documentation
+bun run dev              # Development server
+bun run test             # Run tests
+bun run lint             # Lint code
+bun run format           # Format code
+bunx tsc --noEmit        # TypeScript check
+bun run db:generate      # Generate migrations
+bun run db:migrate       # Run migrations
+bun run db:studio        # Drizzle Studio
+bun run db:seed          # Seed development database
+bun run db:reset         # Reset and reseed database
+bun run test:seed        # Seed test database
+bun run test:setup       # Setup integration test environment
+bun run test:integration # Run integration tests
+bun run docs:generate    # Generate static OpenAPI documentation
 ```
 
 ---
