@@ -307,7 +307,9 @@ describe("auditService", () => {
       expect(result.logs).toHaveLength(2);
       const dateFrom = new Date("2024-01-01T00:00:00Z");
       const dateTo = new Date("2024-01-31T23:59:59Z");
-      expect(result.logs.every((log) => log.createdAt >= dateFrom && log.createdAt <= dateTo)).toBe(true);
+      expect(result.logs.every((log) => log.createdAt >= dateFrom && log.createdAt <= dateTo)).toBe(
+        true,
+      );
       expect(result.pagination.total).toBe(2);
     });
 
@@ -355,7 +357,11 @@ describe("auditService", () => {
     });
 
     it("should sort by action ascending", async () => {
-      const settingsLog = { ...mockAuditLogWithUser, id: "audit-1", action: "settings_updated" as const };
+      const settingsLog = {
+        ...mockAuditLogWithUser,
+        id: "audit-1",
+        action: "settings_updated" as const,
+      };
       const loginLog = { ...mockAuditLogWithUser, id: "audit-2", action: "user_login" as const };
 
       vi.mocked(db.select).mockReturnValueOnce({

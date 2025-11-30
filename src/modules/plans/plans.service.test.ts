@@ -392,9 +392,7 @@ describe("plansService", () => {
 
       // Verify that other defaults are unset with isDefault: false
       expect(db.update).toHaveBeenCalled();
-      expect(mockSet).toHaveBeenCalledWith(
-        expect.objectContaining({ isDefault: false }),
-      );
+      expect(mockSet).toHaveBeenCalledWith(expect.objectContaining({ isDefault: false }));
     });
   });
 
