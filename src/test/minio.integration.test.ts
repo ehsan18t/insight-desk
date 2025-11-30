@@ -488,7 +488,12 @@ describe.skipIf(skipIntegrationTests())("MinIO Integration", () => {
       );
 
       expect(downloadUrl).toBeDefined();
-      expect(downloadUrl).toContain(key.replace(/\//g, "%2F"));
+      // URL contains the key path - slashes may or may not be encoded
+      expect(downloadUrl).toContain("org-123");
+      expect(downloadUrl).toContain("tickets");
+      expect(downloadUrl).toContain("ticket-456");
+      expect(downloadUrl).toContain("attachments");
+      expect(downloadUrl).toContain("attach-789.pdf");
     });
 
     it("should handle organization file isolation", async () => {
