@@ -131,11 +131,15 @@ describe("savedFiltersService", () => {
 
     it("should unset other defaults when creating default filter", async () => {
       vi.mocked(db.query.savedFilters.findMany).mockResolvedValue([]);
+
+      // Track what set() is called with
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      });
       vi.mocked(db.update).mockReturnValue({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
+        set: mockSet,
       } as unknown as ReturnType<typeof db.update>);
+
       vi.mocked(db.insert).mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([{ ...mockFilter, isDefault: true }]),
@@ -153,7 +157,9 @@ describe("savedFiltersService", () => {
 
       await savedFiltersService.create(input, mockOrgId, mockUserId);
 
+      // Verify that other defaults are unset with isDefault: false
       expect(db.update).toHaveBeenCalled();
+      expect(mockSet).toHaveBeenCalledWith({ isDefault: false });
     });
   });
 
@@ -201,13 +207,18 @@ describe("savedFiltersService", () => {
   describe("delete", () => {
     it("should delete filter successfully", async () => {
       vi.mocked(db.query.savedFilters.findFirst).mockResolvedValue(mockFilter);
+
+      // Track the where clause
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(db.delete).mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
+        where: mockWhere,
       } as unknown as ReturnType<typeof db.delete>);
 
       await savedFiltersService.delete(mockFilterId, mockOrgId, mockUserId);
 
+      // Verify delete was called and where clause was invoked
       expect(db.delete).toHaveBeenCalled();
+      expect(mockWhere).toHaveBeenCalled();
     });
 
     it("should throw NotFoundError when filter not found", async () => {
