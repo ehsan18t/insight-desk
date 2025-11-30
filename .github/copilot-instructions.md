@@ -244,6 +244,100 @@ vi.mock("@/db", () => ({
 
 ---
 
+## 🔗 Integration Test Rules (MANDATORY)
+
+**Integration tests verify interactions with real external services.**
+
+### When Integration Tests Are Required
+
+| Change Type | Requires Integration Test |
+|-------------|---------------------------|
+| New database query with RLS | ✅ Yes |
+| New Valkey/caching usage | ✅ Yes |
+| New file upload/storage feature | ✅ Yes |
+| New email sending feature | ✅ Yes |
+| New external API integration | ✅ Yes |
+| Pure business logic (no external services) | ❌ Unit test only |
+
+### Integration Test File Naming
+- Pattern: `*.integration.test.ts`
+- Location: Same directory as unit tests or `src/test/`
+
+### Integration Test Structure
+```typescript
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import {
+  skipIntegrationTests,
+  resetTestEnvironment,
+} from "@/test/integration";
+
+describe.skipIf(skipIntegrationTests())("Feature Integration", () => {
+  beforeEach(async () => {
+    await resetTestEnvironment(); // Clean state between tests
+  });
+
+  it("should work with real database", async () => {
+    // Test with real PostgreSQL
+  });
+});
+```
+
+### External Service Test Requirements
+
+| Service | Test Must Verify |
+|---------|-----------------|
+| **PostgreSQL** | RLS policies, transactions, complex queries |
+| **Valkey** | Cache hit/miss, TTL expiration, rate limiting |
+| **MinIO** | Upload, download, presigned URLs, bucket policies |
+| **Mailpit** | Email content, recipients, attachments |
+
+### Mandatory Updates (ENFORCED)
+
+**When you change any of these, you MUST update integration test infrastructure:**
+
+1. **New external service connection** → Update:
+   - `docker-compose.test.yml` (add container)
+   - `.env.test` (add connection config)
+   - `src/test/integration/services.ts` (add health check)
+   - `src/test/integration/cleanup.ts` (add cleanup function)
+   - `scripts/setup-integration-tests.ts` (add setup step)
+   - `docs/testing.md` (document the service)
+
+2. **New RLS policy** → Update:
+   - `scripts/setup-integration-tests.ts` (add policy creation)
+   - Add integration test verifying the policy
+
+3. **Schema change affecting integration tests** → Update:
+   - `src/test/integration/cleanup.ts` (update `TABLES_TO_TRUNCATE`)
+   - Verify `test:setup` still works
+
+4. **New environment variable for external service** → Update:
+   - `.env.test`
+   - `src/test/integration/services.ts` (`TEST_CONFIG`)
+   - `docs/testing.md`
+
+### Running Integration Tests
+```bash
+# Setup (first time or after schema changes)
+npm run test:setup
+
+# Run integration tests
+npm run test:integration
+
+# Run all tests
+npm run test:all
+```
+
+### Integration Test Checklist
+- [ ] Test uses `skipIntegrationTests()` for conditional execution
+- [ ] Test uses `resetTestEnvironment()` for isolation
+- [ ] Test verifies actual external service behavior
+- [ ] Test doesn't depend on dev container state
+- [ ] Test cleans up after itself
+- [ ] `docs/testing.md` updated if new pattern introduced
+
+---
+
 ## 📝 Validation Rules
 
 - **Always validate** request body, query, and params with Zod schemas
@@ -393,13 +487,15 @@ bun run test          # Run tests
 bun run lint          # Lint code
 bun run format        # Format code
 bunx tsc --noEmit     # TypeScript check
-bun run db:generate   # Generate migrations
-bun run db:migrate    # Run migrations
-bun run db:studio     # Drizzle Studio
-bun run db:seed       # Seed development database
-bun run db:reset      # Reset and reseed database
-bun run test:seed     # Seed test database
-bun run docs:generate # Generate static OpenAPI documentation
+npm run db:generate   # Generate migrations
+npm run db:migrate    # Run migrations
+npm run db:studio     # Drizzle Studio
+npm run db:seed       # Seed development database
+npm run db:reset      # Reset and reseed database
+npm run test:seed     # Seed test database
+npm run test:setup    # Setup integration test environment
+npm run test:integration # Run integration tests
+npm run docs:generate # Generate static OpenAPI documentation
 ```
 
 ---
@@ -415,6 +511,10 @@ bun run docs:generate # Generate static OpenAPI documentation
 - `src/lib/openapi/` - OpenAPI configuration (registry, responses, security)
 - `src/modules/*/[module].openapi.ts` - Module-specific API documentation
 - `src/lib/seed/` - Seed data architecture (auth-seed, drizzle-seed, orchestrator)
+- `src/test/integration/` - Integration test utilities (services, setup, cleanup)
+- `docker-compose.test.yml` - Test container configuration
+- `scripts/setup-integration-tests.ts` - Integration test setup script
+- `docs/testing.md` - Comprehensive testing documentation
 
 ---
 
