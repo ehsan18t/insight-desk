@@ -3,7 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import { db } from "@/db";
 import { type UserRole, apiKeys, userOrganizations, users } from "@/db/schema/index";
 import { ForbiddenError, UnauthorizedError } from "@/middleware/error-handler";
-import { hashApiKey } from "./api-key.utils";
+import { hashApiKey } from "@/modules/api-keys";
 import { auth } from "./auth.config";
 
 // Extend Express Request type

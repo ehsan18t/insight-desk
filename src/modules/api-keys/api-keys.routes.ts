@@ -11,19 +11,19 @@ import {
   getApiKeyStats,
   listApiKeys,
   revokeApiKey,
-} from "./api-key.service";
-import { apiKeyIdParamSchema, createApiKeySchema } from "./api-key.schema";
-import { authenticate, requireRole } from "./auth.middleware";
+} from "./api-keys.service";
+import { apiKeyIdParamSchema, createApiKeySchema } from "./api-keys.schema";
+import { authenticate, requireRole } from "@/modules/auth";
 import { organizationIdParamSchema } from "@/modules/organizations/organizations.schema";
 
 // Use mergeParams to access :organizationId from parent router
-export const apiKeyRouter = Router({ mergeParams: true });
+export const apiKeysRouter = Router({ mergeParams: true });
 
 // All routes require authentication and admin role
-apiKeyRouter.use(authenticate);
+apiKeysRouter.use(authenticate);
 
 // Middleware to extract and validate organizationId
-apiKeyRouter.use(
+apiKeysRouter.use(
   validateRequest({ params: organizationIdParamSchema }),
   requireRole("admin", "owner"),
 );
@@ -32,7 +32,7 @@ apiKeyRouter.use(
  * POST /api/organizations/:organizationId/api-keys
  * Create a new API key
  */
-apiKeyRouter.post(
+apiKeysRouter.post(
   "/",
   validateRequest({ body: createApiKeySchema }),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -58,7 +58,7 @@ apiKeyRouter.post(
  * GET /api/organizations/:organizationId/api-keys
  * List all API keys for the organization
  */
-apiKeyRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
+apiKeysRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.params.organizationId as string;
     const keys = await listApiKeys(orgId);
@@ -76,7 +76,7 @@ apiKeyRouter.get("/", async (req: Request, res: Response, next: NextFunction) =>
  * GET /api/organizations/:organizationId/api-keys/stats
  * Get API key statistics
  */
-apiKeyRouter.get("/stats", async (req: Request, res: Response, next: NextFunction) => {
+apiKeysRouter.get("/stats", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const orgId = req.params.organizationId as string;
     const stats = await getApiKeyStats(orgId);
@@ -94,7 +94,7 @@ apiKeyRouter.get("/stats", async (req: Request, res: Response, next: NextFunctio
  * GET /api/organizations/:organizationId/api-keys/:keyId
  * Get a specific API key
  */
-apiKeyRouter.get(
+apiKeysRouter.get(
   "/:keyId",
   validateRequest({ params: apiKeyIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -118,7 +118,7 @@ apiKeyRouter.get(
  * POST /api/organizations/:organizationId/api-keys/:keyId/revoke
  * Revoke an API key (soft delete - keeps record but disables)
  */
-apiKeyRouter.post(
+apiKeysRouter.post(
   "/:keyId/revoke",
   validateRequest({ params: apiKeyIdParamSchema }),
   async (req: Request, res: Response, next: NextFunction) => {
@@ -143,7 +143,7 @@ apiKeyRouter.post(
  * DELETE /api/organizations/:organizationId/api-keys/:keyId
  * Permanently delete an API key (owner only)
  */
-apiKeyRouter.delete(
+apiKeysRouter.delete(
   "/:keyId",
   requireRole("owner"),
   validateRequest({ params: apiKeyIdParamSchema }),

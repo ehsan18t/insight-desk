@@ -5,7 +5,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { type ApiKey, apiKeys, auditLogs } from "@/db/schema";
 import { ForbiddenError, NotFoundError } from "@/middleware/error-handler";
-import { generateApiKey, hashApiKey } from "./api-key.utils";
+import { generateApiKey, hashApiKey } from "./api-keys.utils";
 
 // Input types
 export interface CreateApiKeyInput {
@@ -236,6 +236,20 @@ export async function validateApiKeyByHash(
       name: key.createdBy.name,
     },
   };
+}
+
+/**
+ * Update API key usage tracking
+ * Called after successful API key authentication
+ */
+export async function updateApiKeyUsage(keyId: string): Promise<void> {
+  await db
+    .update(apiKeys)
+    .set({
+      lastUsedAt: new Date(),
+      usageCount: sql`${apiKeys.usageCount} + 1`,
+    })
+    .where(eq(apiKeys.id, keyId));
 }
 
 // Helper to map DB record to response

@@ -635,7 +635,7 @@ export async function seedSavedFilters(orgIds: string[], userIds: string[]): Pro
  * Note: We create deterministic keys for testing purposes
  */
 export async function seedApiKeys(orgIds: string[], userIds: string[]): Promise<string[]> {
-  const { hashApiKey } = await import("@/modules/auth/api-key.utils");
+  const { hashApiKey } = await import("@/modules/api-keys");
 
   // Create deterministic test keys for development/testing
   const testKeys = [
