@@ -1,3 +1,4 @@
+import { toNodeHandler } from "better-auth/node";
 import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -5,6 +6,7 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
 import { config, isApiDocsEnabled } from "./config";
+import { auth } from "./modules/auth/auth.config";
 import { generateOpenAPIDocument } from "./lib/openapi";
 import { httpLogger } from "./lib/logger";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
@@ -63,20 +65,12 @@ export function createApp(): Express {
       origin: config.FRONTEND_URL,
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Organization-Id"],
     }),
   );
 
   // ─────────────────────────────────────────────────────────────
-  // Body parsing and compression
-  // ─────────────────────────────────────────────────────────────
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-  app.use(cookieParser());
-  app.use(compression());
-
-  // ─────────────────────────────────────────────────────────────
-  // Request logging
+  // Request logging (before Better Auth so we see auth requests)
   // ─────────────────────────────────────────────────────────────
   app.use((req, res, next) => {
     const start = Date.now();
@@ -91,6 +85,20 @@ export function createApp(): Express {
     });
     next();
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // Better Auth Handler (MUST be before express.json)
+  // basePath in auth config handles /api/auth/* routing
+  // ─────────────────────────────────────────────────────────────
+  app.all("/api/auth/{*splat}", toNodeHandler(auth));
+
+  // ─────────────────────────────────────────────────────────────
+  // Body parsing and compression
+  // ─────────────────────────────────────────────────────────────
+  app.use(express.json({ limit: "10mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  app.use(cookieParser());
+  app.use(compression());
 
   // ─────────────────────────────────────────────────────────────
   // Rate limiting

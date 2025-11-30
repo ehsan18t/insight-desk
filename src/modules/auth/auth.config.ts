@@ -19,6 +19,7 @@ export const auth = betterAuth({
 
   // Base URL
   baseURL: config.BETTER_AUTH_URL || config.API_URL || `http://${config.HOST}:${config.PORT}`,
+  basePath: "/api/auth",
 
   // Secret key for signing
   secret: config.BETTER_AUTH_SECRET,

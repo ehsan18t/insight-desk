@@ -1,4 +1,3 @@
-import { toNodeHandler } from "better-auth/node";
 import { eq } from "drizzle-orm";
 import { Router } from "express";
 import { nanoid } from "nanoid";
@@ -14,7 +13,7 @@ const router = Router();
 const logger = createLogger("auth");
 
 // ─────────────────────────────────────────────────────────────
-// Better Auth handles these routes:
+// Better Auth handles these routes (mounted directly in app.ts):
 // POST /api/auth/sign-up
 // POST /api/auth/sign-in
 // POST /api/auth/sign-out
@@ -24,12 +23,6 @@ const logger = createLogger("auth");
 // POST /api/auth/verify-email
 // GET  /api/auth/callback/:provider (OAuth)
 // ─────────────────────────────────────────────────────────────
-
-// Apply rate limiting to auth endpoints
-router.use(authRateLimit);
-
-// Mount Better Auth handler - use "{*path}" for Express 5 compatibility
-router.all("/{*path}", toNodeHandler(auth));
 
 // ─────────────────────────────────────────────────────────────
 // Custom auth endpoints

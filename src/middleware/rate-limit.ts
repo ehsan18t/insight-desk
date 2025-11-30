@@ -128,7 +128,7 @@ export function rateLimit(options?: {
 // Stricter rate limit for auth endpoints
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 10,
+  maxRequests: 100, // Increased for development
   message: "Too many login attempts, please try again later",
   prefix: "auth",
 });

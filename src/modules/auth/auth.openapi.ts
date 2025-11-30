@@ -153,10 +153,10 @@ const ResetPasswordRequestSchema = z
 // BETTER AUTH ROUTES (Managed by better-auth library)
 // ═══════════════════════════════════════════════════════════════════════════
 
-// POST /api/auth/sign-up
+// POST /api/auth/sign-up/email
 registry.registerPath({
   method: "post",
-  path: "/api/auth/sign-up",
+  path: "/api/auth/sign-up/email",
   tags: ["Auth"],
   summary: "Create a new user account",
   description: `
@@ -204,10 +204,10 @@ Register a new user account with email and password.
   },
 });
 
-// POST /api/auth/sign-in
+// POST /api/auth/sign-in/email
 registry.registerPath({
   method: "post",
-  path: "/api/auth/sign-in",
+  path: "/api/auth/sign-in/email",
   tags: ["Auth"],
   summary: "Sign in to an existing account",
   description: `
