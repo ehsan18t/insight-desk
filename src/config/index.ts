@@ -62,6 +62,10 @@ const envSchema = z.object({
   // API Documentation
   ENABLE_API_DOCS: z.stringbool().optional(), // Defaults based on NODE_ENV
   API_DOCS_PATH: z.string().default("/api-docs"),
+
+  // MCP Server
+  ENABLE_MCP: z.stringbool().optional(), // Defaults based on NODE_ENV (enabled in dev, disabled in prod)
+  MCP_PORT: z.coerce.number().default(3100), // Separate port for MCP HTTP server
 });
 
 // Parse and validate environment
@@ -86,3 +90,6 @@ export const isTest = config.NODE_ENV === "test";
 
 // API docs enabled by default in development, disabled in production
 export const isApiDocsEnabled = config.ENABLE_API_DOCS ?? !isProd;
+
+// MCP server enabled by default in development, disabled in production
+export const isMcpEnabled = config.ENABLE_MCP ?? !isProd;
