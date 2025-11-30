@@ -23,6 +23,7 @@ import {
   seedTags,
   seedTickets,
   seedUserOrganizations,
+  type McpConfig,
 } from "./drizzle-seed";
 import { db } from "@/db";
 import { logger } from "@/lib/logger";
@@ -35,6 +36,7 @@ export interface SeedResult {
   planIds: string[];
   ticketIds: string[];
   apiKeyIds: string[];
+  mcpConfig: McpConfig;
 }
 
 export interface SeedConfig {
@@ -115,7 +117,7 @@ export async function runSeed(config: SeedConfig = {}): Promise<SeedResult> {
   await seedSavedFilters(organizationIds, userIds);
 
   // 13. Seed API keys
-  const apiKeyIds = await seedApiKeys(organizationIds, userIds);
+  const apiKeysResult = await seedApiKeys(organizationIds, userIds);
 
   logger.info("Seed complete!");
 
@@ -126,7 +128,8 @@ export async function runSeed(config: SeedConfig = {}): Promise<SeedResult> {
     tagIds,
     planIds,
     ticketIds,
-    apiKeyIds,
+    apiKeyIds: apiKeysResult.ids,
+    mcpConfig: apiKeysResult.mcpConfig,
   };
 }
 

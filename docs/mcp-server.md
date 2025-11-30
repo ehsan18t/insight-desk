@@ -14,15 +14,85 @@ The MCP server provides a programmatic interface to the InsightDesk API, allowin
 
 ## Quick Start
 
-### 1. Generate OpenAPI Documentation
+### Option 1: Full Project Setup (Recommended)
 
-The MCP server reads from the generated OpenAPI spec. Make sure it's up to date:
+If you're setting up the project for the first time:
 
 ```bash
-bun run docs:generate
+bun run setup
 ```
 
-### 2. Run the MCP Server
+This will:
+1. Install dependencies
+2. Start Docker services
+3. Push database schema
+4. Seed the database with test data
+5. Generate API keys for MCP
+6. Output Claude Desktop configuration
+
+The setup script automatically:
+- Creates API keys and adds them to your `.env` file
+- Displays the Claude Desktop configuration JSON
+- Provides ready-to-use credentials
+
+### Option 2: Manual Setup
+
+If you already have the project set up:
+
+```bash
+# 1. Ensure services are running
+bun run docker:up
+
+# 2. Generate OpenAPI spec (required for MCP)
+bun run docs:generate
+
+# 3. Seed database (creates API keys)
+bun run db:seed
+
+# 4. Start MCP server
+bun run mcp
+```
+
+### Regenerate MCP Configuration
+
+If you've re-seeded the database and need to regenerate the MCP configuration:
+
+```bash
+bun run mcp:config
+```
+
+This queries the database for API keys and outputs the Claude Desktop configuration.
+
+## Claude Desktop Configuration
+
+After running `bun run setup` or `bun run db:seed`, you'll see a configuration JSON output.
+
+Copy it to your Claude Desktop configuration file:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Example configuration:
+
+```json
+{
+  "mcpServers": {
+    "insightdesk": {
+      "command": "bun",
+      "args": ["run", "mcp"],
+      "cwd": "/path/to/insight-desk",
+      "env": {
+        "INSIGHTDESK_API_KEY": "idk_test_development_key_org0_0",
+        "INSIGHTDESK_ORGANIZATION_ID": "your-org-uuid"
+      }
+    }
+  }
+}
+```
+
+**Note:** The `cwd` and credentials are automatically filled in by the setup scripts.
+
+## Running the MCP Server
 
 **Stdio transport** (for Claude Desktop):
 ```bash
@@ -34,45 +104,6 @@ bun run mcp
 bun run mcp:http
 ```
 
-### With Environment Variables
-
-```bash
-# API URL is auto-resolved to http://localhost:3001 in development mode
-INSIGHTDESK_API_KEY=idk_live_xxx \
-INSIGHTDESK_ORGANIZATION_ID=your-org-id \
-bun run mcp
-```
-
-## Claude Desktop Configuration
-
-Add the following to your Claude Desktop configuration file:
-
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "insightdesk": {
-      "command": "bun",
-      "args": ["run", "mcp"],
-      "cwd": "/path/to/insight-desk",
-      "env": {
-        "INSIGHTDESK_API_KEY": "your-api-key",
-        "INSIGHTDESK_ORGANIZATION_ID": "your-org-id"
-      }
-    }
-  }
-}
-```
-
-Replace:
-- `/path/to/insight-desk` with the absolute path to this repository
-- `your-api-key` with your actual API key
-- `your-org-id` with your organization ID
-
-**Note:** `INSIGHTDESK_API_URL` is optional in development mode - it defaults to `http://localhost:3001`.
-
 ## Environment Variables
 
 | Variable                      | Description                       | Default                            |
@@ -81,8 +112,8 @@ Replace:
 | `MCP_PORT`                    | HTTP transport port               | `3100`                             |
 | `MCP_TRANSPORT`               | Transport type: `stdio` or `http` | `stdio`                            |
 | `INSIGHTDESK_API_URL`         | Base URL of the InsightDesk API   | `http://localhost:3001` (dev only) |
-| `INSIGHTDESK_API_KEY`         | API key for authentication        | None                               |
-| `INSIGHTDESK_ORGANIZATION_ID` | Default organization ID           | None                               |
+| `INSIGHTDESK_API_KEY`         | API key for authentication        | Auto-set by `db:seed`              |
+| `INSIGHTDESK_ORGANIZATION_ID` | Default organization ID           | Auto-set by `db:seed`              |
 
 ## Available Tools
 
@@ -141,15 +172,37 @@ Claude: I'll create a ticket. First, let me configure the API connection.
 
 ### Runtime Configuration
 
-The API key and organization ID can be configured in three ways:
+The API key and organization ID can be configured in three ways (in order of precedence):
 
-1. **Environment variables** (recommended for production)
-2. **Claude Desktop config** (recommended for local development)
+1. **`bun run setup` or `bun run db:seed`** (recommended for development)
+   - Automatically generates API keys
+   - Updates `.env` with credentials
+   - Outputs Claude Desktop configuration
+
+2. **Environment variables** (recommended for production)
+   - Set `INSIGHTDESK_API_KEY` and `INSIGHTDESK_ORGANIZATION_ID`
+   - Or pass in Claude Desktop `env` configuration
+
 3. **`api-configure` tool** (for ad-hoc changes)
+   - Use at runtime to switch API keys or organizations
 
-## API Key Creation
+## API Key Management
 
-To use the MCP server, you need an API key. Create one using the InsightDesk API:
+### Development (Automatic)
+
+When you run `bun run setup` or `bun run db:seed`, test API keys are automatically created:
+
+| Key Name                  | Scopes              | Purpose                 |
+| ------------------------- | ------------------- | ----------------------- |
+| Development API Key       | read, write         | General development use |
+| CI/CD Pipeline Key        | read, write, delete | Automated pipelines     |
+| Read-Only Integration Key | read                | Read-only integrations  |
+
+The Development API Key is automatically configured for MCP use.
+
+### Production (Manual)
+
+Create production API keys via the InsightDesk API:
 
 ```bash
 curl -X POST http://localhost:3000/api/organizations/{orgId}/api-keys \

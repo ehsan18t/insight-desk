@@ -100,11 +100,19 @@ async function main() {
     // Step 5: Push database schema
     await runCommand(`${runCmd} db:push`, "Pushing database schema");
 
+    // Step 6: Seed database with sample data
+    await runCommand(`${runCmd} db:seed`, "Seeding database with sample data");
+
     console.log("\n╔══════════════════════════════════════════════════════════╗");
     console.log("║           ✅ Setup Complete!                             ║");
     console.log("╚══════════════════════════════════════════════════════════╝");
     console.log(`\nYou can now start the development server:`);
     console.log(`   ${runCmd} dev`);
+    console.log(`\nTo use MCP with Claude Desktop, copy the config above to:`);
+    console.log("   macOS: ~/Library/Application Support/Claude/claude_desktop_config.json");
+    console.log("   Windows: %APPDATA%\\Claude\\claude_desktop_config.json");
+    console.log(`\nTo regenerate MCP config later, run:`);
+    console.log(`   ${runCmd} mcp:config`);
     console.log("");
   } catch (error) {
     console.error("\n❌ Setup failed:", error);

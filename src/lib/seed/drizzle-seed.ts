@@ -634,7 +634,19 @@ export async function seedSavedFilters(orgIds: string[], userIds: string[]): Pro
  * Seed API keys for organizations
  * Note: We create deterministic keys for testing purposes
  */
-export async function seedApiKeys(orgIds: string[], userIds: string[]): Promise<string[]> {
+export interface McpConfig {
+  apiKey: string;
+  organizationId: string;
+  organizationName: string;
+}
+
+export interface ApiKeysSeedResult {
+  ids: string[];
+  generatedKeys: { orgId: string; name: string; fullKey: string }[];
+  mcpConfig: McpConfig;
+}
+
+export async function seedApiKeys(orgIds: string[], userIds: string[]): Promise<ApiKeysSeedResult> {
   const { hashApiKey } = await import("@/modules/api-keys");
 
   // Create deterministic test keys for development/testing
@@ -695,7 +707,19 @@ export async function seedApiKeys(orgIds: string[], userIds: string[]): Promise<
     logger.info(`  - ${key.name} (org ${key.orgId.substring(0, 8)}...): ${key.fullKey}`);
   }
 
-  return inserted.map((k) => k.id);
+  // Use the first organization's development key for MCP config
+  const mcpKey = generatedKeys.find((k) => k.name === "Development API Key");
+  const mcpConfig: McpConfig = {
+    apiKey: mcpKey?.fullKey || generatedKeys[0]?.fullKey || "",
+    organizationId: orgIds[0] || "",
+    organizationName: "Acme Corp", // Default first org name from seed data
+  };
+
+  return {
+    ids: inserted.map((k) => k.id),
+    generatedKeys,
+    mcpConfig,
+  };
 }
 
 /**
