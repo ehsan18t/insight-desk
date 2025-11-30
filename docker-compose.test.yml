@@ -1,0 +1,73 @@
+# Docker Compose configuration for integration tests
+# Uses isolated ports and volumes to avoid conflicts with development environment
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up -d
+#   npm run test:setup
+#   npm run test:integration
+
+services:
+  valkey-test:
+    image: valkey/valkey:9-alpine
+    container_name: insightdesk-valkey-test
+    ports:
+      - "6380:6379"
+    volumes:
+      - valkey_test_data:/data
+    command: valkey-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  postgresql-test:
+    image: postgres:18-alpine
+    container_name: insightdesk-postgres-test
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgresql_test_data:/var/lib/postgresql
+    environment:
+      POSTGRES_USER: insightdesk
+      POSTGRES_PASSWORD: insightdesk_test
+      POSTGRES_DB: insightdesk_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U insightdesk -d insightdesk_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  minio-test:
+    image: minio/minio:latest
+    container_name: insightdesk-minio-test
+    ports:
+      - "9002:9000"   # API
+      - "9003:9001"   # Console
+    volumes:
+      - minio_test_data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  mailpit-test:
+    image: axllent/mailpit:latest
+    container_name: insightdesk-mailpit-test
+    ports:
+      - "8026:8025"   # Web UI
+      - "1026:1025"   # SMTP
+    restart: unless-stopped
+
+volumes:
+  valkey_test_data:
+  postgresql_test_data:
+  minio_test_data:
