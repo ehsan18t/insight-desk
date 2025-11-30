@@ -171,7 +171,7 @@ describe("authenticate middleware", () => {
 
     expect(next).toHaveBeenCalledWith(expect.any(UnauthorizedError));
     const error = next.mock.calls[0][0] as UnauthorizedError;
-    expect(error.message).toBe("Invalid or expired session");
+    expect(error.message).toBe("Invalid or expired credentials");
   });
 
   it("should pass through UnauthorizedError thrown within", async () => {
