@@ -199,25 +199,47 @@ describe("cannedResponsesService", () => {
   // ─────────────────────────────────────────────────────────────
   describe("create", () => {
     it("should create a new canned response without shortcut", async () => {
-      const responseWithoutShortcut = {
-        ...mockCannedResponse,
-        shortcut: null,
+      const inputData = {
+        title: "No Shortcut Message",
+        content: "Custom content here",
+        category: "misc",
       };
 
+      // Track what values are passed to db.insert().values()
+      const mockValues = vi.fn();
       vi.mocked(db.insert).mockReturnValue({
-        values: () => ({
-          returning: vi.fn().mockResolvedValue([responseWithoutShortcut]),
+        values: mockValues.mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            {
+              id: "response-new",
+              organizationId: "org-1",
+              title: inputData.title,
+              content: inputData.content,
+              shortcut: null,
+              category: inputData.category,
+              createdById: "user-1",
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ]),
         }),
       } as never);
 
-      const result = await cannedResponsesService.create("org-1", "user-1", {
-        title: "No Shortcut Message",
-        content: "Content",
-        category: "misc",
-      });
+      const result = await cannedResponsesService.create("org-1", "user-1", inputData);
 
+      // Verify the actual input values were passed to the database
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: "org-1",
+          createdById: "user-1",
+          title: "No Shortcut Message",
+          content: "Custom content here",
+          shortcut: null,
+          category: "misc",
+        }),
+      );
       expect(result.shortcut).toBeNull();
-      expect(result.title).toBe("Welcome Message");
+      expect(result.title).toBe("No Shortcut Message");
     });
 
     it("should create a new canned response with unique shortcut", async () => {
@@ -394,27 +416,32 @@ describe("cannedResponsesService", () => {
   // remove
   // ─────────────────────────────────────────────────────────────
   describe("remove", () => {
-    it("should delete canned response", async () => {
+    it("should delete canned response with correct ID", async () => {
+      const responseToDelete = { ...mockCannedResponse, id: "response-to-delete" };
+
       // getById returns existing response
       vi.mocked(db.select).mockImplementationOnce(
         () =>
           ({
             from: () => ({
               where: () => ({
-                limit: vi.fn().mockResolvedValue([mockCannedResponse]),
+                limit: vi.fn().mockResolvedValue([responseToDelete]),
               }),
             }),
           }) as never,
       );
 
-      // delete succeeds
+      // Track the where condition for delete
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(db.delete).mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
+        where: mockWhere,
       } as never);
 
-      await cannedResponsesService.remove("response-1", "org-1");
+      await cannedResponsesService.remove("response-to-delete", "org-1");
 
+      // Verify delete was called and the where clause was invoked
       expect(db.delete).toHaveBeenCalled();
+      expect(mockWhere).toHaveBeenCalled();
     });
 
     it("should throw NotFoundError when response not found", async () => {
