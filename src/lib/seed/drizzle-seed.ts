@@ -638,30 +638,36 @@ export async function seedApiKeys(orgIds: string[], userIds: string[]): Promise<
   const { hashApiKey } = await import("@/modules/api-keys");
 
   // Create deterministic test keys for development/testing
-  const testKeys = [
+  // Note: Keys must be unique per organization since key_hash has a unique index
+  const testKeyTemplates = [
     {
       name: "Development API Key",
-      fullKey: "idk_test_development_key_12345678",
+      keyBase: "development_key",
       scopes: ["read", "write"],
     },
     {
       name: "CI/CD Pipeline Key",
-      fullKey: "idk_test_cicd_pipeline_key_abcdef",
+      keyBase: "cicd_pipeline_key",
       scopes: ["read", "write", "delete"],
     },
     {
       name: "Read-Only Integration Key",
-      fullKey: "idk_test_readonly_integration_key",
+      keyBase: "readonly_integration",
       scopes: ["read"],
     },
   ];
 
   const apiKeyRecords = [];
-  for (const orgId of orgIds) {
-    for (let i = 0; i < testKeys.length; i++) {
-      const keyData = testKeys[i];
-      const keyHash = hashApiKey(keyData.fullKey);
-      const prefix = `idk_test_${keyData.fullKey.substring(9, 13)}`;
+  const generatedKeys: { orgId: string; name: string; fullKey: string }[] = [];
+
+  for (let orgIndex = 0; orgIndex < orgIds.length; orgIndex++) {
+    const orgId = orgIds[orgIndex];
+    for (let i = 0; i < testKeyTemplates.length; i++) {
+      const keyData = testKeyTemplates[i];
+      // Create unique key per organization by including org index
+      const fullKey = `idk_test_${keyData.keyBase}_org${orgIndex}_${i}`;
+      const keyHash = hashApiKey(fullKey);
+      const prefix = `idk_test_${keyData.keyBase.substring(0, 4)}`;
 
       apiKeyRecords.push({
         organizationId: orgId,
@@ -673,6 +679,8 @@ export async function seedApiKeys(orgIds: string[], userIds: string[]): Promise<
         expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
         isActive: true,
       });
+
+      generatedKeys.push({ orgId, name: keyData.name, fullKey });
     }
   }
 
@@ -683,8 +691,8 @@ export async function seedApiKeys(orgIds: string[], userIds: string[]): Promise<
 
   logger.info(`Created ${inserted.length} API keys`);
   logger.info("Test API keys (for development only):");
-  for (const key of testKeys) {
-    logger.info(`  - ${key.name}: ${key.fullKey}`);
+  for (const key of generatedKeys) {
+    logger.info(`  - ${key.name} (org ${key.orgId.substring(0, 8)}...): ${key.fullKey}`);
   }
 
   return inserted.map((k) => k.id);
