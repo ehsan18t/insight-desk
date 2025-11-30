@@ -89,7 +89,7 @@ InsightDesk is a complete customer support platform designed for growing busines
 
 | Layer        | Technology                   |
 | ------------ | ---------------------------- |
-| Runtime      | Node.js                      |
+| Runtime      | Bun                          |
 | Framework    | Express 5.1 + TypeScript     |
 | Database     | PostgreSQL + Drizzle ORM     |
 | Auth         | Better Auth                  |
@@ -103,13 +103,15 @@ InsightDesk is a complete customer support platform designed for growing busines
 ## 🚀 Quick Start
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) v22+ installed
+- [Bun](https://bun.sh/) v1.0+ installed (recommended) or Node.js v22+
 - [Docker](https://www.docker.com/) installed and running
+
+> **Note:** This project uses Bun as the primary runtime. See [Package Manager Guide](#-package-manager-guide) for alternatives.
 
 ### One-Command Setup
 
 ```bash
-npm run setup
+bun run setup
 ```
 
 ### Or Step by Step
@@ -118,22 +120,22 @@ npm run setup
 # 1. Clone and install
 git clone https://github.com/ehsan18t/insight-desk.git
 cd insight-desk
-npm install
+bun install
 
 # 2. Configure environment
 copy .env.development .env
 
 # 3. Start services (PostgreSQL, Valkey, MinIO, Mailpit)
-npm run docker:up
+bun run docker:up
 
 # 4. Setup database
-npm run db:push
+bun run db:push
 
 # 5. (Optional) Seed demo data
-npm run db:seed
+bun run db:seed
 
 # 6. Start development server
-npm run dev
+bun run dev
 ```
 
 The API will be available at **http://localhost:3001**
@@ -157,37 +159,38 @@ The API will be available at **http://localhost:3001**
 ### Development
 | Command         | Description                |
 | --------------- | -------------------------- |
-| `npm run setup` | Full dev environment setup |
-| `npm run dev`   | Start with hot reload      |
-| `npm run start` | Start production server    |
+| `bun run setup` | Full dev environment setup |
+| `bun run dev`   | Start with hot reload      |
+| `bun run start` | Start production server    |
 
 ### Docker
 | Command               | Description        |
 | --------------------- | ------------------ |
-| `npm run docker:up`   | Start all services |
-| `npm run docker:down` | Stop all services  |
-| `npm run docker:logs` | View service logs  |
+| `bun run docker:up`   | Start all services |
+| `bun run docker:down` | Stop all services  |
+| `bun run docker:logs` | View service logs  |
 
 ### Database
-| Command               | Description            |
-| --------------------- | ---------------------- |
-| `npm run db:generate` | Generate migrations    |
-| `npm run db:migrate`  | Apply migrations       |
-| `npm run db:push`     | Push schema (dev only) |
-| `npm run db:studio`   | Open Drizzle Studio    |
-| `npm run db:seed`     | Seed demo data         |
+| Command                 | Description               |
+| ----------------------- | ------------------------- |
+| `bun run db:generate`   | Generate migrations       |
+| `bun run db:migrate`    | Apply migrations          |
+| `bun run db:push`       | Push schema (dev only)    |
+| `bun run db:studio`     | Open Drizzle Studio       |
+| `bun run db:seed`       | Seed demo data            |
+| `bun run db:setup:prod` | Production database setup |
 
 ### Quality
-| Command                    | Description                         |
-| -------------------------- | ----------------------------------- |
-| `npm run test`             | Run unit tests (default)            |
-| `npm run test:unit`        | Run unit tests only                 |
-| `npm run test:integration` | Run integration tests (RLS/tenant)  |
-| `npm run test:all`         | Run all tests                       |
-| `npm run test:setup`       | Setup test database for integration |
-| `npm run test:coverage`    | Run tests with coverage             |
-| `npm run typecheck`        | TypeScript check                    |
-| `npm run check`            | Lint & format check                 |
+| Command                    | Description                             |
+| -------------------------- | --------------------------------------- |
+| `bun run test`             | Run all tests (unit + integration)      |
+| `bun run test:unit`        | Run unit tests only (skip integration)  |
+| `bun run test:integration` | Run integration tests only (RLS/tenant) |
+| `bun run test:setup`       | Setup test database for integration     |
+| `bun run test:coverage`    | Run unit tests with coverage            |
+| `bun run test:watch`       | Watch mode (unit tests)                 |
+| `bun run typecheck`        | TypeScript check                        |
+| `bun run check`            | Lint & format check                     |
 
 ---
 
@@ -195,14 +198,13 @@ The API will be available at **http://localhost:3001**
 
 InsightDesk has two types of tests:
 
-### Unit Tests (Default)
+### Unit Tests
 Unit tests mock the database and run quickly. They test business logic in isolation.
 
 ```bash
-npm run test          # Run unit tests
-npm run test:unit     # Same as above (explicit)
-npm run test:watch    # Watch mode
-npm run test:coverage # With coverage report
+bun run test:unit     # Run unit tests only
+bun run test:watch    # Watch mode (unit tests)
+bun run test:coverage # Unit tests with coverage report
 ```
 
 ### Integration Tests
@@ -210,20 +212,14 @@ Integration tests verify Row-Level Security (RLS) tenant isolation against a rea
 
 **First-time setup:**
 ```bash
-# 1. Start Docker services
-npm run docker:up
-
-# 2. Push schema to main database
-npm run db:push
-
-# 3. Setup test database with RLS
-npm run test:setup
+# Setup test database (automatically starts test containers)
+bun run test:setup
 ```
 
-**Run integration tests:**
+**Run tests:**
 ```bash
-npm run test:integration   # Run tenant isolation tests
-npm run test:all           # Run ALL tests (unit + integration)
+bun run test:integration   # Run integration tests only
+bun run test               # Run ALL tests (unit + integration)
 ```
 
 ### Test Environment
@@ -241,7 +237,74 @@ npm run test:all           # Run ALL tests (unit + integration)
 copy .env.development .env
 ```
 
-**Production**: Copy `.env.example` and configure all values.
+**Production**: Copy `.env.example` and configure all values. See [Deployment Guide](docs/deployment.md).
+
+---
+
+## 📦 Package Manager Guide
+
+InsightDesk supports multiple package managers. The scripts automatically detect which one you're using based on lockfiles.
+
+### Supported Package Managers
+
+| Manager | Lockfile                 | Install        | Run Script       |
+| ------- | ------------------------ | -------------- | ---------------- |
+| **Bun** | `bun.lockb` / `bun.lock` | `bun install`  | `bun run <cmd>`  |
+| pnpm    | `pnpm-lock.yaml`         | `pnpm install` | `pnpm run <cmd>` |
+| Yarn    | `yarn.lock`              | `yarn`         | `yarn <cmd>`     |
+| npm     | `package-lock.json`      | `npm install`  | `npm run <cmd>`  |
+
+### Detection Priority
+
+The project automatically detects your package manager by checking for lockfiles in this order:
+1. `bun.lockb` or `bun.lock` → Uses Bun
+2. `pnpm-lock.yaml` → Uses pnpm
+3. `yarn.lock` → Uses Yarn
+4. `package-lock.json` → Uses npm
+5. Falls back to npm if no lockfile found
+
+### Using a Different Package Manager
+
+**Switch to npm:**
+```bash
+# Remove bun lockfile and install with npm
+rm bun.lock
+npm install
+npm run dev
+```
+
+**Switch to pnpm:**
+```bash
+rm bun.lock
+pnpm install
+pnpm run dev
+```
+
+**Switch to Yarn:**
+```bash
+rm bun.lock
+yarn install
+yarn dev
+```
+
+### Why Bun is Recommended
+
+- ⚡ **4-10x faster** installs and script execution
+- 🔄 **Drop-in replacement** for Node.js
+- 📦 **Built-in** bundler, test runner, and package manager
+- 🎯 **Native TypeScript** support without compilation
+
+### All Commands Work the Same
+
+Once you've chosen a package manager, all scripts work identically:
+
+```bash
+# These are equivalent (just replace 'bun' with your manager)
+bun run dev
+npm run dev
+pnpm run dev
+yarn dev
+```
 
 ---
 
