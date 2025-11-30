@@ -680,4 +680,633 @@ describe("organizationsService", () => {
       );
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // listMembers
+  // ─────────────────────────────────────────────────────────────
+  describe("listMembers", () => {
+    it("should return paginated list of organization members", async () => {
+      const mockMembers = [
+        createMockMember({ userId: "user-1", name: "Alice", role: "admin" }),
+        createMockMember({ userId: "user-2", name: "Bob", role: "agent" }),
+      ];
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: vi.fn().mockResolvedValue([{ total: 2 }]),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => ({
+                  offset: vi.fn().mockResolvedValue(mockMembers),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.listMembers("org-123", { page: 1, limit: 20 });
+
+      expect(result.data).toHaveLength(2);
+      expect(result.pagination.total).toBe(2);
+      expect(result.pagination.page).toBe(1);
+      expect(result.data[0].name).toBe("Alice");
+    });
+
+    it("should filter members by search term", async () => {
+      const mockMembers = [createMockMember({ userId: "user-1", name: "Alice" })];
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: vi.fn().mockResolvedValue([{ total: 1 }]),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => ({
+                  offset: vi.fn().mockResolvedValue(mockMembers),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.listMembers("org-123", { search: "Alice" });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].name).toBe("Alice");
+    });
+
+    it("should return empty list when organization has no members", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: vi.fn().mockResolvedValue([{ total: 0 }]),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => ({
+                  offset: vi.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.listMembers("org-123");
+
+      expect(result.data).toHaveLength(0);
+      expect(result.pagination.total).toBe(0);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // listForUser
+  // ─────────────────────────────────────────────────────────────
+  describe("listForUser", () => {
+    it("should return paginated list of organizations for user", async () => {
+      const mockOrgs = [
+        { ...createMockOrganization({ id: "org-1", name: "Org 1" }), role: "owner" },
+        { ...createMockOrganization({ id: "org-2", name: "Org 2" }), role: "agent" },
+      ];
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: vi.fn().mockResolvedValue([{ total: 2 }]),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => ({
+                  offset: vi.fn().mockResolvedValue(mockOrgs),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as never);
+
+      // Mock member count queries
+      vi.mocked(db.select)
+        .mockReturnValueOnce({
+          from: () => ({
+            where: vi.fn().mockResolvedValue([{ memberCount: 5 }]),
+          }),
+        } as never)
+        .mockReturnValueOnce({
+          from: () => ({
+            where: vi.fn().mockResolvedValue([{ memberCount: 3 }]),
+          }),
+        } as never);
+
+      const result = await organizationsService.listForUser("user-123");
+
+      expect(result.data).toHaveLength(2);
+      expect(result.pagination.total).toBe(2);
+      expect(result.data[0].memberCount).toBe(5);
+      expect(result.data[1].memberCount).toBe(3);
+    });
+
+    it("should filter organizations by search term", async () => {
+      const mockOrgs = [{ ...createMockOrganization({ name: "Test Org" }), role: "admin" }];
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: vi.fn().mockResolvedValue([{ total: 1 }]),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => ({
+                  offset: vi.fn().mockResolvedValue(mockOrgs),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          where: vi.fn().mockResolvedValue([{ memberCount: 2 }]),
+        }),
+      } as never);
+
+      const result = await organizationsService.listForUser("user-123", { search: "Test" });
+
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0].name).toBe("Test Org");
+    });
+
+    it("should return empty list when user has no organizations", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: vi.fn().mockResolvedValue([{ total: 0 }]),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => ({
+                  offset: vi.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.listForUser("user-123");
+
+      expect(result.data).toHaveLength(0);
+      expect(result.pagination.total).toBe(0);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // listInvitations
+  // ─────────────────────────────────────────────────────────────
+  describe("listInvitations", () => {
+    it("should return paginated list of invitations", async () => {
+      const mockInvitations = [
+        {
+          id: "inv-1",
+          email: "alice@test.com",
+          role: "agent",
+          status: "pending",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          invitedBy: { id: "user-123", name: "John Doe", email: "john@test.com" },
+        },
+        {
+          id: "inv-2",
+          email: "bob@test.com",
+          role: "admin",
+          status: "pending",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          invitedBy: { id: "user-123", name: "John Doe", email: "john@test.com" },
+        },
+      ];
+
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: vi.fn().mockResolvedValue([{ total: 2 }]),
+        }),
+      } as never);
+
+      vi.mocked(db.query.organizationInvitations.findMany).mockResolvedValue(
+        mockInvitations as never,
+      );
+
+      const result = await organizationsService.listInvitations("org-123", { page: 1, limit: 20 });
+
+      expect(result.invitations).toHaveLength(2);
+      expect(result.pagination.total).toBe(2);
+      expect(result.invitations[0].email).toBe("alice@test.com");
+    });
+
+    it("should filter invitations by status", async () => {
+      const mockInvitations = [
+        {
+          id: "inv-1",
+          email: "alice@test.com",
+          role: "agent",
+          status: "pending",
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          invitedBy: { id: "user-123", name: "John Doe", email: "john@test.com" },
+        },
+      ];
+
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: vi.fn().mockResolvedValue([{ total: 1 }]),
+        }),
+      } as never);
+
+      vi.mocked(db.query.organizationInvitations.findMany).mockResolvedValue(
+        mockInvitations as never,
+      );
+
+      const result = await organizationsService.listInvitations("org-123", {
+        status: "pending",
+        page: 1,
+        limit: 20,
+      });
+
+      expect(result.invitations).toHaveLength(1);
+      expect(result.invitations[0].status).toBe("pending");
+    });
+
+    it("should return empty list when no invitations exist", async () => {
+      vi.mocked(db.select).mockReturnValue({
+        from: () => ({
+          where: vi.fn().mockResolvedValue([{ total: 0 }]),
+        }),
+      } as never);
+
+      vi.mocked(db.query.organizationInvitations.findMany).mockResolvedValue([]);
+
+      const result = await organizationsService.listInvitations("org-123", {
+        page: 1,
+        limit: 20,
+      });
+
+      expect(result.invitations).toHaveLength(0);
+      expect(result.pagination.total).toBe(0);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // acceptInvitation
+  // ─────────────────────────────────────────────────────────────
+  describe("acceptInvitation", () => {
+    it("should accept valid invitation and add user to organization", async () => {
+      const mockInvitation = {
+        id: "inv-123",
+        orgId: "org-123",
+        email: "test@example.com",
+        role: "agent",
+        token: "valid-token",
+        status: "pending",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      };
+      const mockUser = { id: "user-123", email: "test@example.com", name: "Test User" };
+
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(
+        mockInvitation as never,
+      );
+      vi.mocked(db.query.users.findFirst).mockResolvedValue(mockUser as never);
+      vi.mocked(db.query.userOrganizations.findFirst).mockResolvedValue(undefined);
+
+      vi.mocked(db.insert).mockReturnValue({
+        values: vi.fn().mockResolvedValue({ rowCount: 1 }),
+      } as never);
+
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: vi.fn().mockResolvedValue({ rowCount: 1 }),
+        }),
+      } as never);
+
+      const result = await organizationsService.acceptInvitation("valid-token", "user-123");
+
+      expect(result.organizationId).toBe("org-123");
+      expect(result.role).toBe("agent");
+    });
+
+    it("should throw error when invitation is invalid or expired", async () => {
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(undefined);
+
+      await expect(
+        organizationsService.acceptInvitation("invalid-token", "user-123"),
+      ).rejects.toThrow("Invalid or expired invitation");
+    });
+
+    it("should throw error when user not found", async () => {
+      const mockInvitation = {
+        id: "inv-123",
+        orgId: "org-123",
+        email: "test@example.com",
+        role: "agent",
+        token: "valid-token",
+        status: "pending",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      };
+
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(
+        mockInvitation as never,
+      );
+      vi.mocked(db.query.users.findFirst).mockResolvedValue(undefined);
+
+      await expect(
+        organizationsService.acceptInvitation("valid-token", "user-123"),
+      ).rejects.toThrow("User not found");
+    });
+
+    it("should throw error when email does not match", async () => {
+      const mockInvitation = {
+        id: "inv-123",
+        orgId: "org-123",
+        email: "invited@example.com",
+        role: "agent",
+        token: "valid-token",
+        status: "pending",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      };
+      const mockUser = { id: "user-123", email: "different@example.com", name: "Test User" };
+
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(
+        mockInvitation as never,
+      );
+      vi.mocked(db.query.users.findFirst).mockResolvedValue(mockUser as never);
+
+      await expect(
+        organizationsService.acceptInvitation("valid-token", "user-123"),
+      ).rejects.toThrow("This invitation was sent to a different email address");
+    });
+
+    it("should handle already-member case and just mark invitation accepted", async () => {
+      const mockInvitation = {
+        id: "inv-123",
+        orgId: "org-123",
+        email: "test@example.com",
+        role: "agent",
+        token: "valid-token",
+        status: "pending",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      };
+      const mockUser = { id: "user-123", email: "test@example.com", name: "Test User" };
+      const existingMembership = {
+        id: "membership-123",
+        userId: "user-123",
+        organizationId: "org-123",
+        role: "admin", // Already a member with different role
+        joinedAt: new Date(),
+      };
+
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(
+        mockInvitation as never,
+      );
+      vi.mocked(db.query.users.findFirst).mockResolvedValue(mockUser as never);
+      vi.mocked(db.query.userOrganizations.findFirst).mockResolvedValue(
+        existingMembership as never,
+      );
+
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: vi.fn().mockResolvedValue({ rowCount: 1 }),
+        }),
+      } as never);
+
+      const result = await organizationsService.acceptInvitation("valid-token", "user-123");
+
+      expect(result.organizationId).toBe("org-123");
+      expect(result.role).toBe("admin"); // Returns existing role
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // cancelInvitation
+  // ─────────────────────────────────────────────────────────────
+  describe("cancelInvitation", () => {
+    it("should cancel pending invitation successfully", async () => {
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: vi.fn().mockResolvedValue([{ id: "inv-123", status: "cancelled" }]),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.cancelInvitation("org-123", "inv-123");
+
+      expect(result).toBe(true);
+    });
+
+    it("should return false when invitation not found or not pending", async () => {
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.cancelInvitation("org-123", "inv-not-found");
+
+      expect(result).toBe(false);
+    });
+
+    it("should return false when invitation belongs to different organization", async () => {
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.cancelInvitation("different-org", "inv-123");
+
+      expect(result).toBe(false);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // resendInvitation
+  // ─────────────────────────────────────────────────────────────
+  describe("resendInvitation", () => {
+    it("should resend invitation and update expiration", async () => {
+      const updatedInvitation = {
+        id: "inv-123",
+        email: "test@example.com",
+        role: "agent",
+        token: "test-token",
+        invitedById: "user-123",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      };
+      const mockOrganization = createMockOrganization();
+      const mockInviter = { id: "user-123", name: "John Doe", email: "john@test.com" };
+
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: vi.fn().mockResolvedValue([updatedInvitation]),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.query.organizations.findFirst).mockResolvedValue(mockOrganization as never);
+      vi.mocked(db.query.users.findFirst).mockResolvedValue(mockInviter as never);
+
+      const result = await organizationsService.resendInvitation("org-123", "inv-123");
+
+      expect(result.success).toBe(true);
+      expect(result.expiresAt).toBeDefined();
+    });
+
+    it("should return false when invitation not found", async () => {
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.resendInvitation("org-123", "inv-not-found");
+
+      expect(result.success).toBe(false);
+      expect(result.expiresAt).toBeUndefined();
+    });
+
+    it("should return false when invitation is not pending", async () => {
+      vi.mocked(db.update).mockReturnValue({
+        set: () => ({
+          where: () => ({
+            returning: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.resendInvitation("org-123", "inv-cancelled");
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // getInvitationByToken
+  // ─────────────────────────────────────────────────────────────
+  describe("getInvitationByToken", () => {
+    it("should return invitation preview for valid token", async () => {
+      const mockInvitation = {
+        id: "inv-123",
+        email: "test@example.com",
+        role: "agent",
+        status: "pending",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        organization: { id: "org-123", name: "Test Org" },
+      };
+
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(
+        mockInvitation as never,
+      );
+
+      const result = await organizationsService.getInvitationByToken("valid-token");
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe("inv-123");
+      expect(result?.organization.name).toBe("Test Org");
+      expect(result?.isExpired).toBe(false);
+    });
+
+    it("should return null for invalid token", async () => {
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(undefined);
+
+      const result = await organizationsService.getInvitationByToken("invalid-token");
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null when invitation is not pending", async () => {
+      const mockInvitation = {
+        id: "inv-123",
+        email: "test@example.com",
+        role: "agent",
+        status: "accepted",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        organization: { id: "org-123", name: "Test Org" },
+      };
+
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(
+        mockInvitation as never,
+      );
+
+      const result = await organizationsService.getInvitationByToken("token");
+
+      expect(result).toBeNull();
+    });
+
+    it("should indicate when invitation is expired", async () => {
+      const mockInvitation = {
+        id: "inv-123",
+        email: "test@example.com",
+        role: "agent",
+        status: "pending",
+        expiresAt: new Date(Date.now() - 1000), // Expired
+        organization: { id: "org-123", name: "Test Org" },
+      };
+
+      vi.mocked(db.query.organizationInvitations.findFirst).mockResolvedValue(
+        mockInvitation as never,
+      );
+
+      const result = await organizationsService.getInvitationByToken("valid-token");
+
+      expect(result).not.toBeNull();
+      expect(result?.isExpired).toBe(true);
+    });
+  });
 });
