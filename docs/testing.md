@@ -47,39 +47,36 @@ src/test/
 
 ## Quick Start
 
-### Running Unit Tests (Default)
+### Running Unit Tests
 
 ```bash
-# Run all unit tests (external services mocked)
-npm run test
+# Run unit tests only (skip integration tests)
+bun run test:unit
 
 # Watch mode
-npm run test:watch
+bun run test:watch
 
 # With coverage
-npm run test:coverage
+bun run test:coverage
 ```
 
 ### Running Integration Tests
 
 ```bash
-# 1. Start test containers
-npm run test:containers:up
+# 1. Set up test environment (automatically starts containers, creates DB, etc.)
+bun run test:setup
 
-# 2. Set up test environment (database, MinIO bucket, etc.)
-npm run test:setup
-
-# 3. Run integration tests
-npm run test:integration
+# 2. Run integration tests
+bun run test:integration
 
 # Or run ALL tests (unit + integration)
-npm run test:all
+bun run test
 ```
 
 ### Stopping Test Containers
 
 ```bash
-npm run test:containers:down
+bun run test:containers:down
 ```
 
 ---
@@ -165,15 +162,18 @@ The test environment uses isolated Docker containers:
 
 ### Setup Script
 
-The `npm run test:setup` command:
+The `bun run test:setup` command:
 
 1. ✅ Starts test containers (if not running)
 2. ✅ Waits for all services to be healthy
 3. ✅ Creates/resets test database
-4. ✅ Copies schema from development database
-5. ✅ Sets up RLS roles and policies
+4. ✅ Pushes schema directly using `drizzle-kit push`
+5. ✅ Grants RLS role permissions using shared `db-setup` module
 6. ✅ Creates MinIO test bucket
 7. ✅ Flushes Valkey cache
+
+> **Note:** Test setup uses `drizzle-kit push` for fast schema sync without migration files.
+> Production uses `drizzle-kit migrate` with versioned migrations. See [Deployment Guide](./deployment.md).
 
 ### Environment Configuration
 
@@ -441,11 +441,11 @@ describe("slow tests", () => {
 
 ```bash
 # Check container logs
-npm run test:containers:logs
+bun run test:containers:logs
 
 # Restart containers
-npm run test:containers:down
-npm run test:containers:up
+bun run test:containers:down
+bun run test:containers:up
 ```
 
 #### Database connection refused
@@ -479,7 +479,7 @@ beforeEach(async () => {
 
 ```bash
 # Re-run setup
-npm run test:setup
+bun run test:setup
 
 # Or manually ensure bucket
 import { ensureMinioBucket } from "@/test/integration";
@@ -490,7 +490,7 @@ await ensureMinioBucket();
 
 ```bash
 # Run single test file with verbose output
-npm run test -- src/test/mytest.test.ts --reporter=verbose
+bun run test -- src/test/mytest.test.ts --reporter=verbose
 
 # Run with Node debugger
 node --inspect-brk ./node_modules/vitest/vitest.mjs run
@@ -499,7 +499,7 @@ node --inspect-brk ./node_modules/vitest/vitest.mjs run
 ### Checking Test Coverage
 
 ```bash
-npm run test:coverage
+bun run test:coverage
 
 # View HTML report
 open coverage/index.html
@@ -509,19 +509,18 @@ open coverage/index.html
 
 ## Commands Reference
 
-| Command                        | Description                           |
-| ------------------------------ | ------------------------------------- |
-| `npm run test`                 | Run unit tests (mocked services)      |
-| `npm run test:unit`            | Explicitly run unit tests only        |
-| `npm run test:integration`     | Run integration tests (real services) |
-| `npm run test:all`             | Run all tests                         |
-| `npm run test:watch`           | Watch mode                            |
-| `npm run test:coverage`        | Generate coverage report              |
-| `npm run test:ui`              | Vitest UI                             |
-| `npm run test:setup`           | Set up integration test environment   |
-| `npm run test:containers:up`   | Start test containers                 |
-| `npm run test:containers:down` | Stop test containers                  |
-| `npm run test:containers:logs` | View container logs                   |
+| Command                        | Description                                |
+| ------------------------------ | ------------------------------------------ |
+| `bun run test`                 | Run all tests (unit + integration)         |
+| `bun run test:unit`            | Run unit tests only (skip integration)     |
+| `bun run test:integration`     | Run integration tests only (real services) |
+| `bun run test:watch`           | Watch mode (unit tests)                    |
+| `bun run test:coverage`        | Unit tests with coverage report            |
+| `bun run test:ui`              | Vitest UI                                  |
+| `bun run test:setup`           | Set up integration test environment        |
+| `bun run test:containers:up`   | Start test containers                      |
+| `bun run test:containers:down` | Stop test containers                       |
+| `bun run test:containers:logs` | View container logs                        |
 
 ---
 
