@@ -247,4 +247,156 @@ describe("csatService", () => {
       );
     });
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // getStats
+  // ─────────────────────────────────────────────────────────────
+  describe("getStats", () => {
+    it("should calculate correct statistics from survey data", async () => {
+      // Mock basic stats query
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            {
+              totalSurveys: 100,
+              respondedCount: 80,
+              averageRating: 4.2,
+            },
+          ]),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      // Mock rating distribution query
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockResolvedValue([
+                { rating: 1, count: 5 },
+                { rating: 2, count: 5 },
+                { rating: 3, count: 10 },
+                { rating: 4, count: 30 },
+                { rating: 5, count: 30 },
+              ]),
+            }),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await csatService.getStats(mockOrgId, {});
+
+      // Verify basic stats
+      expect(result.totalSurveys).toBe(100);
+      expect(result.respondedCount).toBe(80);
+      expect(result.responseRate).toBe(80); // 80/100 * 100
+      expect(result.averageRating).toBe(4.2);
+
+      // Verify rating distribution
+      expect(result.ratingDistribution).toHaveLength(5);
+      expect(result.ratingDistribution[0]).toEqual({ rating: 1, count: 5 });
+
+      // Verify NPS calculation: promoters (4,5) = 60, detractors (1,2) = 10
+      // NPS = (60 - 10) / 80 * 100 = 62.5 rounded = 63
+      expect(result.npsScore).toBe(63);
+    });
+
+    it("should return zero values when no surveys exist", async () => {
+      // Mock empty stats
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            {
+              totalSurveys: 0,
+              respondedCount: 0,
+              averageRating: 0,
+            },
+          ]),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      // Mock empty rating distribution
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await csatService.getStats(mockOrgId, {});
+
+      expect(result.totalSurveys).toBe(0);
+      expect(result.respondedCount).toBe(0);
+      expect(result.responseRate).toBe(0);
+      expect(result.averageRating).toBe(0);
+      expect(result.ratingDistribution).toHaveLength(0);
+      expect(result.npsScore).toBe(0);
+    });
+
+    it("should calculate NPS correctly with only detractors", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            {
+              totalSurveys: 10,
+              respondedCount: 10,
+              averageRating: 1.5,
+            },
+          ]),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockResolvedValue([
+                { rating: 1, count: 5 },
+                { rating: 2, count: 5 },
+              ]),
+            }),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await csatService.getStats(mockOrgId, {});
+
+      // All detractors: NPS = (0 - 10) / 10 * 100 = -100
+      expect(result.npsScore).toBe(-100);
+    });
+
+    it("should calculate NPS correctly with only promoters", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            {
+              totalSurveys: 10,
+              respondedCount: 10,
+              averageRating: 4.8,
+            },
+          ]),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            groupBy: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockResolvedValue([
+                { rating: 4, count: 2 },
+                { rating: 5, count: 8 },
+              ]),
+            }),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await csatService.getStats(mockOrgId, {});
+
+      // All promoters: NPS = (10 - 0) / 10 * 100 = 100
+      expect(result.npsScore).toBe(100);
+    });
+  });
 });

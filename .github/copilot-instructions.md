@@ -140,17 +140,107 @@ bun run test          # Run tests to ensure seeds are compatible
 
 ---
 
-## 🧪 Testing Rules (CRITICAL)
+## 🧪 Testing Rules (CRITICAL - MANDATORY)
 
-- **Write both SUCCESS and FAILURE test cases** for every feature
-- Test edge cases, boundary conditions, and error scenarios
-- Mock database calls using `vi.mock("@/db")`
-- Use `describe` blocks to group related tests
-- Clear mocks in `beforeEach`
-- Aim for meaningful coverage - test behavior, not implementation
-- Never commit code without passing tests
-- Test authorization - verify unauthorized access is denied
-- Test validation - verify invalid input is rejected
+**Every service file MUST have a corresponding test file with comprehensive coverage.**
+
+### Test File Requirements
+- **File naming**: `[service-name].service.test.ts` alongside the service file
+- **Minimum coverage**: Every public function must have at least 2 tests (success + failure)
+- **Zero coverage is NEVER acceptable** - every new service must include tests
+
+### What to Test (MANDATORY for each function)
+1. **Success path**: Normal operation with valid inputs
+2. **Error paths**: NotFoundError, ForbiddenError, BadRequestError, ConflictError scenarios
+3. **Edge cases**: Empty arrays, null values, boundary conditions
+4. **Authorization**: Verify role-based access is enforced
+5. **Validation**: Verify invalid inputs are rejected
+
+### Mock Rules (ANTI-MOCK-ABUSE)
+```typescript
+// ❌ BAD: Test only verifies mock returns what was mocked (USELESS)
+it("should return data", async () => {
+  vi.mocked(db.select).mockResolvedValue([mockData]);
+  const result = await service.getData();
+  expect(result).toEqual([mockData]); // Just testing the mock!
+});
+
+// ✅ GOOD: Test verifies actual business logic
+it("should calculate total correctly", async () => {
+  vi.mocked(db.select).mockResolvedValue([{ price: 100 }, { price: 50 }]);
+  const result = await service.getTotal();
+  expect(result).toBe(150); // Tests calculation logic
+});
+
+// ✅ GOOD: Test verifies error handling
+it("should throw NotFoundError when item missing", async () => {
+  vi.mocked(db.select).mockResolvedValue([]);
+  await expect(service.getById("123")).rejects.toThrow(NotFoundError);
+});
+
+// ✅ GOOD: Test verifies data transformation
+it("should filter inactive items", async () => {
+  vi.mocked(db.select).mockResolvedValue([
+    { id: "1", isActive: true },
+    { id: "2", isActive: false },
+  ]);
+  const result = await service.getActiveItems();
+  expect(result).toHaveLength(1);
+  expect(result[0].id).toBe("1");
+});
+```
+
+### Test Structure Template
+```typescript
+describe("serviceName", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("functionName", () => {
+    it("should [success case description]", async () => { /* ... */ });
+    it("should throw [ErrorType] when [condition]", async () => { /* ... */ });
+    it("should handle [edge case]", async () => { /* ... */ });
+  });
+});
+```
+
+### Mock Setup Pattern
+```typescript
+vi.mock("@/db", () => ({
+  db: {
+    select: vi.fn(),
+    insert: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  closeDatabaseConnection: vi.fn(), // REQUIRED for test setup
+}));
+```
+
+### Prohibited Test Patterns
+- ❌ Tests that only verify mock returns (mock abuse)
+- ❌ Tests without assertions (`expect()`)
+- ❌ Tests that skip error scenarios
+- ❌ Tests that don't clear mocks between runs
+- ❌ Services without any test file (zero coverage)
+- ❌ Using `.skip()` or `.todo()` without a plan to implement
+
+### Test Categories Required
+| Category | Description | Example |
+|----------|-------------|---------|
+| Unit | Test individual functions | `service.create()` with mocked DB |
+| Error | Test all error paths | NotFoundError, ForbiddenError |
+| Edge | Boundary conditions | Empty arrays, max values |
+| Auth | Authorization checks | Role-based access control |
+
+### Before Committing Tests
+- [ ] Every function has success test
+- [ ] Every function has failure test
+- [ ] Error messages are meaningful
+- [ ] Mocks are cleared in `beforeEach`
+- [ ] No `.skip()` or `.todo()` tests
+- [ ] Tests actually verify business logic (not just mock returns)
 
 ---
 
@@ -252,9 +342,13 @@ bun run test          # Run tests to ensure seeds are compatible
 - Using `null` where `undefined` is appropriate
 - Exposing stack traces in production
 - Writing tests that only cover happy paths
+- **Mock abuse** - tests that only verify mock returns (not business logic)
+- **Zero test coverage** - every service MUST have tests
 - Using deprecated APIs - always check for newer alternatives
 - Committing without running quality checks
 - Ignoring TypeScript errors
+- Using `.skip()` or `.todo()` tests without immediate plan to implement
+- Tests without meaningful assertions
 
 ---
 

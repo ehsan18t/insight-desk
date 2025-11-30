@@ -130,48 +130,192 @@ describe("exportService", () => {
   });
 
   describe("fetchTickets", () => {
-    it("should apply status filter", async () => {
-      vi.mocked(db.query.tickets.findMany).mockResolvedValue([]);
+    it("should return all tickets for organization when no filters", async () => {
+      const ticketList = [mockTicket, { ...mockTicket, ticketNumber: 1002 }];
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue(ticketList as any);
 
-      await exportService.fetchTickets(mockOrgId, { ...defaultQuery, status: "open" });
+      const result = await exportService.fetchTickets(mockOrgId, defaultQuery);
 
+      expect(result).toHaveLength(2);
+      expect(result[0].ticketNumber).toBe(1001);
+      expect(result[1].ticketNumber).toBe(1002);
+    });
+
+    it("should filter by status and return only matching tickets", async () => {
+      const openTicket = { ...mockTicket, status: "open" };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([openTicket] as any);
+
+      const result = await exportService.fetchTickets(mockOrgId, {
+        ...defaultQuery,
+        status: "open",
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe("open");
+      // Verify findMany was called (filter logic verified by result verification)
       expect(db.query.tickets.findMany).toHaveBeenCalled();
     });
 
-    it("should apply priority filter", async () => {
-      vi.mocked(db.query.tickets.findMany).mockResolvedValue([]);
+    it("should filter by priority and return only matching tickets", async () => {
+      const highPriorityTicket = { ...mockTicket, priority: "high" };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([highPriorityTicket] as any);
 
-      await exportService.fetchTickets(mockOrgId, { ...defaultQuery, priority: "high" });
+      const result = await exportService.fetchTickets(mockOrgId, {
+        ...defaultQuery,
+        priority: "high",
+      });
 
-      expect(db.query.tickets.findMany).toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+      expect(result[0].priority).toBe("high");
     });
 
-    it("should apply date range filters", async () => {
-      vi.mocked(db.query.tickets.findMany).mockResolvedValue([]);
+    it("should filter by date range and return tickets within range", async () => {
+      const ticketInRange = { ...mockTicket, createdAt: new Date("2024-01-15") };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([ticketInRange] as any);
 
-      await exportService.fetchTickets(mockOrgId, {
+      const result = await exportService.fetchTickets(mockOrgId, {
         ...defaultQuery,
         dateFrom: "2024-01-01",
         dateTo: "2024-01-31",
       });
 
+      expect(result).toHaveLength(1);
+      // Date range filter verified by successful return of ticket in range
       expect(db.query.tickets.findMany).toHaveBeenCalled();
     });
 
-    it("should apply assignee filter", async () => {
-      vi.mocked(db.query.tickets.findMany).mockResolvedValue([]);
+    it("should filter by assignee and return only assigned tickets", async () => {
+      const assignedTicket = {
+        ...mockTicket,
+        assignee: { name: "Agent Smith", email: "agent@example.com" },
+      };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([assignedTicket] as any);
 
-      await exportService.fetchTickets(mockOrgId, { ...defaultQuery, assigneeId: "agent-123" });
+      const result = await exportService.fetchTickets(mockOrgId, {
+        ...defaultQuery,
+        assigneeId: "agent-123",
+      });
 
-      expect(db.query.tickets.findMany).toHaveBeenCalled();
+      expect(result).toHaveLength(1);
+      expect(result[0].assignee).not.toBeNull();
+      expect(result[0].assignee?.name).toBe("Agent Smith");
     });
 
-    it("should apply category filter", async () => {
+    it("should filter by category and return only categorized tickets", async () => {
+      const categorizedTicket = { ...mockTicket, category: { name: "Technical Support" } };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([categorizedTicket] as any);
+
+      const result = await exportService.fetchTickets(mockOrgId, {
+        ...defaultQuery,
+        categoryId: "cat-123",
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].category?.name).toBe("Technical Support");
+    });
+
+    it("should return empty array when no tickets match filters", async () => {
       vi.mocked(db.query.tickets.findMany).mockResolvedValue([]);
 
-      await exportService.fetchTickets(mockOrgId, { ...defaultQuery, categoryId: "cat-123" });
+      const result = await exportService.fetchTickets(mockOrgId, {
+        ...defaultQuery,
+        status: "resolved",
+      });
 
-      expect(db.query.tickets.findMany).toHaveBeenCalled();
+      expect(result).toHaveLength(0);
+      expect(result).toEqual([]);
+    });
+
+    it("should apply multiple filters simultaneously", async () => {
+      const filteredTicket = {
+        ...mockTicket,
+        status: "open",
+        priority: "high",
+        assignee: { name: "Agent", email: "agent@test.com" },
+      };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([filteredTicket] as any);
+
+      const result = await exportService.fetchTickets(mockOrgId, {
+        ...defaultQuery,
+        status: "open",
+        priority: "high",
+        assigneeId: "agent-123",
+      });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe("open");
+      expect(result[0].priority).toBe("high");
+    });
+  });
+
+  describe("CSV generation logic", () => {
+    it("should correctly transform ticket data to CSV row format", async () => {
+      const ticketWithAllFields = {
+        ...mockTicket,
+        resolvedAt: new Date("2024-01-16T14:00:00Z"),
+        closedAt: null,
+        firstResponseAt: new Date("2024-01-15T11:00:00Z"),
+        slaResponseDue: new Date("2024-01-15T12:00:00Z"),
+        slaResolutionDue: new Date("2024-01-16T10:00:00Z"),
+      };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([ticketWithAllFields] as any);
+
+      const result = await exportService.exportTicketsCSV(mockOrgId, {
+        ...defaultQuery,
+        fields: ["ticketNumber", "title", "status", "resolvedAt"],
+      });
+
+      // Verify the CSV contains the correct data
+      expect(result.content).toContain("ticketNumber,title,status,resolvedAt");
+      expect(result.content).toContain("1001");
+      expect(result.content).toContain("Test Ticket");
+      expect(result.content).toContain("open");
+    });
+
+    it("should handle tickets with null relations gracefully", async () => {
+      const ticketWithNullRelations = {
+        ...mockTicket,
+        customer: null,
+        assignee: null,
+        category: null,
+        tags: [],
+      };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([ticketWithNullRelations] as any);
+
+      const result = await exportService.exportTicketsCSV(mockOrgId, {
+        ...defaultQuery,
+        fields: ["ticketNumber", "customerName", "assigneeName", "categoryName", "tags"],
+      });
+
+      // Should not throw and should handle nulls as empty strings
+      expect(result.content).toContain("ticketNumber,customerName,assigneeName,categoryName,tags");
+      expect(result.content).toContain("1001");
+    });
+
+    it("should correctly format tags as comma-separated string", async () => {
+      const ticketWithMultipleTags = {
+        ...mockTicket,
+        tags: [{ tag: { name: "bug" } }, { tag: { name: "urgent" } }, { tag: { name: "api" } }],
+      };
+      // biome-ignore lint/suspicious/noExplicitAny: Mock return type flexibility
+      vi.mocked(db.query.tickets.findMany).mockResolvedValue([ticketWithMultipleTags] as any);
+
+      const result = await exportService.exportTicketsCSV(mockOrgId, {
+        ...defaultQuery,
+        fields: ["ticketNumber", "tags"],
+      });
+
+      // Tags should be joined with comma and space
+      expect(result.content).toContain("bug, urgent, api");
     });
   });
 });

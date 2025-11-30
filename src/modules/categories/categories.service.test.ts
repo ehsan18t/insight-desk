@@ -54,6 +54,102 @@ describe("categoriesService", () => {
     vi.clearAllMocks();
   });
 
+  // ─────────────────────────────────────────────────────────────
+  // list
+  // ─────────────────────────────────────────────────────────────
+  describe("list", () => {
+    it("should return all active categories for organization", async () => {
+      const mockCategories = [
+        mockCategory,
+        { ...mockCategory, id: "cat-456", name: "Billing Support" },
+      ];
+
+      vi.mocked(db.select).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue(mockCategories),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await categoriesService.list(mockOrgId);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe("Technical Support");
+      expect(result[1].name).toBe("Billing Support");
+    });
+
+    it("should return empty array when no categories exist", async () => {
+      vi.mocked(db.select).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue([]),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await categoriesService.list(mockOrgId);
+
+      expect(result).toHaveLength(0);
+      expect(result).toEqual([]);
+    });
+
+    it("should include inactive categories when includeInactive is true", async () => {
+      const inactiveCategory = { ...mockCategory, isActive: false, name: "Inactive Category" };
+      const mockCategories = [mockCategory, inactiveCategory];
+
+      vi.mocked(db.select).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue(mockCategories),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await categoriesService.list(mockOrgId, { includeInactive: true });
+
+      expect(result).toHaveLength(2);
+      expect(result.some((c) => !c.isActive)).toBe(true);
+    });
+
+    it("should filter by parentId when provided", async () => {
+      const childCategory = { ...mockCategory, id: "child-1", parentId: "parent-1" };
+
+      vi.mocked(db.select).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue([childCategory]),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await categoriesService.list(mockOrgId, { parentId: "parent-1" });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].parentId).toBe("parent-1");
+    });
+
+    it("should return only root categories when parentId is null", async () => {
+      const rootCategory = { ...mockCategory, parentId: null };
+
+      vi.mocked(db.select).mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue([rootCategory]),
+          }),
+        }),
+      } as unknown as ReturnType<typeof db.select>);
+
+      const result = await categoriesService.list(mockOrgId, { parentId: null });
+
+      expect(result).toHaveLength(1);
+      expect(result[0].parentId).toBeNull();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // getById
+  // ─────────────────────────────────────────────────────────────
   describe("getById", () => {
     it("should return category when found", async () => {
       vi.mocked(db.select).mockReturnValue({
