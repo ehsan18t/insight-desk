@@ -511,22 +511,26 @@ describe("organizationsService", () => {
 
     it("should remove member successfully", async () => {
       vi.mocked(db.query.userOrganizations.findFirst).mockResolvedValue({
-        id: "membership-123",
-        userId: "user-123",
+        id: "membership-to-remove",
+        userId: "user-to-remove",
         organizationId: "org-123",
         role: "agent",
         joinedAt: new Date(),
       });
 
+      // Track the where clause
+      const mockWhere = vi.fn().mockResolvedValue(undefined);
       vi.mocked(db.delete).mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
+        where: mockWhere,
       } as never);
 
       await expect(
-        organizationsService.removeMember("org-123", "user-123", "requester-123"),
+        organizationsService.removeMember("org-123", "user-to-remove", "requester-123"),
       ).resolves.not.toThrow();
 
+      // Verify delete was called and where clause was invoked
       expect(db.delete).toHaveBeenCalled();
+      expect(mockWhere).toHaveBeenCalled();
     });
   });
 
