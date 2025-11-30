@@ -8,6 +8,10 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     exclude: ["node_modules", "dist"],
 
+    // Global setup for container management (integration tests)
+    // Teardown is handled by returning a cleanup function from globalSetup
+    globalSetup: "./src/test/global-setup.ts",
+
     // Setup files run before each test file
     setupFiles: ["./src/test/setup.ts"],
 
@@ -34,7 +38,7 @@ export default defineConfig({
 
     // Timeouts
     testTimeout: 10000,
-    hookTimeout: 10000,
+    hookTimeout: 30000, // Increased for container startup
 
     // Run tests sequentially for database tests
     sequence: {

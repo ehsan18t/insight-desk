@@ -93,22 +93,11 @@ export async function seedTestDatabase(): Promise<void> {
 
 /**
  * Check if we should run integration tests
- * Returns true only if:
- * 1. SKIP_INTEGRATION_TESTS is not "true"
- * 2. All test containers are actually running
+ * Returns true only if RUN_INTEGRATION_TESTS=true
+ * Container management is handled by global-setup.ts
  */
 export function shouldRunIntegrationTests(): boolean {
-  // Explicitly disabled via env var
-  if (process.env.SKIP_INTEGRATION_TESTS === "true") {
-    return false;
-  }
-
-  // Check if containers are running (only matters for integration tests)
-  try {
-    return areAllContainersRunning();
-  } catch {
-    return false;
-  }
+  return process.env.RUN_INTEGRATION_TESTS === "true";
 }
 
 /**
