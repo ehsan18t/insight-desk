@@ -10,7 +10,7 @@ import { httpLogger } from "./lib/logger";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { rateLimit } from "./middleware/rate-limit";
 
-// Import routes (these also register their OpenAPI definitions)
+// Import routes
 import { attachmentsRouter } from "./modules/attachments";
 import { auditRouter } from "./modules/audit";
 import { authRouter } from "./modules/auth";
@@ -20,7 +20,6 @@ import { csatRoutes } from "./modules/csat";
 import { dashboardRouter } from "./modules/dashboard";
 import { exportRouter } from "./modules/export";
 import { jobsRouter } from "./modules/jobs";
-import "./modules/messages"; // Messages OpenAPI registration (nested under tickets)
 import { organizationsRouter } from "./modules/organizations";
 import { plansRouter } from "./modules/plans";
 import { savedFiltersRouter } from "./modules/saved-filters";
