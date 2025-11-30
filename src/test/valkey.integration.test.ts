@@ -157,25 +157,34 @@ describe.skipIf(skipIntegrationTests())("Valkey Integration", () => {
         expect(values).toEqual(["value1", "value2"]);
       });
 
-      it("should set fields with NX option (key-level)", async () => {
-        // First set should succeed
-        await hsetex("test:hash:nx", { field: "first" }, 60, { nx: true });
-        expect(await valkey.hget("test:hash:nx", "field")).toBe("first");
+      // Note: Valkey 9.0.0 HSETEX only supports FNX/FXX (field-level conditions), not NX/XX (key-level).
+      // Key-level NX/XX may be added in future Valkey versions.
+      // FNX: Abort if ANY field exists, FXX: Abort if ANY field doesn't exist
+      it("should set fields with FNX option (abort if any field exists)", async () => {
+        // FNX on fresh key should work
+        await hsetex("test:hash:fnx", { field1: "value1" }, 60, { fnx: true });
+        expect(await valkey.hget("test:hash:fnx", "field1")).toBe("value1");
 
-        // Second set with NX should not overwrite (key exists)
-        await hsetex("test:hash:nx", { field: "second" }, 60, { nx: true });
-        expect(await valkey.hget("test:hash:nx", "field")).toBe("first");
+        // FNX should abort if ANY field already exists (entire operation fails)
+        await hsetex("test:hash:fnx", { field1: "modified", newField: "new" }, 60, { fnx: true });
+
+        expect(await valkey.hget("test:hash:fnx", "field1")).toBe("value1"); // Not modified
+        expect(await valkey.hget("test:hash:fnx", "newField")).toBeNull(); // Not created
       });
 
-      it("should set fields with FNX option (field-level)", async () => {
+      it("should set fields with FXX option (abort if any field missing)", async () => {
         // Set initial field
-        await hsetex("test:hash:fnx", { existing: "original" }, 60);
+        await hsetex("test:hash:fxx", { existing: "original" }, 60);
 
-        // FNX should only set non-existent fields
-        await hsetex("test:hash:fnx", { existing: "modified", newField: "new" }, 60, { fnx: true });
+        // FXX should abort if ANY field doesn't exist (mixed fields = failure)
+        await hsetex("test:hash:fxx", { existing: "modified", newField: "new" }, 60, { fxx: true });
 
-        expect(await valkey.hget("test:hash:fnx", "existing")).toBe("original");
-        expect(await valkey.hget("test:hash:fnx", "newField")).toBe("new");
+        expect(await valkey.hget("test:hash:fxx", "existing")).toBe("original"); // Not modified
+        expect(await valkey.hget("test:hash:fxx", "newField")).toBeNull(); // Not created
+
+        // FXX should work when ALL fields exist
+        await hsetex("test:hash:fxx", { existing: "modified" }, 60, { fxx: true });
+        expect(await valkey.hget("test:hash:fxx", "existing")).toBe("modified");
       });
     });
 
