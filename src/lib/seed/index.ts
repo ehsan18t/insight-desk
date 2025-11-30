@@ -11,6 +11,7 @@ export * from "./drizzle-seed";
 import { DEV_USERS, seedUsers, TEST_USERS, getExistingUserIds } from "./auth-seed";
 import {
   resetDatabase,
+  seedApiKeys,
   seedCategories,
   seedCannedResponses,
   seedMessages,
@@ -33,6 +34,7 @@ export interface SeedResult {
   tagIds: string[];
   planIds: string[];
   ticketIds: string[];
+  apiKeyIds: string[];
 }
 
 export interface SeedConfig {
@@ -112,6 +114,9 @@ export async function runSeed(config: SeedConfig = {}): Promise<SeedResult> {
   // 12. Seed saved filters
   await seedSavedFilters(organizationIds, userIds);
 
+  // 13. Seed API keys
+  const apiKeyIds = await seedApiKeys(organizationIds, userIds);
+
   logger.info("Seed complete!");
 
   return {
@@ -121,6 +126,7 @@ export async function runSeed(config: SeedConfig = {}): Promise<SeedResult> {
     tagIds,
     planIds,
     ticketIds,
+    apiKeyIds,
   };
 }
 

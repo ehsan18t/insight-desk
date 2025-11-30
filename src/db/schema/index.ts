@@ -23,6 +23,7 @@ export * from "./tables";
 import type {
   accounts,
   activityActionEnum,
+  apiKeys,
   attachments,
   auditActionEnum,
   auditLogs,
@@ -143,3 +144,7 @@ export type NewSubscriptionUsageRecord = typeof subscriptionUsage.$inferInsert;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
 export type AuditAction = (typeof auditActionEnum.enumValues)[number];
+
+// API Key types
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;

@@ -631,6 +631,66 @@ export async function seedSavedFilters(orgIds: string[], userIds: string[]): Pro
 }
 
 /**
+ * Seed API keys for organizations
+ * Note: We create deterministic keys for testing purposes
+ */
+export async function seedApiKeys(orgIds: string[], userIds: string[]): Promise<string[]> {
+  const { hashApiKey } = await import("@/modules/auth/api-key.utils");
+
+  // Create deterministic test keys for development/testing
+  const testKeys = [
+    {
+      name: "Development API Key",
+      fullKey: "idk_test_development_key_12345678",
+      scopes: ["read", "write"],
+    },
+    {
+      name: "CI/CD Pipeline Key",
+      fullKey: "idk_test_cicd_pipeline_key_abcdef",
+      scopes: ["read", "write", "delete"],
+    },
+    {
+      name: "Read-Only Integration Key",
+      fullKey: "idk_test_readonly_integration_key",
+      scopes: ["read"],
+    },
+  ];
+
+  const apiKeyRecords = [];
+  for (const orgId of orgIds) {
+    for (let i = 0; i < testKeys.length; i++) {
+      const keyData = testKeys[i];
+      const keyHash = hashApiKey(keyData.fullKey);
+      const prefix = `idk_test_${keyData.fullKey.substring(9, 13)}`;
+
+      apiKeyRecords.push({
+        organizationId: orgId,
+        createdById: userIds[Math.min(i, userIds.length - 1)], // Assign to different users
+        name: keyData.name,
+        prefix,
+        keyHash,
+        scopes: keyData.scopes,
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        isActive: true,
+      });
+    }
+  }
+
+  const inserted = await db
+    .insert(schema.apiKeys)
+    .values(apiKeyRecords)
+    .returning({ id: schema.apiKeys.id });
+
+  logger.info(`Created ${inserted.length} API keys`);
+  logger.info("Test API keys (for development only):");
+  for (const key of testKeys) {
+    logger.info(`  - ${key.name}: ${key.fullKey}`);
+  }
+
+  return inserted.map((k) => k.id);
+}
+
+/**
  * Reset all seedable tables
  */
 export async function resetDatabase(): Promise<void> {
@@ -650,7 +710,7 @@ export async function resetDatabase(): Promise<void> {
         csat_surveys, saved_filters, canned_responses, 
         sla_policies, tags, categories, 
         organization_subscriptions, subscription_usage, subscription_plans,
-        organization_invitations, attachments, audit_logs,
+        organization_invitations, attachments, audit_logs, api_keys,
         user_organizations, organizations
       CASCADE`,
     );

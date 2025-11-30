@@ -4,6 +4,7 @@
 import { relations } from "drizzle-orm";
 import {
   accounts,
+  apiKeys,
   attachments,
   auditLogs,
   cannedResponses,
@@ -37,6 +38,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   activities: many(ticketActivities),
   sessions: many(sessions),
   accounts: many(accounts),
+  createdApiKeys: many(apiKeys, { relationName: "created_api_keys" }),
+  revokedApiKeys: many(apiKeys, { relationName: "revoked_api_keys" }),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -57,6 +60,7 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
   }),
   usage: many(subscriptionUsage),
   auditLogs: many(auditLogs),
+  apiKeys: many(apiKeys),
 }));
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -347,5 +351,26 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   user: one(users, {
     fields: [auditLogs.userId],
     references: [users.id],
+  }),
+}));
+
+// ═══════════════════════════════════════════════════════════════════════════
+// API KEY RELATIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [apiKeys.organizationId],
+    references: [organizations.id],
+  }),
+  createdBy: one(users, {
+    fields: [apiKeys.createdById],
+    references: [users.id],
+    relationName: "created_api_keys",
+  }),
+  revokedBy: one(users, {
+    fields: [apiKeys.revokedById],
+    references: [users.id],
+    relationName: "revoked_api_keys",
   }),
 }));

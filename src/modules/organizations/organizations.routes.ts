@@ -3,6 +3,7 @@ import { type NextFunction, type Request, type Response, Router } from "express"
 import { ForbiddenError } from "@/middleware/error-handler";
 import { validateRequest } from "@/middleware/validate";
 import { authenticate } from "@/modules/auth/auth.middleware";
+import { apiKeyRouter } from "@/modules/auth/api-key.routes";
 import {
   acceptInvitationSchema,
   createOrganizationSchema,
@@ -20,6 +21,9 @@ export const organizationsRouter = Router();
 
 // All routes require authentication
 organizationsRouter.use(authenticate);
+
+// Mount API key routes as nested router
+organizationsRouter.use("/:organizationId/api-keys", apiKeyRouter);
 
 /**
  * GET /api/organizations

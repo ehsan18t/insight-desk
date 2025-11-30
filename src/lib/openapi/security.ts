@@ -27,6 +27,20 @@ registry.registerComponent("securitySchemes", "cookieAuth", {
     "To authenticate, call POST /api/auth/sign-in with credentials.",
 });
 
+/**
+ * Register API key authentication
+ */
+registry.registerComponent("securitySchemes", "apiKeyAuth", {
+  type: "apiKey",
+  in: "header",
+  name: "X-API-Key",
+  description:
+    "API key for programmatic access. Create API keys in the organization settings. " +
+    "API keys provide the same access as the user who created them, but are designed " +
+    "for server-to-server communication and CI/CD pipelines. " +
+    "Format: idk_live_<random> or idk_test_<random>",
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // COMMON PARAMETERS
 // ═══════════════════════════════════════════════════════════════════════════

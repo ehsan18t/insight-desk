@@ -930,3 +930,47 @@ export const auditLogs = pgTable(
     ...createTenantPolicies("audit_logs"),
   ],
 ).enableRLS();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// API KEYS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const apiKeys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().default(uuidv7Default),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    createdById: uuid("created_by_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // API key identification
+    name: text("name").notNull(), // User-friendly name (e.g., "Production API")
+    prefix: text("prefix").notNull(), // First 8 chars of key for identification (e.g., "idk_live")
+    keyHash: text("key_hash").notNull(), // SHA-256 hash of the full key
+    // Permissions
+    scopes: text("scopes").array().default(sql`ARRAY['read']::text[]`), // e.g., ['read', 'write', 'admin']
+    // Usage tracking
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    lastUsedIp: text("last_used_ip"),
+    usageCount: integer("usage_count").notNull().default(0),
+    // Expiration
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    // Status
+    isActive: boolean("is_active").notNull().default(true),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedById: uuid("revoked_by_id").references(() => users.id),
+    // Timestamps
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("api_keys_org_idx").on(table.organizationId),
+    index("api_keys_prefix_idx").on(table.prefix),
+    uniqueIndex("api_keys_hash_idx").on(table.keyHash), // Fast lookup by hash
+    index("api_keys_active_idx").on(table.organizationId, table.isActive),
+    // RLS: Tenant isolation for API keys
+    ...createTenantPolicies("api_keys"),
+  ],
+).enableRLS();
