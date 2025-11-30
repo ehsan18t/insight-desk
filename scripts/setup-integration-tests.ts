@@ -5,13 +5,14 @@
  * Comprehensive setup for integration tests that:
  * 1. Starts test containers (PostgreSQL, Valkey, MinIO, Mailpit)
  * 2. Waits for all services to be healthy
- * 3. Sets up test database with schema and RLS
- * 4. Creates MinIO test bucket
- * 5. Verifies all services are ready
+ * 3. Sets up test database with schema using drizzle-kit push
+ * 4. Grants RLS role permissions
+ * 5. Creates MinIO test bucket
+ * 6. Verifies all services are ready
  *
  * Usage:
- *   npm run test:setup
- *   npx tsx scripts/setup-integration-tests.ts
+ *   bun run test:setup
+ *   bunx tsx scripts/setup-integration-tests.ts
  *
  * Options:
  *   --skip-containers  Skip starting containers (assumes already running)
@@ -21,6 +22,12 @@
 import { execSync, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { exec } from "node:child_process";
+import { Pool } from "pg";
+import {
+  runSchemaPush,
+  grantRolePermissions,
+  detectPackageManager,
+} from "../src/lib/db-setup";
 
 const execAsync = promisify(exec);
 
@@ -342,214 +349,32 @@ async function copySchemaFromDev(): Promise<void> {
 }
 
 async function pushSchemaDirectly(): Promise<void> {
-  console.log("   Pushing schema using Drizzle migration...");
+  const pm = detectPackageManager();
+  console.log(`   Pushing schema using drizzle-kit push (${pm})...`);
 
   const dbUrl = `postgresql://${CONFIG.postgres.user}:${CONFIG.postgres.password}@${CONFIG.postgres.host}:${CONFIG.postgres.port}/${CONFIG.postgres.database}`;
 
+  runSchemaPush({
+    databaseUrl: dbUrl,
+    verbose: true,
+  });
+}
+
+async function setupRolesAndPermissions(): Promise<void> {
+  console.log("\n👤 Setting up RLS roles and permissions...");
+
+  const dbUrl = `postgresql://${CONFIG.postgres.user}:${CONFIG.postgres.password}@${CONFIG.postgres.host}:${CONFIG.postgres.port}/${CONFIG.postgres.database}`;
+
+  const pool = new Pool({
+    connectionString: dbUrl,
+    max: 1,
+  });
+
   try {
-    // First, run drizzle-kit generate to create a migration file
-    execSync(`bunx drizzle-kit generate --config=drizzle.config.ts --name=integration_test`, {
-      stdio: ["pipe", "pipe", "pipe"],
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        DATABASE_URL: dbUrl,
-      },
-    });
-
-    // Then run drizzle-kit migrate to apply it
-    execSync(`bunx drizzle-kit migrate --config=drizzle.config.ts`, {
-      stdio: ["pipe", "inherit", "inherit"],
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        DATABASE_URL: dbUrl,
-      },
-    });
-
-    console.log("   ✅ Schema pushed successfully");
-  } catch (error) {
-    // Check if error is because schema already exists (no changes needed)
-    const errorStr = String(error);
-    if (errorStr.includes("No schema changes") || errorStr.includes("nothing to migrate")) {
-      console.log("   ✅ Schema already up to date");
-      return;
-    }
-    throw new Error(`drizzle-kit migration failed: ${error}`);
+    await grantRolePermissions(pool, CONFIG.postgres.user, true);
+  } finally {
+    await pool.end();
   }
-}
-
-async function setupRoles(): Promise<void> {
-  console.log("\n👤 Setting up RLS roles...");
-
-  const createRolesSql = `
-    DO $$ BEGIN
-      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'app_user') THEN
-        CREATE ROLE app_user WITH LOGIN;
-      END IF;
-    END $$;
-
-    DO $$ BEGIN
-      IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'service_role') THEN
-        CREATE ROLE service_role WITH LOGIN BYPASSRLS;
-      ELSE
-        ALTER ROLE service_role BYPASSRLS;
-      END IF;
-    END $$;
-  `;
-
-  await runPsql(CONFIG.containers.postgres, "postgres", CONFIG.postgres.user, createRolesSql);
-
-  const grantPermissionsSql = `
-    GRANT app_user TO ${CONFIG.postgres.user};
-    GRANT service_role TO ${CONFIG.postgres.user};
-    GRANT USAGE ON SCHEMA public TO app_user;
-    GRANT USAGE ON SCHEMA public TO service_role;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
-    GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_user;
-    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO service_role;
-    GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO service_role;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO app_user;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO service_role;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE ON SEQUENCES TO service_role;
-  `;
-
-  await runPsql(
-    CONFIG.containers.postgres,
-    CONFIG.postgres.database,
-    CONFIG.postgres.user,
-    grantPermissionsSql,
-  );
-  console.log("   ✅ RLS roles created and configured");
-}
-
-async function enableRLS(): Promise<void> {
-  console.log("\n🔒 Enabling Row-Level Security...");
-
-  const rlsTables = [
-    "tickets",
-    "ticket_messages",
-    "ticket_activities",
-    "user_organizations",
-    "categories",
-    "tags",
-    "sla_policies",
-    "canned_responses",
-    "saved_filters",
-    "csat_surveys",
-    "organization_subscriptions",
-    "subscription_usage",
-    "audit_logs",
-    "organizations",
-    "organization_invitations",
-    "attachments",
-  ];
-
-  let enabled = 0;
-  for (const table of rlsTables) {
-    try {
-      await runPsql(
-        CONFIG.containers.postgres,
-        CONFIG.postgres.database,
-        CONFIG.postgres.user,
-        `ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`,
-      );
-      enabled++;
-    } catch {
-      // Table might not exist
-    }
-  }
-
-  console.log(`   ✅ RLS enabled on ${enabled} tables`);
-}
-
-async function createRLSPolicies(): Promise<void> {
-  console.log("\n📜 Creating RLS policies...");
-
-  const policies = [
-    {
-      table: "tickets",
-      sql: `CREATE POLICY IF NOT EXISTS tickets_tenant_isolation ON tickets FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "ticket_messages",
-      sql: `CREATE POLICY IF NOT EXISTS messages_tenant_isolation ON ticket_messages FOR ALL USING (EXISTS (SELECT 1 FROM tickets t WHERE t.id = ticket_messages.ticket_id AND t.organization_id = current_setting('app.current_org_id', true)::uuid))`,
-    },
-    {
-      table: "ticket_activities",
-      sql: `CREATE POLICY IF NOT EXISTS activities_tenant_isolation ON ticket_activities FOR ALL USING (EXISTS (SELECT 1 FROM tickets t WHERE t.id = ticket_activities.ticket_id AND t.organization_id = current_setting('app.current_org_id', true)::uuid))`,
-    },
-    {
-      table: "user_organizations",
-      sql: `CREATE POLICY IF NOT EXISTS user_orgs_by_org ON user_organizations FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "categories",
-      sql: `CREATE POLICY IF NOT EXISTS categories_tenant_isolation ON categories FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "tags",
-      sql: `CREATE POLICY IF NOT EXISTS tags_tenant_isolation ON tags FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "sla_policies",
-      sql: `CREATE POLICY IF NOT EXISTS sla_tenant_isolation ON sla_policies FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "canned_responses",
-      sql: `CREATE POLICY IF NOT EXISTS canned_tenant_isolation ON canned_responses FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "saved_filters",
-      sql: `CREATE POLICY IF NOT EXISTS filters_tenant_isolation ON saved_filters FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "csat_surveys",
-      sql: `CREATE POLICY IF NOT EXISTS csat_tenant_isolation ON csat_surveys FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "organization_subscriptions",
-      sql: `CREATE POLICY IF NOT EXISTS subs_tenant_isolation ON organization_subscriptions FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "subscription_usage",
-      sql: `CREATE POLICY IF NOT EXISTS usage_tenant_isolation ON subscription_usage FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "audit_logs",
-      sql: `CREATE POLICY IF NOT EXISTS audit_tenant_isolation ON audit_logs FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "organizations",
-      sql: `CREATE POLICY IF NOT EXISTS orgs_tenant_isolation ON organizations FOR ALL USING (id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "organization_invitations",
-      sql: `CREATE POLICY IF NOT EXISTS invites_tenant_isolation ON organization_invitations FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-    {
-      table: "attachments",
-      sql: `CREATE POLICY IF NOT EXISTS attachments_tenant_isolation ON attachments FOR ALL USING (organization_id = current_setting('app.current_org_id', true)::uuid)`,
-    },
-  ];
-
-  let created = 0;
-  for (const { sql } of policies) {
-    try {
-      await runPsql(
-        CONFIG.containers.postgres,
-        CONFIG.postgres.database,
-        CONFIG.postgres.user,
-        sql,
-      );
-      created++;
-    } catch {
-      // Policy might already exist or table doesn't exist
-    }
-  }
-
-  console.log(`   ✅ Created ${created} RLS policies`);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -677,10 +502,8 @@ async function main(): Promise<void> {
 
     // Full setup
     await setupTestDatabase();
-    await copySchemaFromDev(); // This will use migrations that create roles
-    await setupRoles(); // This sets up grants and permissions (roles created by migration)
-    await enableRLS();
-    await createRLSPolicies();
+    await copySchemaFromDev(); // Uses drizzle-kit push (creates tables, roles, RLS, policies)
+    await setupRolesAndPermissions(); // Grants BYPASSRLS and permissions
     await setupMinioBucket();
     flushValkey();
     await verifySetup();

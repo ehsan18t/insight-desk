@@ -11,75 +11,16 @@
  *   pnpm tsx scripts/setup.ts
  */
 
-import { execSync, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { copyFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import {
+  detectPackageManager,
+  getRunCommand,
+  getInstallCommand,
+} from "../src/lib/utils/package-manager";
 
 const projectRoot = join(import.meta.dirname, "..");
-
-type PackageManager = "npm" | "yarn" | "pnpm" | "bun";
-
-/**
- * Detect which package manager is being used
- */
-function detectPackageManager(): PackageManager {
-  // Check for lockfiles in order of preference
-  const lockFiles: Record<string, PackageManager> = {
-    "bun.lockb": "bun",
-    "pnpm-lock.yaml": "pnpm",
-    "yarn.lock": "yarn",
-    "package-lock.json": "npm",
-  };
-
-  for (const [lockFile, pm] of Object.entries(lockFiles)) {
-    if (existsSync(join(projectRoot, lockFile))) {
-      return pm;
-    }
-  }
-
-  // Check npm_config_user_agent for the package manager that invoked the script
-  const userAgent = process.env.npm_config_user_agent;
-  if (userAgent) {
-    if (userAgent.includes("bun")) return "bun";
-    if (userAgent.includes("pnpm")) return "pnpm";
-    if (userAgent.includes("yarn")) return "yarn";
-  }
-
-  // Default to npm
-  return "npm";
-}
-
-/**
- * Get the run command for the detected package manager
- */
-function getRunCommand(pm: PackageManager): string {
-  switch (pm) {
-    case "yarn":
-      return "yarn";
-    case "pnpm":
-      return "pnpm";
-    case "bun":
-      return "bun run";
-    default:
-      return "npm run";
-  }
-}
-
-/**
- * Get the install command for the detected package manager
- */
-function getInstallCommand(pm: PackageManager): string {
-  switch (pm) {
-    case "yarn":
-      return "yarn install";
-    case "pnpm":
-      return "pnpm install";
-    case "bun":
-      return "bun install";
-    default:
-      return "npm install";
-  }
-}
 
 /**
  * Run a command and stream output
