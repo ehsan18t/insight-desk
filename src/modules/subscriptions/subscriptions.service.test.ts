@@ -536,7 +536,8 @@ describe("subscriptionsService", () => {
   // incrementUsage
   // ─────────────────────────────────────────────────────────────
   describe("incrementUsage", () => {
-    it("should increment tickets usage", async () => {
+    it("should increment tickets usage with correct values", async () => {
+      // Current state: ticketsCreated=10, ticketsRemaining=40
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
           where: () => ({
@@ -545,18 +546,27 @@ describe("subscriptionsService", () => {
         }),
       } as never);
 
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      });
       vi.mocked(db.update).mockReturnValue({
-        set: () => ({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
+        set: mockSet,
       } as never);
 
       await subscriptionsService.incrementUsage("org-123", "tickets", 1);
 
+      // Verify update was called with correct calculated values
       expect(db.update).toHaveBeenCalled();
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ticketsCreated: 11, // 10 + 1
+          ticketsRemaining: 39, // 40 - 1
+        }),
+      );
     });
 
-    it("should increment messages usage", async () => {
+    it("should increment messages usage with correct values", async () => {
+      // Current state: messagesCreated=50, messagesRemaining=150
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
           where: () => ({
@@ -565,18 +575,27 @@ describe("subscriptionsService", () => {
         }),
       } as never);
 
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      });
       vi.mocked(db.update).mockReturnValue({
-        set: () => ({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
+        set: mockSet,
       } as never);
 
       await subscriptionsService.incrementUsage("org-123", "messages", 5);
 
+      // Verify update was called with correct calculated values
       expect(db.update).toHaveBeenCalled();
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messagesCreated: 55, // 50 + 5
+          messagesRemaining: 145, // 150 - 5
+        }),
+      );
     });
 
-    it("should increment storage usage", async () => {
+    it("should increment storage usage with correct values", async () => {
+      // Current state: storageUsedMB=25, storageRemainingMB=75
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
           where: () => ({
@@ -585,15 +604,58 @@ describe("subscriptionsService", () => {
         }),
       } as never);
 
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      });
       vi.mocked(db.update).mockReturnValue({
-        set: () => ({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
+        set: mockSet,
       } as never);
 
       await subscriptionsService.incrementUsage("org-123", "storage", 10);
 
+      // Verify update was called with correct calculated values
       expect(db.update).toHaveBeenCalled();
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          storageUsedMB: 35, // 25 + 10
+          storageRemainingMB: 65, // 75 - 10
+        }),
+      );
+    });
+
+    it("should not allow remaining to go below zero", async () => {
+      // Set up usage with only 3 tickets remaining
+      const lowUsage = {
+        ...mockUsage,
+        ticketsCreated: 47,
+        ticketsRemaining: 3,
+      };
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          where: () => ({
+            limit: vi.fn().mockResolvedValue([lowUsage]),
+          }),
+        }),
+      } as never);
+
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      });
+      vi.mocked(db.update).mockReturnValue({
+        set: mockSet,
+      } as never);
+
+      // Try to increment by 5 (more than remaining)
+      await subscriptionsService.incrementUsage("org-123", "tickets", 5);
+
+      // Verify remaining does not go below 0
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ticketsCreated: 52, // 47 + 5
+          ticketsRemaining: 0, // Math.max(0, 3 - 5) = 0
+        }),
+      );
     });
 
     it("should initialize usage if not exists", async () => {
