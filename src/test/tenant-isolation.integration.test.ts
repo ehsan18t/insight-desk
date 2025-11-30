@@ -39,18 +39,7 @@ import {
   createTestUser,
   generateId,
 } from "./factories";
-
-/**
- * Skip tenant isolation tests by default.
- * These tests require:
- * 1. RLS policies to be enabled on the database
- * 2. Proper database migration to be run
- * 3. Manual setup via: bun run test:setup
- *
- * To run these tests specifically:
- *   RUN_TENANT_ISOLATION_TESTS=true bun run test tenant-isolation
- */
-const skipTenantIsolationTests = process.env.RUN_TENANT_ISOLATION_TESTS !== "true";
+import { skipIntegrationTests } from "./integration";
 
 // ─────────────────────────────────────────────────────────────
 // Test Setup Types
@@ -114,7 +103,7 @@ async function createFullTestOrg(name: string): Promise<TestOrg> {
 // Main Test Suite - Wrapped in skipIf for proper skipping
 // ─────────────────────────────────────────────────────────────
 
-describe.skipIf(skipTenantIsolationTests)("Tenant Isolation (RLS)", () => {
+describe.skipIf(skipIntegrationTests())("Tenant Isolation (RLS)", () => {
   // ─────────────────────────────────────────────────────────────
   // Setup and Teardown (inside the skipIf block)
   // ─────────────────────────────────────────────────────────────

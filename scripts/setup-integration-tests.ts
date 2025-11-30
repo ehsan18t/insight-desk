@@ -283,6 +283,16 @@ async function setupTestDatabase(): Promise<void> {
     );
   }
 
+  // Drop roles if they exist (they are cluster-wide, not per-database)
+  // This ensures fresh migration can create them
+  console.log("   Dropping existing roles for clean state...");
+  await runPsql(
+    CONFIG.containers.postgres,
+    "postgres",
+    CONFIG.postgres.user,
+    `DROP ROLE IF EXISTS app_user; DROP ROLE IF EXISTS service_role;`,
+  );
+
   // Create database
   await runPsql(
     CONFIG.containers.postgres,
@@ -332,33 +342,41 @@ async function copySchemaFromDev(): Promise<void> {
 }
 
 async function pushSchemaDirectly(): Promise<void> {
-  console.log("   Pushing schema using drizzle-kit...");
+  console.log("   Pushing schema using Drizzle migration...");
 
-  return new Promise((resolve, reject) => {
-    const proc = spawn(
-      "npx",
-      ["drizzle-kit", "push", "--config=drizzle.config.ts"],
-      {
-        stdio: "inherit",
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          DATABASE_URL: `postgresql://${CONFIG.postgres.user}:${CONFIG.postgres.password}@${CONFIG.postgres.host}:${CONFIG.postgres.port}/${CONFIG.postgres.database}`,
-        },
+  const dbUrl = `postgresql://${CONFIG.postgres.user}:${CONFIG.postgres.password}@${CONFIG.postgres.host}:${CONFIG.postgres.port}/${CONFIG.postgres.database}`;
+
+  try {
+    // First, run drizzle-kit generate to create a migration file
+    execSync(`bunx drizzle-kit generate --config=drizzle.config.ts --name=integration_test`, {
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        DATABASE_URL: dbUrl,
       },
-    );
-
-    proc.on("close", (code) => {
-      if (code === 0) {
-        console.log("   ✅ Schema pushed successfully");
-        resolve();
-      } else {
-        reject(new Error(`drizzle-kit push failed with code ${code}`));
-      }
     });
 
-    proc.on("error", reject);
-  });
+    // Then run drizzle-kit migrate to apply it
+    execSync(`bunx drizzle-kit migrate --config=drizzle.config.ts`, {
+      stdio: ["pipe", "inherit", "inherit"],
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        DATABASE_URL: dbUrl,
+      },
+    });
+
+    console.log("   ✅ Schema pushed successfully");
+  } catch (error) {
+    // Check if error is because schema already exists (no changes needed)
+    const errorStr = String(error);
+    if (errorStr.includes("No schema changes") || errorStr.includes("nothing to migrate")) {
+      console.log("   ✅ Schema already up to date");
+      return;
+    }
+    throw new Error(`drizzle-kit migration failed: ${error}`);
+  }
 }
 
 async function setupRoles(): Promise<void> {
@@ -659,8 +677,8 @@ async function main(): Promise<void> {
 
     // Full setup
     await setupTestDatabase();
-    await copySchemaFromDev();
-    await setupRoles();
+    await copySchemaFromDev(); // This will use migrations that create roles
+    await setupRoles(); // This sets up grants and permissions (roles created by migration)
     await enableRLS();
     await createRLSPolicies();
     await setupMinioBucket();
@@ -671,8 +689,8 @@ async function main(): Promise<void> {
     console.log("║       ✅ Integration Test Setup Complete!                ║");
     console.log("╚══════════════════════════════════════════════════════════╝");
     console.log("\nYou can now run tests:");
-    console.log("  npm run test:integration  # Run integration tests only");
-    console.log("  npm run test:all          # Run all tests");
+    console.log("  bun run test:integration  # Run integration tests only");
+    console.log("  bun run test              # Run all tests");
     console.log("");
   } catch (error) {
     console.error("\n❌ Setup failed:", error);

@@ -23,6 +23,9 @@ const HEALTH_CHECK_INTERVAL = 1000; // 1 second
 // Set AUTO_STOP_TEST_CONTAINERS=false to keep containers running for faster re-runs
 const AUTO_STOP_CONTAINERS = process.env.AUTO_STOP_TEST_CONTAINERS !== "false";
 
+// Skip database setup if already done (for faster re-runs)
+const SKIP_DB_SETUP = process.env.SKIP_TEST_DB_SETUP === "true";
+
 function isContainerRunning(containerName: string): boolean {
   try {
     const result = execSync(`docker inspect -f "{{.State.Running}}" ${containerName}`, {
@@ -131,6 +134,54 @@ async function waitForHealthy(): Promise<void> {
   throw new Error(`Containers did not become healthy within ${HEALTH_CHECK_TIMEOUT}ms`);
 }
 
+function isDatabaseSchemaSetup(): boolean {
+  try {
+    // Check if the organizations table exists in the test database
+    const result = execSync(
+      `docker exec insightdesk-postgres-test psql -U insightdesk -d insightdesk_test -tAc "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'organizations')"`,
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+    );
+    return result.trim() === "t";
+  } catch {
+    return false;
+  }
+}
+
+async function setupTestDatabase(): Promise<void> {
+  console.log("\n📦 Setting up test database schema and RLS...");
+
+  return new Promise((resolve) => {
+    // Use tsx to run the setup script with --skip-containers flag
+    const proc = spawn("bun", ["run", "test:setup", "--skip-containers"], {
+      stdio: "inherit",
+      cwd: process.cwd(),
+      shell: true,
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        console.log("   ✅ Database setup complete");
+        resolve();
+      } else {
+        // Don't fail - the schema might already exist or dev container might not be running
+        console.log(`   ⚠️ Database setup exited with code ${code}`);
+        console.log(
+          "   💡 If tenant isolation tests fail, run: bun run docker:up && bun run test:setup",
+        );
+        resolve(); // Don't reject - let tests decide if they can run
+      }
+    });
+
+    proc.on("error", (err) => {
+      console.log(`   ⚠️ Database setup error: ${err.message}`);
+      console.log(
+        "   💡 If tenant isolation tests fail, run: bun run docker:up && bun run test:setup",
+      );
+      resolve(); // Don't reject
+    });
+  });
+}
+
 export default async function globalSetup(): Promise<(() => Promise<void>) | undefined> {
   // Only run container management for integration tests
   if (process.env.RUN_INTEGRATION_TESTS !== "true") {
@@ -143,18 +194,25 @@ export default async function globalSetup(): Promise<(() => Promise<void>) | und
 
   // Check if containers are already running and healthy
   if (areAllContainersHealthy()) {
-    console.log("✅ Test containers are already running and healthy\n");
+    console.log("✅ Test containers are already running and healthy");
   } else {
     // Start containers
     await startContainers();
 
     // Wait for containers to be healthy
     await waitForHealthy();
-
-    console.log("\n╔══════════════════════════════════════════════════════════╗");
-    console.log("║       ✅ Integration Test Environment Ready              ║");
-    console.log("╚══════════════════════════════════════════════════════════╝\n");
   }
+
+  // Check if database schema exists, setup if needed
+  if (!SKIP_DB_SETUP && !isDatabaseSchemaSetup()) {
+    await setupTestDatabase();
+  } else if (isDatabaseSchemaSetup()) {
+    console.log("✅ Test database schema already exists");
+  }
+
+  console.log("\n╔══════════════════════════════════════════════════════════╗");
+  console.log("║       ✅ Integration Test Environment Ready              ║");
+  console.log("╚══════════════════════════════════════════════════════════╝\n");
 
   // Return teardown function
   return async () => {
