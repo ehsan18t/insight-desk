@@ -196,10 +196,13 @@ describe("messagesService.create", () => {
         returning: vi.fn().mockResolvedValue([mockMessage]),
       }),
     } as unknown as ReturnType<typeof db.insert>);
+
+    // Track what values are set in updates
+    const mockSet = vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    });
     vi.mocked(db.update).mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([]),
-      }),
+      set: mockSet,
     } as unknown as ReturnType<typeof db.update>);
 
     await messagesService.create(
@@ -211,6 +214,13 @@ describe("messagesService.create", () => {
 
     // Should have called update to set firstResponseAt
     expect(db.update).toHaveBeenCalledTimes(2); // Once for updatedAt, once for firstResponseAt
+
+    // Verify firstResponseAt was set with a date
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        firstResponseAt: expect.any(Date),
+      }),
+    );
   });
 
   it("should not update first response time if already set", async () => {
@@ -512,29 +522,39 @@ describe("messagesService.delete", () => {
   });
 
   it("should delete message when user is sender", async () => {
-    const mockMessage = createMockMessage();
+    const mockMessage = createMockMessage({ id: "msg-to-delete" });
 
     vi.mocked(db.query.ticketMessages.findFirst).mockResolvedValue(mockMessage);
+
+    // Track the where clause
+    const mockWhere = vi.fn().mockResolvedValue([]);
     vi.mocked(db.delete).mockReturnValue({
-      where: vi.fn().mockResolvedValue([]),
+      where: mockWhere,
     } as unknown as ReturnType<typeof db.delete>);
 
-    await messagesService.delete(mockTicketId, "message-001", mockCustomerId, "customer");
+    await messagesService.delete(mockTicketId, "msg-to-delete", mockCustomerId, "customer");
 
+    // Verify delete was called and where clause was invoked
     expect(db.delete).toHaveBeenCalled();
+    expect(mockWhere).toHaveBeenCalled();
   });
 
   it("should allow admin to delete any message", async () => {
-    const mockMessage = createMockMessage({ senderId: "other-user" });
+    const mockMessage = createMockMessage({ id: "other-msg", senderId: "other-user" });
 
     vi.mocked(db.query.ticketMessages.findFirst).mockResolvedValue(mockMessage);
+
+    // Track the where clause
+    const mockWhere = vi.fn().mockResolvedValue([]);
     vi.mocked(db.delete).mockReturnValue({
-      where: vi.fn().mockResolvedValue([]),
+      where: mockWhere,
     } as unknown as ReturnType<typeof db.delete>);
 
-    await messagesService.delete(mockTicketId, "message-001", mockAgentId, "admin");
+    await messagesService.delete(mockTicketId, "other-msg", mockAgentId, "admin");
 
+    // Verify delete was called and where clause was invoked
     expect(db.delete).toHaveBeenCalled();
+    expect(mockWhere).toHaveBeenCalled();
   });
 
   it("should throw NotFoundError when message does not exist", async () => {
