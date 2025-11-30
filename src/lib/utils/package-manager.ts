@@ -20,8 +20,10 @@ export function detectPackageManager(projectRoot?: string): PackageManager {
   const root = projectRoot ?? process.cwd();
 
   // Check for lockfiles in order of preference
+  // Note: Bun uses bun.lockb (binary) or bun.lock (text) depending on version
   const lockFiles: Record<string, PackageManager> = {
     "bun.lockb": "bun",
+    "bun.lock": "bun",
     "pnpm-lock.yaml": "pnpm",
     "yarn.lock": "yarn",
     "package-lock.json": "npm",
