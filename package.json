@@ -62,7 +62,7 @@
     "postgres": "^3.4.7",
     "socket.io": "^4.8.1",
     "swagger-ui-express": "^5.0.1",
-    "uuidv7": "^1.0.3",
+    "uuidv7": "^1.1.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {
