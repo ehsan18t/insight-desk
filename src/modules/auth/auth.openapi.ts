@@ -157,7 +157,7 @@ const ResetPasswordRequestSchema = z
 registry.registerPath({
   method: "post",
   path: "/api/auth/sign-up",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Create a new user account",
   description: `
 Register a new user account with email and password.
@@ -208,7 +208,7 @@ Register a new user account with email and password.
 registry.registerPath({
   method: "post",
   path: "/api/auth/sign-in",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Sign in to an existing account",
   description: `
 Authenticate with email and password credentials.
@@ -265,7 +265,7 @@ Authenticate with email and password credentials.
 registry.registerPath({
   method: "post",
   path: "/api/auth/sign-out",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Sign out of the current session",
   description: `
 End the current authenticated session.
@@ -294,7 +294,7 @@ End the current authenticated session.
 registry.registerPath({
   method: "get",
   path: "/api/auth/session",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Get current session information",
   description: `
 Retrieve the current user's session data.
@@ -323,7 +323,7 @@ Retrieve the current user's session data.
 registry.registerPath({
   method: "post",
   path: "/api/auth/forgot-password",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Request password reset email",
   description: `
 Send a password reset link to the specified email address.
@@ -363,7 +363,7 @@ Send a password reset link to the specified email address.
 registry.registerPath({
   method: "post",
   path: "/api/auth/reset-password",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Reset password with token",
   description: `
 Set a new password using the reset token from the email link.
@@ -412,7 +412,7 @@ Set a new password using the reset token from the email link.
 registry.registerPath({
   method: "post",
   path: "/api/auth/verify-email",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Verify email address",
   description: `
 Confirm the user's email address using the verification token.
@@ -469,7 +469,7 @@ Confirm the user's email address using the verification token.
 registry.registerPath({
   method: "get",
   path: "/api/auth/me",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Get current user with organizations",
   description: `
 Retrieve the authenticated user's profile including all organization memberships.
@@ -499,7 +499,7 @@ Retrieve the authenticated user's profile including all organization memberships
 registry.registerPath({
   method: "post",
   path: "/api/auth/register-with-org",
-  tags: ["Authentication"],
+  tags: ["Auth"],
   summary: "Register user with new organization",
   description: `
 Create a new user account and optionally a new organization in one step.
