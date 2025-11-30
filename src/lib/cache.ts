@@ -71,34 +71,33 @@ export async function closeCacheConnection(): Promise<void> {
 /**
  * HSETEX - Set hash field(s) with per-field expiration (Valkey 9+)
  *
+ * Syntax: HSETEX key [FNX|FXX] [EX seconds|PX ms|EXAT ts|PXAT ts|KEEPTTL] FIELDS numfields field value...
+ *
+ * Note: Valkey 9.0.0 only supports field-level conditions (FNX/FXX), not key-level (NX/XX).
+ * Key-level NX/XX may be added in future Valkey versions.
+ *
  * @param key - The hash key
  * @param fields - Object with field-value pairs to set
  * @param ttlSeconds - TTL in seconds for ALL fields being set
- * @param options - Optional flags:
- *   - nx: Only set if key doesn't exist (key-level)
- *   - xx: Only set if key exists (key-level)
- *   - fnx: Only set fields that don't exist (field-level)
- *   - fxx: Only set fields that already exist (field-level)
+ * @param options - Optional field-level flags (affects ALL fields in command):
+ *   - fnx: Abort entire operation if ANY field already exists
+ *   - fxx: Abort entire operation if ANY field doesn't exist
  *
- * @returns Number of fields that were added (not updated)
+ * @returns Number of fields that were added (not updated), or 0 if operation aborted by FNX/FXX
  */
 export async function hsetex(
   key: string,
   fields: Record<string, string>,
   ttlSeconds: number,
-  options?: { nx?: boolean; xx?: boolean; fnx?: boolean; fxx?: boolean },
+  options?: { fnx?: boolean; fxx?: boolean },
 ): Promise<number> {
   const entries = Object.entries(fields);
   if (entries.length === 0) return 0;
 
-  // Build command args
+  // Build command args: key [FNX|FXX] [EX seconds] FIELDS numfields field value...
   const args: (string | number)[] = [key];
 
-  // Key-level conditions
-  if (options?.nx) args.push("NX");
-  if (options?.xx) args.push("XX");
-
-  // Field-level conditions
+  // Field-level conditions (FNX/FXX) - Valkey 9.0.0 only supports these, not key-level NX/XX
   if (options?.fnx) args.push("FNX");
   if (options?.fxx) args.push("FXX");
 
