@@ -358,11 +358,12 @@ describe("plansService", () => {
         }),
       } as never);
 
-      // Mock update for unsetting defaults
+      // Track what set() is called with for unsetting defaults
+      const mockSet = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      });
       vi.mocked(db.update).mockReturnValueOnce({
-        set: () => ({
-          where: vi.fn().mockResolvedValue(undefined),
-        }),
+        set: mockSet,
       } as never);
 
       // Mock insert
@@ -389,7 +390,11 @@ describe("plansService", () => {
         metadata: {},
       });
 
+      // Verify that other defaults are unset with isDefault: false
       expect(db.update).toHaveBeenCalled();
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({ isDefault: false }),
+      );
     });
   });
 
