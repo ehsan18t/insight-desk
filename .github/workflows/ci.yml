@@ -1,0 +1,261 @@
+# ─────────────────────────────────────────────────────────────
+# InsightDesk CI Pipeline
+# Runs quality checks, unit tests, and integration tests
+# ─────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs when new commits are pushed to same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Quality Checks (fastest - no containers needed)
+  # ─────────────────────────────────────────────────────────────
+  quality:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: TypeScript type check
+        run: bun run typecheck
+
+      - name: Lint check
+        run: bun run lint
+
+      - name: Format check
+        run: bunx biome format --check src
+
+  # ─────────────────────────────────────────────────────────────
+  # Unit Tests (mocked services, no containers)
+  # ─────────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      SKIP_INTEGRATION_TESTS: "true"
+      # Minimal env for unit tests (services are mocked)
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+      VALKEY_URL: redis://localhost:6379
+      BETTER_AUTH_SECRET: test-secret-key-for-testing-minimum-32-chars
+      LOG_LEVEL: silent
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run unit tests
+        run: bun run test:unit
+
+  # ─────────────────────────────────────────────────────────────
+  # Integration Tests (requires real services)
+  # ─────────────────────────────────────────────────────────────
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    env:
+      RUN_INTEGRATION_TESTS: "true"
+      NODE_ENV: test
+      PORT: 3099
+      HOST: localhost
+      API_URL: http://localhost:3099
+      FRONTEND_URL: http://localhost:3000
+      DATABASE_URL: postgresql://insightdesk:insightdesk_test@localhost:5433/insightdesk_test
+      VALKEY_URL: redis://localhost:6380
+      BETTER_AUTH_SECRET: test-secret-key-for-testing-minimum-32-chars
+      BETTER_AUTH_URL: http://localhost:3099
+      SESSION_MAX_AGE: 604800
+      SESSION_UPDATE_AGE: 86400
+      SMTP_HOST: localhost
+      SMTP_PORT: 1026
+      EMAIL_FROM: Test <test@example.com>
+      STORAGE_PROVIDER: s3
+      STORAGE_S3_ENDPOINT: http://localhost:9002
+      STORAGE_S3_BUCKET: insightdesk-test
+      STORAGE_S3_REGION: us-east-1
+      STORAGE_S3_ACCESS_KEY: minioadmin
+      STORAGE_S3_SECRET_KEY: minioadmin
+      STORAGE_S3_FORCE_PATH_STYLE: "true"
+      LOG_LEVEL: silent
+      RATE_LIMIT_WINDOW_MS: 60000
+      RATE_LIMIT_MAX_REQUESTS: 100
+
+    services:
+      # PostgreSQL 18 for database
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: insightdesk
+          POSTGRES_PASSWORD: insightdesk_test
+          POSTGRES_DB: insightdesk_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U insightdesk -d insightdesk_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      # Valkey 9 for caching/sessions
+      valkey:
+        image: valkey/valkey:9
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd="valkey-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      # Mailpit for email testing
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - 1026:1025
+          - 8026:8025
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Start MinIO server
+        run: |
+          docker run -d \
+            --name minio-server \
+            -p 9002:9000 \
+            -p 9003:9001 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest server /data --console-address ":9001"
+
+      - name: Wait for MinIO
+        run: |
+          echo "Waiting for MinIO to be ready..."
+          for i in {1..30}; do
+            if curl -sf http://localhost:9002/minio/health/live; then
+              echo "MinIO is ready!"
+              break
+            fi
+            echo "Waiting for MinIO... ($i/30)"
+            sleep 2
+          done
+
+      - name: Create MinIO bucket
+        run: |
+          # Install mc (MinIO Client)
+          curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o ./mc
+          chmod +x ./mc
+          # Configure mc
+          ./mc alias set local http://localhost:9002 minioadmin minioadmin
+          # Create bucket
+          ./mc mb local/insightdesk-test --ignore-existing
+
+      - name: Setup test database
+        run: bun run test:setup --skip-containers
+
+      - name: Run integration tests
+        run: bun run test:integration
+
+  # ─────────────────────────────────────────────────────────────
+  # Build Verification (ensures production build works)
+  # ─────────────────────────────────────────────────────────────
+  build:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    env:
+      # Minimal env for build (no runtime needed)
+      DATABASE_URL: postgresql://test:test@localhost:5432/test
+      VALKEY_URL: redis://localhost:6379
+      BETTER_AUTH_SECRET: test-secret-key-for-testing-minimum-32-chars
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build project
+        run: bun run build
+
+      - name: Verify build output
+        run: |
+          if [ -d "dist" ]; then
+            echo "✅ Build output exists"
+            ls -la dist/
+          else
+            echo "❌ Build output missing"
+            exit 1
+          fi
