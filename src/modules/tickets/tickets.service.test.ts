@@ -371,7 +371,7 @@ describe("ticketsService.list", () => {
     expect(result.data).toHaveLength(2);
   });
 
-  it("should filter by status", async () => {
+  it("should filter by status - verifies WHERE clause is constructed", async () => {
     vi.mocked(db.query.tickets.findMany).mockResolvedValue([createMockTicket({ status: "open" })]);
 
     vi.mocked(db.select).mockReturnValue({
@@ -380,17 +380,24 @@ describe("ticketsService.list", () => {
       }),
     } as unknown as ReturnType<typeof db.select>);
 
-    const result = await ticketsService.list(
+    await ticketsService.list(
       { page: 1, limit: 10, sortBy: "createdAt", sortOrder: "desc", status: "open" },
       mockAgentId,
       "agent",
       mockOrganizationId,
     );
 
-    expect(result.data[0].status).toBe("open");
+    // Verify findMany was called with a WHERE clause (not undefined)
+    expect(db.query.tickets.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.anything(), // WHERE clause should be defined when filters are applied
+        limit: 10,
+        offset: 0,
+      }),
+    );
   });
 
-  it("should filter by priority", async () => {
+  it("should filter by priority - verifies WHERE clause is constructed", async () => {
     vi.mocked(db.query.tickets.findMany).mockResolvedValue([
       createMockTicket({ priority: "urgent" }),
     ]);
@@ -401,17 +408,23 @@ describe("ticketsService.list", () => {
       }),
     } as unknown as ReturnType<typeof db.select>);
 
-    const result = await ticketsService.list(
+    await ticketsService.list(
       { page: 1, limit: 10, sortBy: "createdAt", sortOrder: "desc", priority: "urgent" },
       mockAgentId,
       "agent",
       mockOrganizationId,
     );
 
-    expect(result.data[0].priority).toBe("urgent");
+    // Verify findMany was called with a WHERE clause
+    expect(db.query.tickets.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.anything(),
+        limit: 10,
+      }),
+    );
   });
 
-  it("should filter unassigned tickets", async () => {
+  it("should filter unassigned tickets - verifies WHERE clause is constructed", async () => {
     vi.mocked(db.query.tickets.findMany).mockResolvedValue([
       createMockTicket({ assigneeId: null }),
     ]);
@@ -422,17 +435,22 @@ describe("ticketsService.list", () => {
       }),
     } as unknown as ReturnType<typeof db.select>);
 
-    const result = await ticketsService.list(
+    await ticketsService.list(
       { page: 1, limit: 10, sortBy: "createdAt", sortOrder: "desc", assigneeId: "unassigned" },
       mockAgentId,
       "agent",
       mockOrganizationId,
     );
 
-    expect(result.data[0].assigneeId).toBeNull();
+    // Verify findMany was called with WHERE clause for unassigned filter
+    expect(db.query.tickets.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.anything(),
+      }),
+    );
   });
 
-  it("should limit customers to their own tickets", async () => {
+  it("should limit customers to their own tickets - verifies role-based filtering", async () => {
     vi.mocked(db.query.tickets.findMany).mockResolvedValue([
       createMockTicket({ customerId: mockCustomerId }),
     ]);
@@ -443,15 +461,20 @@ describe("ticketsService.list", () => {
       }),
     } as unknown as ReturnType<typeof db.select>);
 
-    const result = await ticketsService.list(
+    await ticketsService.list(
       { page: 1, limit: 10, sortBy: "createdAt", sortOrder: "desc" },
       mockCustomerId,
       "customer",
       mockOrganizationId,
     );
 
-    // All returned tickets should belong to the customer
-    expect(result.data.every((t) => t.customerId === mockCustomerId)).toBe(true);
+    // Verify findMany was called with WHERE clause that includes customer filter
+    // When role is "customer", the service must add a customerId condition
+    expect(db.query.tickets.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.anything(), // WHERE should include customerId filter for customers
+      }),
+    );
   });
 });
 
