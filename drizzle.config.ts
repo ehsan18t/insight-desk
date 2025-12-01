@@ -13,8 +13,11 @@ export default defineConfig({
   // In CI environments, stdin is not connected so the prompt hangs/fails
   strict: process.env.CI !== "true",
   entities: {
-    // Disable role management - drizzle-kit tries to drop system roles like pg_database_owner
-    // which fails. We manage roles manually in setup scripts instead.
-    roles: false,
+    // Exclude our RLS roles from drizzle-kit management
+    // These roles are created manually in setup scripts before schema push
+    // We must exclude rather than disable (roles: false) because policies reference these roles
+    roles: {
+      exclude: ["app_user", "service_role"],
+    },
   },
 });
