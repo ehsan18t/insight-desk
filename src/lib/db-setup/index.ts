@@ -63,7 +63,9 @@ export function runSchemaPush(options: SetupOptions): void {
   }
 
   try {
-    execSync(`${exec} drizzle-kit push --config=drizzle.config.ts`, {
+    // Use --force to auto-approve role creation and data loss statements
+    // This is required for non-interactive CI environments
+    execSync(`${exec} drizzle-kit push --config=drizzle.config.ts --force`, {
       stdio: verbose ? "inherit" : ["pipe", "pipe", "pipe"],
       cwd,
       env: {
@@ -342,6 +344,6 @@ export async function verifySetup(pool: Pool, verbose = false): Promise<VerifyRe
 export {
   detectPackageManager,
   getExecCommand,
-  getRunCommand,
   getInstallCommand,
+  getRunCommand,
 } from "@/lib/utils/package-manager";
