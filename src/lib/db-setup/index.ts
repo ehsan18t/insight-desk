@@ -63,9 +63,9 @@ export function runSchemaPush(options: SetupOptions): void {
   }
 
   try {
-    // Use --force to auto-approve any interactive prompts (role creation, data loss, etc.)
-    // Roles should be pre-created, but --force is a safety net for CI environments
-    execSync(`${exec} drizzle-kit push --config=drizzle.config.ts --force`, {
+    // Roles should be pre-created before running this
+    // Don't use --force as it tries to drop system roles like pg_database_owner
+    execSync(`${exec} drizzle-kit push --config=drizzle.config.ts`, {
       stdio: verbose ? "inherit" : ["pipe", "pipe", "pipe"],
       cwd,
       env: {
