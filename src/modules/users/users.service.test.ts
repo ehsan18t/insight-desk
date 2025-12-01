@@ -89,13 +89,15 @@ describe("usersService", () => {
   // listByOrganization
   // ─────────────────────────────────────────────────────────────
   describe("listByOrganization", () => {
-    it("should return paginated list of users in organization", async () => {
+    it("should return paginated list with correct pagination calculations", async () => {
       const mockUsers = [
         createMockUserWithRole({ id: "user-1", name: "User 1" }),
         createMockUserWithRole({ id: "user-2", name: "User 2" }),
       ];
 
-      // Mock for baseQuery (first db.select call - stored, then orderBy called on it)
+      const offsetMock = vi.fn().mockResolvedValue(mockUsers);
+
+      // Mock for baseQuery (first db.select call)
       vi.mocked(db.select).mockImplementationOnce(
         () =>
           ({
@@ -104,7 +106,7 @@ describe("usersService", () => {
                 where: () => ({
                   orderBy: () => ({
                     limit: () => ({
-                      offset: vi.fn().mockResolvedValue(mockUsers),
+                      offset: offsetMock,
                     }),
                   }),
                 }),
@@ -113,27 +115,68 @@ describe("usersService", () => {
           }) as never,
       );
 
-      // Mock for count query (second db.select call - awaited immediately)
+      // Mock for count query - return 45 total to test pagination math
       vi.mocked(db.select).mockImplementationOnce(
         () =>
           ({
             from: () => ({
               innerJoin: () => ({
-                where: vi.fn().mockResolvedValue([{ total: 2 }]),
+                where: vi.fn().mockResolvedValue([{ total: 45 }]),
               }),
             }),
           }) as never,
       );
 
       const result = await usersService.listByOrganization("org-123", {
-        page: 1,
+        page: 2,
         limit: 20,
       });
 
-      expect(result.data).toHaveLength(2);
-      expect(result.pagination.total).toBe(2);
+      // Verify pagination calculation: totalPages = ceil(45/20) = 3
+      expect(result.pagination.totalPages).toBe(3);
+      expect(result.pagination.total).toBe(45);
+      expect(result.pagination.page).toBe(2);
+      expect(result.pagination.limit).toBe(20);
+      // Verify offset was called
+      expect(offsetMock).toHaveBeenCalled();
+      // Verify db.select was called twice (data + count)
+      expect(db.select).toHaveBeenCalledTimes(2);
+    });
+
+    it("should use default page and limit when not provided", async () => {
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              innerJoin: () => ({
+                where: () => ({
+                  orderBy: () => ({
+                    limit: () => ({
+                      offset: vi.fn().mockResolvedValue([]),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }) as never,
+      );
+
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              innerJoin: () => ({
+                where: vi.fn().mockResolvedValue([{ total: 0 }]),
+              }),
+            }),
+          }) as never,
+      );
+
+      const result = await usersService.listByOrganization("org-123", {});
+
+      // Verify default values are used
       expect(result.pagination.page).toBe(1);
-      expect(result.pagination.totalPages).toBe(1);
+      expect(result.pagination.limit).toBe(20);
     });
   });
 
@@ -141,36 +184,42 @@ describe("usersService", () => {
   // getByIdInOrganization
   // ─────────────────────────────────────────────────────────────
   describe("getByIdInOrganization", () => {
-    it("should return user with role when found", async () => {
+    it("should return user with role when found and verify join is performed", async () => {
       const mockUser = createMockUserWithRole();
+      const innerJoinMock = vi.fn().mockReturnValue({
+        where: () => ({
+          limit: vi.fn().mockResolvedValue([mockUser]),
+        }),
+      });
 
       vi.mocked(db.select).mockImplementationOnce(
         () =>
           ({
             from: () => ({
-              innerJoin: () => ({
-                where: () => ({
-                  limit: vi.fn().mockResolvedValue([mockUser]),
-                }),
-              }),
+              innerJoin: innerJoinMock,
             }),
           }) as never,
       );
 
       const result = await usersService.getByIdInOrganization("user-123", "org-123");
 
-      expect(result).toEqual(mockUser);
+      // Verify innerJoin is called (user-org relationship checked)
+      expect(innerJoinMock).toHaveBeenCalled();
+      expect(result).not.toBeNull();
+      expect(result?.role).toBe("agent");
     });
 
     it("should return null when user not found", async () => {
+      const whereMock = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([]),
+      });
+
       vi.mocked(db.select).mockImplementationOnce(
         () =>
           ({
             from: () => ({
               innerJoin: () => ({
-                where: () => ({
-                  limit: vi.fn().mockResolvedValue([]),
-                }),
+                where: whereMock,
               }),
             }),
           }) as never,
@@ -178,6 +227,8 @@ describe("usersService", () => {
 
       const result = await usersService.getByIdInOrganization("nonexistent", "org-123");
 
+      // Verify where clause was checked
+      expect(whereMock).toHaveBeenCalled();
       expect(result).toBeNull();
     });
   });

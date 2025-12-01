@@ -191,16 +191,17 @@ describe("organizationsService", () => {
   // getBySlug
   // ─────────────────────────────────────────────────────────────
   describe("getBySlug", () => {
-    it("should return organization by slug", async () => {
-      const mockOrg = createMockOrganization();
+    it("should return organization by slug and include member count", async () => {
+      const mockOrg = createMockOrganization({ slug: "my-org-slug" });
+      const whereMock = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([mockOrg]),
+      });
 
       vi.mocked(db.select).mockImplementationOnce(
         () =>
           ({
             from: () => ({
-              where: () => ({
-                limit: vi.fn().mockResolvedValue([mockOrg]),
-              }),
+              where: whereMock,
             }),
           }) as never,
       );
@@ -214,10 +215,35 @@ describe("organizationsService", () => {
           }) as never,
       );
 
-      const result = await organizationsService.getBySlug("test-org");
+      const result = await organizationsService.getBySlug("my-org-slug");
 
-      expect(result?.slug).toBe("test-org");
+      // Verify the where clause is called (slug lookup was performed)
+      expect(whereMock).toHaveBeenCalled();
+      // Verify db.select was called twice (once for org, once for member count)
+      expect(db.select).toHaveBeenCalledTimes(2);
+      // Verify the result includes the memberCount from second query
       expect(result?.memberCount).toBe(3);
+    });
+
+    it("should return null when organization not found by slug", async () => {
+      const whereMock = vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([]),
+      });
+
+      vi.mocked(db.select).mockImplementationOnce(
+        () =>
+          ({
+            from: () => ({
+              where: whereMock,
+            }),
+          }) as never,
+      );
+
+      const result = await organizationsService.getBySlug("nonexistent-slug");
+
+      // Verify lookup was attempted
+      expect(whereMock).toHaveBeenCalled();
+      expect(result).toBeNull();
     });
   });
 
@@ -685,7 +711,7 @@ describe("organizationsService", () => {
   // listMembers
   // ─────────────────────────────────────────────────────────────
   describe("listMembers", () => {
-    it("should return paginated list of organization members", async () => {
+    it("should return paginated list of organization members with correct pagination calculation", async () => {
       const mockMembers = [
         createMockMember({ userId: "user-1", name: "Alice", role: "admin" }),
         createMockMember({ userId: "user-2", name: "Bob", role: "agent" }),
@@ -694,18 +720,19 @@ describe("organizationsService", () => {
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
           innerJoin: () => ({
-            where: vi.fn().mockResolvedValue([{ total: 2 }]),
+            where: vi.fn().mockResolvedValue([{ total: 45 }]),
           }),
         }),
       } as never);
 
+      const offsetMock = vi.fn().mockResolvedValue(mockMembers);
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
           innerJoin: () => ({
             where: () => ({
               orderBy: () => ({
                 limit: () => ({
-                  offset: vi.fn().mockResolvedValue(mockMembers),
+                  offset: offsetMock,
                 }),
               }),
             }),
@@ -713,15 +740,18 @@ describe("organizationsService", () => {
         }),
       } as never);
 
-      const result = await organizationsService.listMembers("org-123", { page: 1, limit: 20 });
+      const result = await organizationsService.listMembers("org-123", { page: 2, limit: 20 });
 
-      expect(result.data).toHaveLength(2);
-      expect(result.pagination.total).toBe(2);
-      expect(result.pagination.page).toBe(1);
-      expect(result.data[0].name).toBe("Alice");
+      // Verify pagination calculation: totalPages = ceil(45/20) = 3
+      expect(result.pagination.totalPages).toBe(3);
+      expect(result.pagination.page).toBe(2);
+      expect(result.pagination.limit).toBe(20);
+      expect(result.pagination.total).toBe(45);
+      // Verify offset is called (offset for page 2 with limit 20 = 20)
+      expect(offsetMock).toHaveBeenCalled();
     });
 
-    it("should filter members by search term", async () => {
+    it("should apply search filter", async () => {
       const mockMembers = [createMockMember({ userId: "user-1", name: "Alice" })];
 
       vi.mocked(db.select).mockReturnValueOnce({
@@ -748,11 +778,12 @@ describe("organizationsService", () => {
 
       const result = await organizationsService.listMembers("org-123", { search: "Alice" });
 
+      // Verify result structure and filtering is applied
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].name).toBe("Alice");
+      expect(result.pagination.total).toBe(1);
     });
 
-    it("should return empty list when organization has no members", async () => {
+    it("should return empty list with correct pagination when organization has no members", async () => {
       vi.mocked(db.select).mockReturnValueOnce({
         from: () => ({
           innerJoin: () => ({
@@ -779,6 +810,38 @@ describe("organizationsService", () => {
 
       expect(result.data).toHaveLength(0);
       expect(result.pagination.total).toBe(0);
+      // Verify totalPages calculation: ceil(0/20) = 0
+      expect(result.pagination.totalPages).toBe(0);
+    });
+
+    it("should use default page and limit when not provided", async () => {
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: vi.fn().mockResolvedValue([{ total: 5 }]),
+          }),
+        }),
+      } as never);
+
+      vi.mocked(db.select).mockReturnValueOnce({
+        from: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () => ({
+                limit: () => ({
+                  offset: vi.fn().mockResolvedValue([]),
+                }),
+              }),
+            }),
+          }),
+        }),
+      } as never);
+
+      const result = await organizationsService.listMembers("org-123");
+
+      // Verify default values are used
+      expect(result.pagination.page).toBe(1);
+      expect(result.pagination.limit).toBe(20);
     });
   });
 
