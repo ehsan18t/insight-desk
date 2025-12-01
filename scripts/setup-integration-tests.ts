@@ -300,6 +300,16 @@ async function setupTestDatabase(): Promise<void> {
     `DROP ROLE IF EXISTS app_user; DROP ROLE IF EXISTS service_role;`,
   );
 
+  // Create roles before drizzle-kit push runs
+  // This prevents drizzle-kit from asking interactively about role creation
+  console.log("   Creating RLS roles...");
+  await runPsql(
+    CONFIG.containers.postgres,
+    "postgres",
+    CONFIG.postgres.user,
+    `CREATE ROLE app_user WITH LOGIN; CREATE ROLE service_role WITH LOGIN BYPASSRLS;`,
+  );
+
   // Create database
   await runPsql(
     CONFIG.containers.postgres,
