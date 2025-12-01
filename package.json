@@ -38,7 +38,9 @@
     "test:containers:down": "docker compose -f docker-compose.test.yml down",
     "test:containers:logs": "docker compose -f docker-compose.test.yml logs -f",
     "docs:generate": "tsx --env-file .env scripts/generate-openapi.ts",
-    "db:setup:prod": "tsx --env-file .env scripts/setup-production-db.ts"
+    "db:setup:prod": "tsx scripts/setup-production-db.ts",
+    "db:migrate:prod": "npx drizzle-kit migrate",
+    "start:prod": "node dist/index.js"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.1.0",

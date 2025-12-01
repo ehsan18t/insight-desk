@@ -1,0 +1,150 @@
+# ─────────────────────────────────────────────────────────────
+# InsightDesk Render Blueprint
+# Infrastructure as Code for Render.com deployment
+# ─────────────────────────────────────────────────────────────
+# Deploy: https://render.com/deploy?repo=https://github.com/ehsan18t/insight-desk
+# ─────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────
+# Services
+# ─────────────────────────────────────────────────────────────
+services:
+  # ─────────────────────────────────────────────────────────────
+  # InsightDesk API - Main web service
+  # ─────────────────────────────────────────────────────────────
+  - type: web
+    name: insightdesk-api
+    runtime: docker
+    region: oregon
+    plan: starter
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    # Run database migrations before each deploy
+    preDeployCommand: npx drizzle-kit migrate
+
+    envVars:
+      # Application
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: HOST
+        value: 0.0.0.0
+
+      # URLs (auto-configured by Render)
+      - key: API_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+      # Database - Reference PostgreSQL connection string
+      - key: DATABASE_URL
+        fromDatabase:
+          name: insightdesk-db
+          property: connectionString
+
+      # Valkey/Redis - Reference Key Value connection string
+      - key: VALKEY_URL
+        fromService:
+          name: insightdesk-cache
+          type: keyvalue
+          property: connectionString
+
+      # Authentication (prompt for secret on first deploy)
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        sync: false
+
+      # Session settings
+      - key: SESSION_MAX_AGE
+        value: 604800
+      - key: SESSION_UPDATE_AGE
+        value: 86400
+
+      # Logging
+      - key: LOG_LEVEL
+        value: info
+
+      # Rate limiting
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+
+      # File Storage (S3-compatible) - Optional
+      # Configure these if you want file upload support
+      - key: STORAGE_PROVIDER
+        value: s3
+      - key: STORAGE_S3_ENDPOINT
+        sync: false
+      - key: STORAGE_S3_REGION
+        sync: false
+      - key: STORAGE_S3_BUCKET
+        sync: false
+      - key: STORAGE_S3_ACCESS_KEY
+        sync: false
+      - key: STORAGE_S3_SECRET_KEY
+        sync: false
+
+      # Email (SMTP) - Optional
+      # Configure these if you want email notifications
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_SECURE
+        value: true
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+      # OAuth Providers - Optional
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+
+      # API Documentation (disabled by default in production)
+      - key: ENABLE_API_DOCS
+        value: false
+
+      # MCP Server (disabled in production)
+      - key: ENABLE_MCP
+        value: false
+
+  # ─────────────────────────────────────────────────────────────
+  # Valkey (Redis-compatible) - Caching and Socket.IO adapter
+  # ─────────────────────────────────────────────────────────────
+  - type: keyvalue
+    name: insightdesk-cache
+    region: oregon
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+    # Allow connections from within Render's private network only
+    ipAllowList: []
+
+# ─────────────────────────────────────────────────────────────
+# Databases
+# ─────────────────────────────────────────────────────────────
+databases:
+  # ─────────────────────────────────────────────────────────────
+  # PostgreSQL Database with RLS support
+  # ─────────────────────────────────────────────────────────────
+  - name: insightdesk-db
+    region: oregon
+    plan: starter
+    postgresMajorVersion: "18"
+    databaseName: insightdesk
+    user: insightdesk
+    # Only allow connections from Render's private network
+    ipAllowList: []

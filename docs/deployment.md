@@ -201,33 +201,90 @@ Development                    Production
 
 ## Deployment Options
 
-### Option 1: Docker (Recommended)
+### Option 1: Render.com (Recommended)
+
+InsightDesk includes a `render.yaml` Blueprint for one-click deployment to Render.
+
+#### Quick Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ehsan18t/insight-desk)
+
+#### What Gets Created
+
+| Service             | Type       | Description                    |
+| ------------------- | ---------- | ------------------------------ |
+| `insightdesk-api`   | Web        | Main API server (Docker)       |
+| `insightdesk-db`    | PostgreSQL | Database with RLS support      |
+| `insightdesk-cache` | Key Value  | Valkey for caching & Socket.IO |
+
+#### Required Configuration
+
+After clicking Deploy, configure these environment variables in the Render Dashboard:
+
+| Variable          | Required | Description                                                            |
+| ----------------- | -------- | ---------------------------------------------------------------------- |
+| `API_URL`         | Yes      | Your Render service URL (e.g., `https://insightdesk-api.onrender.com`) |
+| `FRONTEND_URL`    | Yes      | Your frontend URL                                                      |
+| `BETTER_AUTH_URL` | Yes      | Same as API_URL                                                        |
+
+#### Optional Configuration (for full features)
+
+**File Storage (S3-compatible):**
+| Variable                | Description                |
+| ----------------------- | -------------------------- |
+| `STORAGE_S3_ENDPOINT`   | S3/R2/MinIO endpoint URL   |
+| `STORAGE_S3_REGION`     | Region (e.g., `us-east-1`) |
+| `STORAGE_S3_BUCKET`     | Bucket name                |
+| `STORAGE_S3_ACCESS_KEY` | Access key                 |
+| `STORAGE_S3_SECRET_KEY` | Secret key                 |
+
+**Email (SMTP):**
+| Variable     | Description                                |
+| ------------ | ------------------------------------------ |
+| `SMTP_HOST`  | SMTP server (e.g., `smtp.sendgrid.net`)    |
+| `SMTP_USER`  | SMTP username                              |
+| `SMTP_PASS`  | SMTP password or API key                   |
+| `EMAIL_FROM` | From address (e.g., `noreply@example.com`) |
+
+**OAuth Providers:**
+| Variable               | Description         |
+| ---------------------- | ------------------- |
+| `GOOGLE_CLIENT_ID`     | Google OAuth ID     |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth Secret |
+| `GITHUB_CLIENT_ID`     | GitHub OAuth ID     |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth Secret |
+
+#### How It Works
+
+1. **Build**: Render builds the Docker image using `Dockerfile`
+2. **Pre-deploy**: Runs `npx drizzle-kit migrate` to apply database migrations
+3. **Start**: Runs the compiled application with `node dist/index.js`
+4. **Health Check**: Monitors `/health` endpoint for zero-downtime deploys
+
+#### WebSocket Support
+
+Render natively supports WebSockets. Socket.IO connections work automatically with the Valkey adapter for horizontal scaling.
+
+---
+
+### Option 2: Docker (Self-hosted)
 
 ```dockerfile
-# Dockerfile
-FROM oven/bun:1 AS builder
-WORKDIR /app
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
-COPY . .
-RUN bun run build
-
-FROM oven/bun:1-slim
-WORKDIR /app
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-EXPOSE 3001
-CMD ["bun", "run", "start"]
-```
-
-```bash
-# Build and run
+# Build the production image
 docker build -t insightdesk .
+
+# Run with environment file
 docker run -p 3001:3001 --env-file .env insightdesk
 ```
 
-### Option 2: Platform as a Service
+For production, use the included `docker-compose.yml` with external PostgreSQL and Valkey:
+
+```bash
+# Build and run
+docker compose up -d
+```
+
+### Option 3: Platform as a Service (Manual)
 
 **Railway / Render / Fly.io:**
 
@@ -237,7 +294,7 @@ docker run -p 3001:3001 --env-file .env insightdesk
 4. Configure start command: `bun run start`
 5. Run database setup: `bun run db:setup:prod`
 
-### Option 3: VPS / Bare Metal
+### Option 4: VPS / Bare Metal
 
 ```bash
 # 1. Clone repository
@@ -345,11 +402,13 @@ psql $DATABASE_URL -c "SELECT * FROM drizzle.__drizzle_migrations"
 
 ## Commands Reference
 
-| Command                           | Description                    |
-| --------------------------------- | ------------------------------ |
-| `bun run db:setup:prod`           | Full production database setup |
-| `bun run db:setup:prod --dry-run` | Preview setup without changes  |
-| `bun run db:generate`             | Generate migration files       |
-| `bun run db:migrate`              | Apply migrations only          |
-| `bun run start`                   | Start production server        |
-| `bun run build`                   | Build for production           |
+| Command                           | Description                        |
+| --------------------------------- | ---------------------------------- |
+| `bun run db:setup:prod`           | Full production database setup     |
+| `bun run db:setup:prod --dry-run` | Preview setup without changes      |
+| `bun run db:migrate:prod`         | Apply migrations only (for Render) |
+| `bun run db:generate`             | Generate migration files           |
+| `bun run db:migrate`              | Apply migrations (dev)             |
+| `bun run start`                   | Start production server            |
+| `bun run start:prod`              | Start compiled production server   |
+| `bun run build`                   | Build for production               |

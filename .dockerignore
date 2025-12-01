@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────
+# InsightDesk Docker Ignore
+# Exclude files not needed in production image
+# ─────────────────────────────────────────────────────────────
+
+# Dependencies (reinstalled in Docker)
+node_modules/
+.bun/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Development files
+*.test.ts
+*.spec.ts
+**/__tests__/
+**/__mocks__/
+vitest.config.ts
+biome.json
+
+# Environment files (secrets should be passed via env vars)
+.env
+.env.*
+!.env.example
+
+# Development Docker files
+docker-compose*.yml
+Dockerfile.dev
+
+# Documentation
+docs/
+plan/
+README.md
+*.md
+!src/**/*.md
+
+# Build artifacts
+dist/
+*.log
+npm-debug.log*
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Test fixtures and integration tests
+src/test/
+*.integration.test.ts
+
+# Lock files for other package managers
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
