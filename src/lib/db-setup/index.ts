@@ -65,12 +65,14 @@ export function runSchemaPush(options: SetupOptions): void {
   try {
     // Roles should be pre-created before running this
     // Don't use --force as it tries to drop system roles like pg_database_owner
+    // Use pipe for stdin to prevent interactive prompts, inherit stdout/stderr for verbose output
     execSync(`${exec} drizzle-kit push --config=drizzle.config.ts`, {
-      stdio: verbose ? "inherit" : ["pipe", "pipe", "pipe"],
+      stdio: verbose ? ["pipe", "inherit", "inherit"] : ["pipe", "pipe", "pipe"],
       cwd,
       env: {
         ...process.env,
         DATABASE_URL: databaseUrl,
+        CI: "true", // Ensure CI mode is set for drizzle config
       },
     });
 
