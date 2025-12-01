@@ -161,7 +161,8 @@ async function validateMcpApiKey(
 ): Promise<{ valid: boolean; organizationId?: string }> {
   try {
     // Call the InsightDesk API to validate the key
-    const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
+    // Uses /api/users/me which works with API key authentication
+    const response = await fetch(`${apiBaseUrl}/api/users/me`, {
       headers: {
         "X-API-Key": apiKey,
         Accept: "application/json",
@@ -171,7 +172,7 @@ async function validateMcpApiKey(
     if (response.ok) {
       const data = (await response.json()) as {
         success: boolean;
-        data?: { organizationId?: string };
+        data?: { id?: string; organizationId?: string };
       };
       return {
         valid: true,

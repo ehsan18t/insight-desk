@@ -363,7 +363,7 @@ curl -X POST http://localhost:3100/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-The API key is validated against the InsightDesk API (`/api/auth/me`). Invalid or revoked keys are rejected with a `401 Unauthorized` response.
+The API key is validated against the InsightDesk API (`/api/users/me`). Invalid or revoked keys are rejected with a `401 Unauthorized` response.
 
 ## VS Code MCP Configuration
 
