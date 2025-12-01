@@ -11,24 +11,18 @@ import { pgPolicy, pgRole } from "drizzle-orm/pg-core";
 /**
  * Application user role - used by the main application connection
  * This role respects RLS policies and cannot see data across tenants
+ * Using .existing() tells drizzle-kit this role is pre-created externally
  */
-export const appUser = pgRole("app_user", {
-  createRole: false,
-  createDb: false,
-  inherit: true,
-});
+export const appUser = pgRole("app_user").existing();
 
 /**
  * Service role - used by background jobs and admin operations
  * This role bypasses RLS for cross-tenant operations like SLA checks
+ * Using .existing() tells drizzle-kit this role is pre-created externally
  * Note: BYPASSRLS attribute must be granted manually via SQL:
  * ALTER ROLE service_role BYPASSRLS;
  */
-export const serviceRole = pgRole("service_role", {
-  createRole: false,
-  createDb: false,
-  inherit: true,
-});
+export const serviceRole = pgRole("service_role").existing();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS (SQL expressions for policies)
