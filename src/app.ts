@@ -88,9 +88,27 @@ export function createApp(): Express {
   // ─────────────────────────────────────────────────────────────
   // Custom auth routes (MUST be before Better Auth catch-all)
   // These routes need body parsing, so we apply express.json to them
+  // Mount at /api/auth so router paths like /me become /api/auth/me
   // ─────────────────────────────────────────────────────────────
-  app.use("/api/auth/me", express.json(), authRouter);
-  app.use("/api/auth/register-with-org", express.json(), authRouter);
+  const customAuthPaths = ["/me", "/register-with-org"];
+  app.use(
+    "/api/auth",
+    (req, res, next) => {
+      // Only apply to custom auth routes, let others pass to better-auth
+      if (customAuthPaths.some((p) => req.path === p || req.path.startsWith(`${p}/`))) {
+        express.json()(req, res, next);
+      } else {
+        next("route");
+      }
+    },
+    (req, res, next) => {
+      if (customAuthPaths.some((p) => req.path === p || req.path.startsWith(`${p}/`))) {
+        authRouter(req, res, next);
+      } else {
+        next("route");
+      }
+    },
+  );
 
   // ─────────────────────────────────────────────────────────────
   // Better Auth Handler (MUST be before global express.json)
