@@ -4,7 +4,7 @@
 # ─────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────
-# Base stage - Node.js 24 LTS runtime
+# Base stage - Node.js 24 LTS with Bun for package management
 # ─────────────────────────────────────────────────────────────
 FROM --platform=linux/amd64 node:24-alpine AS base
 WORKDIR /app
@@ -13,18 +13,43 @@ WORKDIR /app
 RUN npm install -g bun
 
 # ─────────────────────────────────────────────────────────────
-# Dependencies stage - Install production dependencies
+# Dependencies stage - Install all dependencies for build
 # ─────────────────────────────────────────────────────────────
 FROM base AS deps
 
 # Copy package files
 COPY package.json bun.lock ./
 
-# Install ALL dependencies (including dev deps for tsx)
+# Install ALL dependencies (need devDeps for build)
 RUN bun install --frozen-lockfile
 
 # ─────────────────────────────────────────────────────────────
-# Production stage - Run with tsx (handles TS/ESM correctly)
+# Build stage - Compile TypeScript to JavaScript
+# ─────────────────────────────────────────────────────────────
+FROM base AS builder
+WORKDIR /app
+
+# Copy dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source and config files
+COPY package.json tsconfig.json ./
+COPY src ./src
+
+# Build TypeScript and resolve path aliases
+RUN bun run build
+
+# ─────────────────────────────────────────────────────────────
+# Production dependencies - Install only prod deps
+# ─────────────────────────────────────────────────────────────
+FROM base AS prod-deps
+WORKDIR /app
+
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
+
+# ─────────────────────────────────────────────────────────────
+# Production stage - Minimal runtime image
 # ─────────────────────────────────────────────────────────────
 FROM --platform=linux/amd64 node:24-alpine AS production
 WORKDIR /app
@@ -36,20 +61,18 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 insightdesk
 
-# Copy node_modules (includes tsx for running TypeScript)
-COPY --from=deps --chown=insightdesk:nodejs /app/node_modules ./node_modules
+# Copy production node_modules
+COPY --from=prod-deps --chown=insightdesk:nodejs /app/node_modules ./node_modules
 
-# Copy package.json and tsconfig
-COPY --chown=insightdesk:nodejs package.json tsconfig.json ./
+# Copy compiled JavaScript
+COPY --from=builder --chown=insightdesk:nodejs /app/dist ./dist
 
-# Copy source code
-COPY --chown=insightdesk:nodejs src ./src
+# Copy package.json (needed for module resolution)
+COPY --chown=insightdesk:nodejs package.json ./
 
-# Copy drizzle config for migrations
+# Copy drizzle config and migrations for db:migrate
 COPY --chown=insightdesk:nodejs drizzle.config.ts ./
-
-# Copy scripts needed for production setup
-COPY --chown=insightdesk:nodejs scripts ./scripts
+COPY --chown=insightdesk:nodejs src/db/migrations ./src/db/migrations
 
 # Switch to non-root user
 USER insightdesk
@@ -61,5 +84,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
-# Start the server with tsx (handles TypeScript + ESM module resolution)
-CMD ["npx", "tsx", "src/index.ts"]
+# Start the compiled server
+CMD ["node", "dist/index.js"]
