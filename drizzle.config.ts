@@ -13,6 +13,8 @@ export default defineConfig({
   // In CI environments, stdin is not connected so the prompt hangs/fails
   strict: process.env.CI !== "true",
   entities: {
-    roles: true, // Enable RLS role management
+    // Disable role management - drizzle-kit tries to drop system roles like pg_database_owner
+    // which fails. We manage roles manually in setup scripts instead.
+    roles: false,
   },
 });
