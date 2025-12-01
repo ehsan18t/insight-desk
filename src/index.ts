@@ -7,6 +7,18 @@ import { initializeJobQueue, stopJobQueue } from "./lib/jobs";
 import { logger } from "./lib/logger";
 import { getIO, initializeSocketIO } from "./lib/socket";
 
+// Log startup environment info (redact sensitive data)
+logger.info(
+  {
+    NODE_ENV: config.NODE_ENV,
+    HOST: config.HOST,
+    PORT: config.PORT,
+    DATABASE_URL: config.DATABASE_URL ? "[SET]" : "[NOT SET]",
+    VALKEY_URL: config.VALKEY_URL ? `${config.VALKEY_URL.split("@")[0]}@[REDACTED]` : "[NOT SET]",
+  },
+  "Starting InsightDesk API with configuration",
+);
+
 // Create Express app
 const app = createApp();
 
@@ -57,21 +69,60 @@ async function shutdown(signal: string) {
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
 
+// Helper: Retry a function with exponential backoff
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: { maxAttempts: number; delayMs: number; name: string },
+): Promise<T> {
+  const { maxAttempts, delayMs, name } = options;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (attempt === maxAttempts) {
+        logger.error({ error, attempt }, `${name} failed after ${maxAttempts} attempts`);
+        throw error;
+      }
+      const waitTime = delayMs * attempt;
+      logger.warn({ attempt, waitTime }, `${name} failed, retrying in ${waitTime}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+  }
+  throw new Error(`${name} failed after ${maxAttempts} attempts`);
+}
+
 // Start server
 async function start() {
   try {
-    // Check database connection
-    const dbConnected = await checkDatabaseConnection();
+    // Check database connection with retry (services may not be ready immediately)
+    const dbConnected = await withRetry(
+      async () => {
+        const connected = await checkDatabaseConnection();
+        if (!connected) throw new Error("Database ping failed");
+        return connected;
+      },
+      { maxAttempts: 5, delayMs: 2000, name: "Database connection" },
+    );
     if (!dbConnected) {
       throw new Error("Failed to connect to database");
     }
     logger.info("Database connected");
 
-    // Check cache connection
-    const cacheConnected = await checkCacheConnection();
-    if (!cacheConnected) {
+    // Check cache connection with retry
+    let cacheConnected = false;
+    try {
+      cacheConnected = await withRetry(
+        async () => {
+          const connected = await checkCacheConnection();
+          if (!connected) throw new Error("Cache ping failed");
+          return connected;
+        },
+        { maxAttempts: 3, delayMs: 1000, name: "Cache connection" },
+      );
+    } catch {
       logger.warn("Cache not connected - some features may be limited");
-    } else {
+    }
+    if (cacheConnected) {
       logger.info("Cache connected");
     }
 

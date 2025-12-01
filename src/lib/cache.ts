@@ -4,7 +4,14 @@ import { createLogger } from "./logger";
 
 const logger = createLogger("cache");
 
-// Create Valkey client
+// Log cache URL (redacted for security)
+const cacheUrlScheme = config.VALKEY_URL.split("://")[0];
+const cacheUrlHost = config.VALKEY_URL.includes("@")
+  ? config.VALKEY_URL.split("@")[1]?.split(":")[0]
+  : config.VALKEY_URL.split("://")[1]?.split(":")[0];
+logger.info({ scheme: cacheUrlScheme, host: cacheUrlHost }, "Initializing Valkey client");
+
+// Create Valkey client - iovalkey supports both redis:// and valkey:// URLs
 export const valkey = new Valkey(config.VALKEY_URL, {
   maxRetriesPerRequest: 3,
   retryStrategy: (times) => {

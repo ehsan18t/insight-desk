@@ -9,6 +9,12 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 
+// Log database connection info (redacted for security)
+const dbHost = databaseUrl.includes("@")
+  ? databaseUrl.split("@")[1]?.split(":")[0]?.split("/")[0]
+  : "unknown";
+console.log(`[db] Connecting to PostgreSQL at host: ${dbHost}`);
+
 // Create postgres connection
 // PG18: Benefits from improved hash joins, GROUP BY performance, and AIO
 const client = postgres(databaseUrl, {

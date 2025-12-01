@@ -12,8 +12,9 @@ const envSchema = z.object({
   // Database
   DATABASE_URL: z.string().min(1),
 
-  // Valkey (Redis)
-  VALKEY_URL: z.string().default("valkey://localhost:6379"),
+  // Valkey (Redis) - Support both redis:// and valkey:// schemes
+  // In production, VALKEY_URL should be provided by Render
+  VALKEY_URL: z.string().min(1),
 
   // Authentication
   BETTER_AUTH_SECRET: z.string().min(32),
