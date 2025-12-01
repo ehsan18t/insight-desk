@@ -60,22 +60,33 @@ describe("auditService", () => {
   // create
   // ─────────────────────────────────────────────────────────────
   describe("create", () => {
-    it("should create an audit log entry", async () => {
+    it("should create an audit log entry with context values properly mapped", async () => {
+      const valuesMock = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([mockAuditLog]),
+      });
+
       vi.mocked(db.insert).mockReturnValue({
-        values: () => ({
-          returning: vi.fn().mockResolvedValue([mockAuditLog]),
-        }),
+        values: valuesMock,
       } as never);
 
-      const result = await auditService.create(mockContext, {
+      await auditService.create(mockContext, {
         action: "user_login",
         resourceType: "user",
         resourceId: "user-123",
       });
 
-      expect(result.id).toBe("audit-123");
-      expect(result.action).toBe("user_login");
-      expect(db.insert).toHaveBeenCalled();
+      // Verify context values are correctly passed to insert
+      expect(valuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: "org-123",
+          userId: "user-123",
+          ipAddress: "192.168.1.1",
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+          action: "user_login",
+          resourceType: "user",
+          resourceId: "user-123",
+        }),
+      );
     });
 
     it("should store previous and new values for updates", async () => {

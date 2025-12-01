@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ForbiddenError, NotFoundError } from "@/middleware/error-handler";
 import {
-  createApiKey,
-  listApiKeys,
-  getApiKeyById,
-  revokeApiKey,
-  deleteApiKey,
-  getApiKeyStats,
-  validateApiKeyByHash,
-  updateApiKeyUsage,
   API_KEY_SCOPES,
+  createApiKey,
+  deleteApiKey,
+  getApiKeyById,
+  getApiKeyStats,
+  listApiKeys,
+  revokeApiKey,
+  updateApiKeyUsage,
+  validateApiKeyByHash,
 } from "./api-keys.service";
 
 // Mock the database
@@ -98,39 +98,54 @@ describe("api-keys.service", () => {
   });
 
   describe("createApiKey", () => {
-    it("should create a new API key with default scopes", async () => {
+    it("should create a new API key with correct values passed to insert", async () => {
+      const valuesMock = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([mockApiKey]),
+      });
+
       vi.mocked(db.insert).mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([mockApiKey]),
-        }),
+        values: valuesMock,
       } as unknown as ReturnType<typeof db.insert>);
 
-      const result = await createApiKey(mockOrgId, mockUserId, { name: "Test Key" });
+      await createApiKey(mockOrgId, mockUserId, { name: "Test Key" });
 
-      expect(result.id).toBe(mockKeyId);
-      expect(result.name).toBe("Test API Key");
-      expect(result.prefix).toBe("idk_live_test");
-      expect(result.key).toBe("idk_live_test_key_123456789012"); // Full key returned on creation
-      expect(result.isActive).toBe(true);
+      // Verify first insert call is for the API key with correct values
+      expect(valuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: mockOrgId,
+          createdById: mockUserId,
+          name: "Test Key",
+          prefix: "idk_live_test",
+          keyHash: "hashed_idk_live_test_key_123456789012",
+          scopes: ["read"], // Default scope
+        }),
+      );
       expect(mockGenerateApiKey).toHaveBeenCalled();
       expect(mockHashApiKey).toHaveBeenCalledWith("idk_live_test_key_123456789012");
     });
 
-    it("should create API key with custom scopes", async () => {
+    it("should create API key with custom scopes passed to insert", async () => {
+      const valuesMock = vi.fn().mockReturnValue({
+        returning: vi
+          .fn()
+          .mockResolvedValue([{ ...mockApiKey, scopes: ["read", "write", "delete"] }]),
+      });
+
       vi.mocked(db.insert).mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi
-            .fn()
-            .mockResolvedValue([{ ...mockApiKey, scopes: ["read", "write", "delete"] }]),
-        }),
+        values: valuesMock,
       } as unknown as ReturnType<typeof db.insert>);
 
-      const result = await createApiKey(mockOrgId, mockUserId, {
+      await createApiKey(mockOrgId, mockUserId, {
         name: "Admin Key",
         scopes: ["read", "write", "delete"],
       });
 
-      expect(result.scopes).toEqual(["read", "write", "delete"]);
+      // Verify scopes are passed correctly
+      expect(valuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scopes: ["read", "write", "delete"],
+        }),
+      );
     });
 
     it("should create API key with expiration date", async () => {

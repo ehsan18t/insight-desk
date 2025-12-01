@@ -68,14 +68,16 @@ describe("attachmentsService", () => {
   });
 
   describe("uploadAttachment", () => {
-    it("should upload file and create database record", async () => {
+    it("should upload file and create database record with correct values", async () => {
+      const valuesMock = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([mockAttachment]),
+      });
+
       vi.mocked(db.insert).mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([mockAttachment]),
-        }),
+        values: valuesMock,
       } as unknown as ReturnType<typeof db.insert>);
 
-      const result = await attachmentsService.uploadAttachment({
+      await attachmentsService.uploadAttachment({
         buffer: Buffer.from("test content"),
         orgId: mockOrgId,
         uploadedById: mockUserId,
@@ -85,9 +87,26 @@ describe("attachmentsService", () => {
         folder: "tickets",
       });
 
-      expect(storage.upload).toHaveBeenCalled();
-      expect(db.insert).toHaveBeenCalled();
-      expect(result.id).toBe(mockAttachmentId);
+      // Verify storage.upload was called with correct params
+      expect(storage.upload).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        expect.objectContaining({
+          filename: "document.pdf",
+          mimeType: "application/pdf",
+          folder: `${mockOrgId}/tickets`,
+        }),
+      );
+
+      // Verify db.insert was called with correct values
+      expect(valuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orgId: mockOrgId,
+          uploadedById: mockUserId,
+          ticketId: mockTicketId,
+          mimeType: "application/pdf",
+          folder: "tickets",
+        }),
+      );
     });
 
     it("should use general folder by default", async () => {
