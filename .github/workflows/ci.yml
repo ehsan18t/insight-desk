@@ -1,6 +1,7 @@
 # ─────────────────────────────────────────────────────────────
 # InsightDesk CI Pipeline
-# Runs quality checks, unit tests, and integration tests
+# Runs unit tests, integration tests, and build verification
+# Quality checks (lint, format, typecheck) are enforced locally via Husky pre-push hooks
 # ─────────────────────────────────────────────────────────────
 
 name: CI
@@ -20,41 +21,6 @@ env:
   NODE_ENV: test
 
 jobs:
-  # ─────────────────────────────────────────────────────────────
-  # Quality Checks (fastest - no containers needed)
-  # ─────────────────────────────────────────────────────────────
-  quality:
-    name: Quality Checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: TypeScript type check
-        run: bun run typecheck
-
-      - name: Lint check
-        run: bun run lint
-
-      - name: Format check
-        run: bunx biome format --check src
-
   # ─────────────────────────────────────────────────────────────
   # Unit Tests (mocked services, no containers)
   # ─────────────────────────────────────────────────────────────
@@ -92,7 +58,7 @@ jobs:
         run: bun run test:unit
 
   # ─────────────────────────────────────────────────────────────
-  # Integration Tests (requires real services)
+  # Integration Tests (requires real services via docker-compose)
   # ─────────────────────────────────────────────────────────────
   integration-tests:
     name: Integration Tests
@@ -124,40 +90,6 @@ jobs:
       RATE_LIMIT_WINDOW_MS: 60000
       RATE_LIMIT_MAX_REQUESTS: 100
 
-    services:
-      # PostgreSQL 18 for database
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: insightdesk
-          POSTGRES_PASSWORD: insightdesk_test
-          POSTGRES_DB: insightdesk_test
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd="pg_isready -U insightdesk -d insightdesk_test"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
-      # Valkey 9 for caching/sessions
-      valkey:
-        image: valkey/valkey:9
-        ports:
-          - 6380:6379
-        options: >-
-          --health-cmd="valkey-cli ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-
-      # Mailpit for email testing
-      mailpit:
-        image: axllent/mailpit:latest
-        ports:
-          - 1026:1025
-          - 8026:8025
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -178,43 +110,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Start MinIO server
-        run: |
-          docker run -d \
-            --name minio-server \
-            -p 9002:9000 \
-            -p 9003:9001 \
-            -e MINIO_ROOT_USER=minioadmin \
-            -e MINIO_ROOT_PASSWORD=minioadmin \
-            minio/minio:latest server /data --console-address ":9001"
-
-      - name: Wait for MinIO
-        run: |
-          echo "Waiting for MinIO to be ready..."
-          for i in {1..30}; do
-            if curl -sf http://localhost:9002/minio/health/live; then
-              echo "MinIO is ready!"
-              break
-            fi
-            echo "Waiting for MinIO... ($i/30)"
-            sleep 2
-          done
-
-      - name: Create MinIO bucket
-        run: |
-          # Install mc (MinIO Client)
-          curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o ./mc
-          chmod +x ./mc
-          # Configure mc
-          ./mc alias set local http://localhost:9002 minioadmin minioadmin
-          # Create bucket
-          ./mc mb local/insightdesk-test --ignore-existing
+      - name: Start test containers
+        run: docker compose -f docker-compose.test.yml up -d
 
       - name: Setup test database
         run: bun run test:setup --skip-containers
 
       - name: Run integration tests
         run: bun run test:integration
+
+      - name: Stop test containers
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
 
   # ─────────────────────────────────────────────────────────────
   # Build Verification (ensures production build works)
