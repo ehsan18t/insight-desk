@@ -4,8 +4,26 @@
 // Relations
 export * from "./relations";
 
-// RLS Configuration (roles and policies)
-export * from "./rls";
+// RLS Configuration (policies and helpers only - roles are NOT exported)
+// Roles (appUser, serviceRole) are intentionally excluded from exports because
+// drizzle-kit would try to CREATE ROLE during push, conflicting with roles
+// created by setup scripts. The roles are defined in rls.ts for internal use
+// by policy definitions but managed externally via SQL scripts.
+export {
+  createActivityPolicies,
+  createAttachmentPolicies,
+  createInvitationPolicies,
+  createMessagePolicies,
+  createOrgSelfPolicy,
+  createTenantDeletePolicy,
+  createTenantInsertPolicy,
+  createTenantPolicies,
+  createTenantSelectPolicy,
+  createTenantUpdatePolicy,
+  createUserOrgPolicies,
+  currentOrgId,
+  currentUserId,
+} from "./rls";
 
 // Re-export types from tables
 export type {

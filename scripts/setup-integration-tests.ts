@@ -290,24 +290,21 @@ async function setupTestDatabase(): Promise<void> {
     );
   }
 
-  // Drop roles if they exist (they are cluster-wide, not per-database)
-  // This ensures fresh migration can create them
-  console.log("   Dropping existing roles for clean state...");
+  // Create roles idempotently (they are cluster-wide, not per-database)
+  // Using DO block with IF NOT EXISTS pattern for PostgreSQL compatibility
+  console.log("   Creating RLS roles (if not exist)...");
   await runPsql(
     CONFIG.containers.postgres,
     "postgres",
     CONFIG.postgres.user,
-    `DROP ROLE IF EXISTS app_user; DROP ROLE IF EXISTS service_role;`,
-  );
-
-  // Create roles before drizzle-kit push runs
-  // This prevents drizzle-kit from asking interactively about role creation
-  console.log("   Creating RLS roles...");
-  await runPsql(
-    CONFIG.containers.postgres,
-    "postgres",
-    CONFIG.postgres.user,
-    `CREATE ROLE app_user WITH LOGIN; CREATE ROLE service_role WITH LOGIN BYPASSRLS;`,
+    `DO $$ BEGIN
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'app_user') THEN
+        CREATE ROLE app_user WITH LOGIN;
+      END IF;
+      IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
+        CREATE ROLE service_role WITH LOGIN BYPASSRLS;
+      END IF;
+    END $$;`,
   );
 
   // Create database
