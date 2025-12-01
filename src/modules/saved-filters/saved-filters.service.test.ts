@@ -78,12 +78,15 @@ describe("savedFiltersService", () => {
   });
 
   describe("create", () => {
-    it("should create a new saved filter", async () => {
+    it("should create a new saved filter with correct values", async () => {
       vi.mocked(db.query.savedFilters.findMany).mockResolvedValue([]);
+
+      const valuesMock = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([mockFilter]),
+      });
+
       vi.mocked(db.insert).mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([mockFilter]),
-        }),
+        values: valuesMock,
       } as unknown as ReturnType<typeof db.insert>);
 
       const input = {
@@ -96,10 +99,19 @@ describe("savedFiltersService", () => {
         sortOrder: "desc" as const,
       };
 
-      const result = await savedFiltersService.create(input, mockOrgId, mockUserId);
+      await savedFiltersService.create(input, mockOrgId, mockUserId);
 
-      expect(result).toEqual(mockFilter);
-      expect(db.insert).toHaveBeenCalled();
+      // Verify insert was called with correct values including organizationId and userId
+      expect(valuesMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: mockOrgId,
+          userId: mockUserId,
+          name: "My Open Tickets",
+          description: "All my assigned open tickets",
+          isDefault: false,
+          isShared: false,
+        }),
+      );
     });
 
     it("should set position based on existing filters", async () => {
