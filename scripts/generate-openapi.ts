@@ -8,11 +8,12 @@
  * Usage:
  *   npm run docs:generate
  *   npx tsx scripts/generate-openapi.ts
- */
+*/
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { stringify as yamlStringify } from "yaml";
+import { fileURLToPath } from "node:url";
 
 // Import all OpenAPI registrations by importing the modules
 import "../src/modules/attachments";
@@ -37,7 +38,8 @@ import "../src/modules/users";
 // Now import the generator (after all registrations)
 import { generateOpenAPIDocument } from "../src/lib/openapi";
 
-const DOCS_DIR = join(dirname(import.meta.dir), "docs");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DOCS_DIR = join(dirname(__dirname), "docs");
 
 async function main() {
   console.log("📝 Generating OpenAPI documentation...\n");
