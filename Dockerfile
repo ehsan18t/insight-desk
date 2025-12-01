@@ -20,26 +20,11 @@ FROM base AS deps
 # Copy package files
 COPY package.json bun.lock ./
 
-# Install ALL dependencies (needed for build)
+# Install ALL dependencies (including dev deps for tsx)
 RUN bun install --frozen-lockfile
 
 # ─────────────────────────────────────────────────────────────
-# Builder stage - Build the application
-# ─────────────────────────────────────────────────────────────
-FROM base AS builder
-WORKDIR /app
-
-# Copy dependencies
-COPY --from=deps /app/node_modules ./node_modules
-
-# Copy source code
-COPY . .
-
-# Build TypeScript to JavaScript
-RUN npm run build
-
-# ─────────────────────────────────────────────────────────────
-# Production stage - Minimal runtime image
+# Production stage - Run with tsx (handles TS/ESM correctly)
 # ─────────────────────────────────────────────────────────────
 FROM --platform=linux/amd64 node:24-alpine AS production
 WORKDIR /app
@@ -51,24 +36,20 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 insightdesk
 
-# Copy built application
-COPY --from=builder --chown=insightdesk:nodejs /app/dist ./dist
-
-# Copy node_modules (needed for runtime dependencies)
+# Copy node_modules (includes tsx for running TypeScript)
 COPY --from=deps --chown=insightdesk:nodejs /app/node_modules ./node_modules
 
-# Copy package.json (for version info)
-COPY --from=builder --chown=insightdesk:nodejs /app/package.json ./
+# Copy package.json and tsconfig
+COPY --chown=insightdesk:nodejs package.json tsconfig.json ./
 
-# Copy drizzle config and migrations for database setup
-COPY --from=builder --chown=insightdesk:nodejs /app/drizzle.config.ts ./
-COPY --from=builder --chown=insightdesk:nodejs /app/src/db/migrations ./src/db/migrations
-COPY --from=builder --chown=insightdesk:nodejs /app/src/db/schema ./src/db/schema
+# Copy source code
+COPY --chown=insightdesk:nodejs src ./src
+
+# Copy drizzle config for migrations
+COPY --chown=insightdesk:nodejs drizzle.config.ts ./
 
 # Copy scripts needed for production setup
-COPY --from=builder --chown=insightdesk:nodejs /app/scripts ./scripts
-COPY --from=builder --chown=insightdesk:nodejs /app/src/lib/db-setup ./src/lib/db-setup
-COPY --from=builder --chown=insightdesk:nodejs /app/src/lib/seed ./src/lib/seed
+COPY --chown=insightdesk:nodejs scripts ./scripts
 
 # Switch to non-root user
 USER insightdesk
@@ -80,5 +61,5 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
 
-# Start the server with Node.js
-CMD ["node", "dist/index.js"]
+# Start the server with tsx (handles TypeScript + ESM module resolution)
+CMD ["npx", "tsx", "src/index.ts"]

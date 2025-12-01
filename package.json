@@ -40,7 +40,7 @@
     "docs:generate": "tsx --env-file .env scripts/generate-openapi.ts",
     "db:setup:prod": "tsx scripts/setup-production-db.ts",
     "db:migrate:prod": "npx drizzle-kit migrate",
-    "start:prod": "node dist/index.js"
+    "start:prod": "npx tsx src/index.ts"
   },
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "^8.1.0",
