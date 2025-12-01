@@ -10,6 +10,7 @@
     "mcp": "tsx --env-file .env src/mcp/index.ts",
     "mcp:http": "cross-env MCP_TRANSPORT=http tsx --env-file .env src/mcp/index.ts",
     "mcp:config": "tsx --env-file .env scripts/generate-mcp-config.ts",
+    "mcp:vscode": "tsx scripts/generate-vscode-mcp-config.ts",
     "docker:up": "docker compose -f docker-compose.dev.yml up -d",
     "docker:down": "docker compose -f docker-compose.dev.yml down",
     "docker:logs": "docker compose -f docker-compose.dev.yml logs -f",
