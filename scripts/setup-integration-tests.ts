@@ -6,9 +6,10 @@
  * 1. Starts test containers (PostgreSQL, Valkey, MinIO, Mailpit)
  * 2. Waits for all services to be healthy
  * 3. Sets up test database with schema using drizzle-kit push
- * 4. Grants RLS role permissions
- * 5. Creates MinIO test bucket
- * 6. Verifies all services are ready
+ * 4. Applies RLS policy expressions (USING/WITH CHECK clauses)
+ * 5. Grants RLS role permissions
+ * 6. Creates MinIO test bucket
+ * 7. Verifies all services are ready
  *
  * Usage:
  *   bun run test:setup
@@ -22,12 +23,19 @@
 import { execSync, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { exec } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Pool } from "pg";
 import {
   runSchemaPush,
   grantRolePermissions,
   detectPackageManager,
 } from "../src/lib/db-setup";
+
+// ES Module __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const execAsync = promisify(exec);
 
@@ -367,6 +375,63 @@ async function pushSchemaDirectly(): Promise<void> {
   });
 }
 
+async function applyRlsPolicyExpressions(): Promise<void> {
+  console.log("\n🔒 Applying RLS policy expressions...");
+  console.log("   (drizzle-kit push does not support USING/WITH CHECK clauses)");
+
+  const dbUrl = `postgresql://${CONFIG.postgres.user}:${CONFIG.postgres.password}@${CONFIG.postgres.host}:${CONFIG.postgres.port}/${CONFIG.postgres.database}`;
+
+  const pool = new Pool({
+    connectionString: dbUrl,
+    max: 1,
+  });
+
+  try {
+    // Read and execute the SQL file with policy expressions
+    const sqlPath = join(__dirname, "apply-rls-policies.sql");
+    console.log(`   Reading SQL from: ${sqlPath}`);
+    const sql = readFileSync(sqlPath, "utf-8");
+
+    // Normalize line endings and remove comment lines FIRST
+    const normalizedSql = sql
+      .replace(/\r\n/g, "\n") // Windows -> Unix
+      .replace(/\r/g, "\n") // Old Mac -> Unix
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("--")) // Remove comment lines
+      .join("\n");
+
+    // Execute each statement separately (split by semicolon followed by newline)
+    const statements = normalizedSql
+      .split(/;\s*\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    console.log(`   Found ${statements.length} SQL statements to execute`);
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const statement of statements) {
+      try {
+        await pool.query(statement);
+        successCount++;
+      } catch (error) {
+        // Ignore errors for policies that might not exist
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (!errorMessage.includes("does not exist")) {
+          console.warn(`   ⚠️  Warning: ${errorMessage}`);
+          console.warn(`      Statement: ${statement.substring(0, 100)}...`);
+        }
+        errorCount++;
+      }
+    }
+
+    console.log(`   ✅ RLS policy expressions applied (${successCount} succeeded, ${errorCount} errors)`);
+  } finally {
+    await pool.end();
+  }
+}
+
 async function setupRolesAndPermissions(): Promise<void> {
   console.log("\n👤 Setting up RLS roles and permissions...");
 
@@ -509,7 +574,8 @@ async function main(): Promise<void> {
 
     // Full setup
     await setupTestDatabase();
-    await copySchemaFromDev(); // Uses drizzle-kit push (creates tables, roles, RLS, policies)
+    await copySchemaFromDev(); // Uses drizzle-kit push (creates tables, roles, RLS, policies without expressions)
+    await applyRlsPolicyExpressions(); // Apply USING/WITH CHECK clauses (drizzle-kit limitation workaround)
     await setupRolesAndPermissions(); // Grants BYPASSRLS and permissions
     await setupMinioBucket();
     flushValkey();
