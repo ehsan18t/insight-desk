@@ -266,7 +266,7 @@ describe("slaService", () => {
   // create
   // ─────────────────────────────────────────────────────────────
   describe("create", () => {
-    it("should create a new SLA policy", async () => {
+    it("should create a new SLA policy with correct values passed to insert", async () => {
       // No existing policy for priority
       vi.mocked(db.select).mockImplementationOnce(
         () =>
@@ -279,14 +279,16 @@ describe("slaService", () => {
           }) as never,
       );
 
-      // Insert returns new policy
+      // Track the values passed to insert
+      const mockValues = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([mockSlaPolicy]),
+      });
+
       vi.mocked(db.insert).mockReturnValue({
-        values: () => ({
-          returning: vi.fn().mockResolvedValue([mockSlaPolicy]),
-        }),
+        values: mockValues,
       } as never);
 
-      const result = await slaService.create("org-1", {
+      await slaService.create("org-1", {
         name: "High Priority SLA",
         priority: "high",
         firstResponseTime: 240,
@@ -295,7 +297,18 @@ describe("slaService", () => {
         isDefault: false,
       });
 
-      expect(result).toEqual(mockSlaPolicy);
+      // Verify insert was called with correct values
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: "org-1",
+          name: "High Priority SLA",
+          priority: "high",
+          firstResponseTime: 240,
+          resolutionTime: 480,
+          businessHoursOnly: true,
+          isDefault: false,
+        }),
+      );
     });
 
     it("should update existing policy if one exists for the priority", async () => {
