@@ -21,6 +21,9 @@ export const auth = betterAuth({
   baseURL: config.BETTER_AUTH_URL || config.API_URL || `http://${config.HOST}:${config.PORT}`,
   basePath: "/api/auth",
 
+  // Trusted origins for CORS (frontend URLs that can make auth requests)
+  trustedOrigins: [config.FRONTEND_URL],
+
   // Secret key for signing
   secret: config.BETTER_AUTH_SECRET,
 

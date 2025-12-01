@@ -6,16 +6,15 @@ import express, { type Express } from "express";
 import helmet from "helmet";
 import swaggerUi from "swagger-ui-express";
 import { config, isApiDocsEnabled } from "./config";
-import { auth } from "./modules/auth/auth.config";
-import { generateOpenAPIDocument } from "./lib/openapi";
 import { httpLogger } from "./lib/logger";
+import { generateOpenAPIDocument } from "./lib/openapi";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 import { rateLimit } from "./middleware/rate-limit";
-
 // Import routes
 import { attachmentsRouter } from "./modules/attachments";
 import { auditRouter } from "./modules/audit";
 import { authRouter } from "./modules/auth";
+import { auth } from "./modules/auth/auth.config";
 import { cannedResponsesRouter } from "./modules/canned-responses";
 import { categoriesRouter } from "./modules/categories";
 import { csatRoutes } from "./modules/csat";
@@ -65,7 +64,7 @@ export function createApp(): Express {
       origin: config.FRONTEND_URL,
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "X-Organization-Id"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Organization-Id", "X-API-Key"],
     }),
   );
 
@@ -87,7 +86,14 @@ export function createApp(): Express {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // Better Auth Handler (MUST be before express.json)
+  // Custom auth routes (MUST be before Better Auth catch-all)
+  // These routes need body parsing, so we apply express.json to them
+  // ─────────────────────────────────────────────────────────────
+  app.use("/api/auth/me", express.json(), authRouter);
+  app.use("/api/auth/register-with-org", express.json(), authRouter);
+
+  // ─────────────────────────────────────────────────────────────
+  // Better Auth Handler (MUST be before global express.json)
   // basePath in auth config handles /api/auth/* routing
   // ─────────────────────────────────────────────────────────────
   app.all("/api/auth/{*splat}", toNodeHandler(auth));
@@ -140,8 +146,8 @@ export function createApp(): Express {
 
   // ─────────────────────────────────────────────────────────────
   // API Routes
+  // Note: authRouter is mounted earlier for custom routes
   // ─────────────────────────────────────────────────────────────
-  app.use("/api/auth", authRouter);
   app.use("/api/tickets", ticketsRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/organizations", organizationsRouter);
